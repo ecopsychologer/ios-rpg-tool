@@ -1,5 +1,6 @@
 import FoundationModels
 import SwiftUI
+import SwiftData
 
 struct MythicScenesView: View {
     private enum ScenePhase {
@@ -9,8 +10,10 @@ struct MythicScenesView: View {
         case concluded
     }
 
-    @State private var engine = MythicEngine()
-    @State private var mythicState = MythicState()
+    @Environment(\.modelContext) private var modelContext
+    @Query(filter: #Predicate<Campaign> { $0.isActive }) private var activeCampaigns: [Campaign]
+    @State private var campaign: Campaign?
+    @State private var engine = MythicCampaignEngine()
     @State private var phase: ScenePhase = .setup
     @State private var expectedScene = ""
     @State private var currentScene: SceneRecord?
@@ -26,6 +29,7 @@ struct MythicScenesView: View {
     @State private var removeThreadsInput = ""
     @State private var pcsInControl = true
     @State private var adventureConcluded = false
+    @State private var sceneSummaryInput = ""
 
     @State private var narration = ""
     @State private var narrationError: String?
@@ -61,15 +65,17 @@ struct MythicScenesView: View {
                 }
 
                 currentListsSection
+                campaignJournalSection
             }
             .padding(.horizontal, Spacing.medium)
             .padding(.vertical, Spacing.large)
         }
+        .onAppear(perform: ensureCampaign)
         .navigationTitle("Mythic Scenes")
-        #if os(iOS)
+#if os(iOS)
         .navigationBarTitleDisplayMode(.large)
         .navigationSubtitle("Resolve scenes with Apple Intelligence")
-        #endif
+#endif
     }
 
     private var headerSection: some View {
@@ -92,7 +98,7 @@ struct MythicScenesView: View {
                 .fontWeight(.medium)
                 .foregroundColor(.secondary)
 
-            Text("Scene #\(mythicState.sceneNumber)")
+            Text("Scene #\(campaign?.sceneNumber ?? 1)")
                 .font(.headline)
 
             TextEditor(text: $expectedScene)
@@ -114,8 +120,8 @@ struct MythicScenesView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, Spacing.small)
             }
-            .buttonStyle(.glassProminent)
-            .disabled(expectedScene.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || phase != .setup)
+        .buttonStyle(.glassProminent)
+        .disabled(expectedScene.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || phase != .setup || campaign == nil)
         }
         .padding(Spacing.medium)
         .background(Color.gray.opacity(0.08))
@@ -313,6 +319,23 @@ struct MythicScenesView: View {
                 .fontWeight(.medium)
                 .foregroundColor(.secondary)
 
+            TextEditor(text: $sceneSummaryInput)
+                .font(.body)
+                .scrollContentBackground(.hidden)
+                .padding(Spacing.medium)
+                .frame(minHeight: 90)
+                .background(Color.gray.opacity(0.1))
+                .cornerRadius(12)
+                .overlay(alignment: .topLeading) {
+                    if sceneSummaryInput.isEmpty {
+                        Text("Scene summary (1-3 lines).")
+                            .font(.callout)
+                            .foregroundColor(.secondary)
+                            .padding(.top, 12)
+                            .padding(.leading, 16)
+                    }
+                }
+
             TextField("Any important NEW Characters?", text: $newCharactersInput)
                 .textFieldStyle(.roundedBorder)
             TextField("Any important NEW Threads?", text: $newThreadsInput)
@@ -340,6 +363,7 @@ struct MythicScenesView: View {
                     .padding(.vertical, Spacing.small)
             }
             .buttonStyle(.glassProminent)
+            .disabled(sceneSummaryInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         }
         .padding(Spacing.medium)
         .background(Color.gray.opacity(0.08))
@@ -377,13 +401,13 @@ struct MythicScenesView: View {
                 .fontWeight(.medium)
                 .foregroundColor(.secondary)
 
-            Text("Chaos Factor: \(mythicState.chaosFactor)")
+            Text("Chaos Factor: \(campaign?.chaosFactor ?? 5)")
                 .font(.callout)
 
-            Text("Characters: \(formattedList(mythicState.characters))")
+            Text("Characters: \(formattedEntries(campaign?.characters ?? []))")
                 .font(.callout)
 
-            Text("Threads: \(formattedList(mythicState.threads))")
+            Text("Threads: \(formattedEntries(campaign?.threads ?? []))")
                 .font(.callout)
         }
         .padding(Spacing.medium)
@@ -391,25 +415,58 @@ struct MythicScenesView: View {
         .cornerRadius(14)
     }
 
-    private func resolveScene() {
-        let roll = engine.rollD10()
-        let type = engine.classifyScene(chaosFactor: mythicState.chaosFactor, roll: roll)
+    private var campaignJournalSection: some View {
+        VStack(alignment: .leading, spacing: Spacing.small) {
+            Text("CAMPAIGN JOURNAL")
+                .font(.footnote)
+                .fontWeight(.medium)
+                .foregroundColor(.secondary)
 
-        var record = SceneRecord(
-            sceneNumber: mythicState.sceneNumber,
-            expectedScene: expectedScene.trimmingCharacters(in: .whitespacesAndNewlines),
-            roll: roll,
-            chaosFactor: mythicState.chaosFactor,
-            type: type,
-            alterationMethod: nil,
-            alterationDetail: nil,
-            randomEvent: nil
-        )
+            if let scenes = campaign?.scenes.sorted(by: { $0.sceneNumber > $1.sceneNumber }), !scenes.isEmpty {
+                ForEach(scenes) { entry in
+                    DisclosureGroup {
+                        VStack(alignment: .leading, spacing: Spacing.small) {
+                            Text(entry.summary)
+                                .font(.callout)
 
-        if type == .interrupt {
-            record.randomEvent = engine.generateRandomEvent()
+                            if !entry.charactersAdded.isEmpty {
+                                let newCharactersList = entry.charactersAdded.joined(separator: ", ")
+                                Text("New Characters: \(newCharactersList)")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+
+                            if !entry.threadsAdded.isEmpty {
+                                let newThreadsList = entry.threadsAdded.joined(separator: ", ")
+                                Text("New Threads: \(newThreadsList)")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    } label: {
+                        HStack {
+                            Text("Scene \(entry.sceneNumber)")
+                            Spacer()
+                            Text(entry.sceneType.capitalized)
+                                .foregroundColor(.secondary)
+                        }
+                        .font(.callout)
+                    }
+                    .padding(Spacing.medium)
+                    .background(Color.gray.opacity(0.08))
+                    .cornerRadius(12)
+                }
+            } else {
+                Text("No scenes recorded yet.")
+                    .font(.callout)
+                    .foregroundColor(.secondary)
+            }
         }
+    }
 
+    private func resolveScene() {
+        guard let campaign else { return }
+        let record = engine.resolveScene(campaign: campaign, expectedScene: expectedScene.trimmingCharacters(in: .whitespacesAndNewlines))
         currentScene = record
         selectedMethod = nil
         selectedAdjustment = .raiseStakes
@@ -419,24 +476,15 @@ struct MythicScenesView: View {
     }
 
     private func applyAlterationMethod(_ method: AlterationMethod?) {
-        guard var scene = currentScene else { return }
-        scene.alterationMethod = method
-        scene.alterationDetail = nil
-
-        if method == .meaningWords {
-            let words = engine.generateMeaningWords()
-            scene.alterationDetail = "\(words.first) / \(words.second)"
-        } else if method == .sceneAdjustment {
-            scene.alterationDetail = selectedAdjustment.label
-        }
-
-        currentScene = scene
+        guard let method, let currentScene else { return }
+        let updated = engine.applyAlterationMethod(scene: currentScene, method: method, adjustment: selectedAdjustment)
+        self.currentScene = updated
     }
 
     private func applySceneAdjustment(_ adjustment: SceneAdjustment) {
-        guard var scene = currentScene else { return }
-        scene.alterationDetail = adjustment.label
-        currentScene = scene
+        guard let method = selectedMethod, let currentScene else { return }
+        let updated = engine.applyAlterationMethod(scene: currentScene, method: method, adjustment: adjustment)
+        self.currentScene = updated
     }
 
     private func isSceneReadyForNarration() -> Bool {
@@ -448,19 +496,30 @@ struct MythicScenesView: View {
     }
 
     private func applyBookkeeping() {
-        mythicState.characters.addNew(parseCommaList(newCharactersInput))
-        mythicState.threads.addNew(parseCommaList(newThreadsInput))
-        mythicState.characters.featureExisting(parseCommaList(featuredCharactersInput))
-        mythicState.threads.featureExisting(parseCommaList(featuredThreadsInput))
-        mythicState.characters.remove(parseCommaList(removeCharactersInput))
-        mythicState.threads.remove(parseCommaList(removeThreadsInput))
+        guard let campaign, let currentScene else { return }
+        let bookkeeping = BookkeepingInput(
+            summary: sceneSummaryInput.trimmingCharacters(in: .whitespacesAndNewlines),
+            newCharacters: parseCommaList(newCharactersInput),
+            newThreads: parseCommaList(newThreadsInput),
+            featuredCharacters: parseCommaList(featuredCharactersInput),
+            featuredThreads: parseCommaList(featuredThreadsInput),
+            removedCharacters: parseCommaList(removeCharactersInput),
+            removedThreads: parseCommaList(removeThreadsInput),
+            pcsInControl: pcsInControl,
+            concluded: adventureConcluded
+        )
 
-        mythicState.chaosFactor = engine.updateChaosFactor(current: mythicState.chaosFactor, pcsInControl: pcsInControl)
+        _ = engine.finalizeScene(campaign: campaign, scene: currentScene, bookkeeping: bookkeeping)
+
+        do {
+            try modelContext.save()
+        } catch {
+            narrationError = handleFoundationModelsError(error)
+        }
 
         if adventureConcluded {
             phase = .concluded
         } else {
-            mythicState.sceneNumber += 1
             resetSceneInputs()
             phase = .setup
         }
@@ -481,10 +540,16 @@ struct MythicScenesView: View {
         removeThreadsInput = ""
         pcsInControl = true
         adventureConcluded = false
+        sceneSummaryInput = ""
     }
 
     private func resetAdventure() {
-        mythicState = MythicState()
+        campaign?.chaosFactor = 5
+        campaign?.sceneNumber = 1
+        campaign?.scenes.removeAll()
+        campaign?.characters.removeAll()
+        campaign?.threads.removeAll()
+        try? modelContext.save()
         resetSceneInputs()
         phase = .setup
     }
@@ -493,13 +558,13 @@ struct MythicScenesView: View {
         input.split(separator: ",").map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }
     }
 
-    private func formattedList(_ list: WeightedList) -> String {
-        let entries = list.allEntries
+    private func formattedEntries<T: ListEntryProtocol>(_ entries: [T]) -> String {
         guard !entries.isEmpty else { return "None" }
         return entries.map { "\($0.name) (w=\($0.weight))" }.joined(separator: ", ")
     }
 
     private func generateNarration(_ scene: SceneRecord) {
+        guard let campaign else { return }
         narration = ""
         narrationError = nil
         isNarrating = true
@@ -509,26 +574,45 @@ struct MythicScenesView: View {
                 let model = SystemLanguageModel(useCase: .general)
                 let session = LanguageModelSession(model: model)
 
+                let context = engine.buildNarrationContext(campaign: campaign, scene: scene)
                 var prompt = """
                 You are the game master. In 2-4 lines, narrate the scene opener using the details below.
                 Keep it punchy and actionable. Avoid lore dumps.
+                Ask clarifying questions if the context is ambiguous.
 
-                Scene #\(scene.sceneNumber)
-                Expected Scene: \(scene.expectedScene)
-                Chaos Factor: \(scene.chaosFactor)
-                Roll: \(scene.roll)
-                Scene Type: \(scene.type.rawValue)
+                Scene #\(context.sceneNumber)
+                Expected Scene: \(context.expectedScene)
+                Chaos Factor: \(context.chaosFactor)
+                Roll: \(context.roll)
+                Scene Type: \(context.sceneType.rawValue)
                 """
 
-                if let method = scene.alterationMethod {
+                if let method = context.alterationMethod {
                     prompt += "\nAlteration Method: \(method.label)"
                 }
-                if let detail = scene.alterationDetail {
+                if let detail = context.alterationDetail {
                     prompt += "\nAlteration Detail: \(detail)"
                 }
-                if let event = scene.randomEvent {
+                if let event = context.randomEvent {
                     prompt += "\nRandom Event Focus: \(event.focus.rawValue)"
                     prompt += "\nMeaning Words: \(event.meaningWords.first), \(event.meaningWords.second)"
+                }
+
+                if !context.activeCharacters.isEmpty {
+                    let names = context.activeCharacters.map { "\($0.name) (w=\($0.weight))" }.joined(separator: ", ")
+                    prompt += "\nActive Characters: \(names)"
+                }
+
+                if !context.activeThreads.isEmpty {
+                    let names = context.activeThreads.map { "\($0.name) (w=\($0.weight))" }.joined(separator: ", ")
+                    prompt += "\nActive Threads: \(names)"
+                }
+
+                if !context.recentScenes.isEmpty {
+                    prompt += "\nRecent Scenes:"
+                    for entry in context.recentScenes {
+                        prompt += "\n- Scene \(entry.sceneNumber): \(entry.summary)"
+                    }
                 }
 
                 let response = try await session.respond(to: Prompt(prompt))
@@ -550,6 +634,17 @@ struct MythicScenesView: View {
             return customError.localizedDescription
         } else {
             return "Unexpected error: \(error.localizedDescription)"
+        }
+    }
+
+    private func ensureCampaign() {
+        if let existing = activeCampaigns.first {
+            campaign = existing
+        } else {
+            let newCampaign = Campaign()
+            modelContext.insert(newCampaign)
+            campaign = newCampaign
+            try? modelContext.save()
         }
     }
 }
