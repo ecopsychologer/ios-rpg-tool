@@ -28,6 +28,8 @@ struct ExamplesView: View {
 #endif
         .navigationDestination(for: ExampleType.self) { exampleType in
             switch exampleType {
+            case .mythicScenes:
+                MythicScenesView()
             case .basicChat:
                 BasicChatView()
             case .structuredData:
