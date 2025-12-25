@@ -6,15 +6,20 @@
 //
 
 import SwiftUI
+import SwiftData
 import LiquidGlasKit
 
 struct SettingsView: View {
+    @Environment(\.modelContext) private var modelContext
+    @Query(sort: \Campaign.createdAt, order: .reverse) private var campaigns: [Campaign]
     @AppStorage("exaAPIKey") private var exaAPIKey: String = ""
     @AppStorage("soloShowLocationDebug") private var showLocationDebug = false
     @State private var tempAPIKey: String = ""
     @State private var showingAlert = false
     @State private var alertMessage = ""
     @FocusState private var isAPIFieldFocused: Bool
+    @State private var showCampaignSheet = false
+    @State private var showClearAllAlert = false
 
     var body: some View {
         ScrollView {
@@ -77,6 +82,72 @@ struct SettingsView: View {
                     .foregroundColor(.secondary)
             }
 
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Campaign Data")
+                    .font(.headline)
+
+                Text("Manage multiple campaigns and switch which one is active.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                if campaigns.isEmpty {
+                    Text("No campaigns yet.")
+                        .font(.callout)
+                        .foregroundColor(.secondary)
+                } else {
+                    VStack(alignment: .leading, spacing: 8) {
+                        ForEach(campaigns) { campaign in
+                            HStack(spacing: 12) {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(campaign.title)
+                                        .font(.subheadline)
+                                    Text(campaign.rulesetName ?? "ruleset: default")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                                Spacer()
+                                if campaign.isActive {
+                                    Text("Active")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                } else {
+                                    Button("Set Active") {
+                                        setActiveCampaign(campaign)
+                                    }
+                                    .buttonStyle(.bordered)
+                                }
+                                Button(role: .destructive) {
+                                    deleteCampaign(campaign)
+                                } label: {
+                                    Image(systemName: "trash")
+                                        .font(.caption)
+                                }
+                            }
+                            .padding(Spacing.small)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Color.gray.opacity(0.08))
+                            .cornerRadius(10)
+                        }
+                    }
+                }
+
+                HStack(spacing: Spacing.medium) {
+                    Button("New Campaign") {
+                        showCampaignSheet = true
+                    }
+                    .buttonStyle(.borderedProminent)
+
+                    Button("Clear All Campaign Data") {
+                        showClearAllAlert = true
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(.red)
+                }
+            }
+            .padding()
+            .glassCard()
+            .padding([.horizontal, .top])
+
             VStack(alignment: .leading, spacing: 8) {
                 Text("Solo RPG Tools")
                     .font(.headline)
@@ -138,6 +209,20 @@ struct SettingsView: View {
         } message: {
             Text(alertMessage)
         }
+        .alert("Clear Campaign Data", isPresented: $showClearAllAlert) {
+            Button("Cancel", role: .cancel) { }
+            Button("Delete All", role: .destructive) {
+                clearAllCampaignData()
+            }
+        } message: {
+            Text("This will permanently remove all campaign data from this device.")
+        }
+        .sheet(isPresented: $showCampaignSheet) {
+            CampaignCreateSheet { title, ruleset in
+                createCampaign(title: title, ruleset: ruleset)
+                showCampaignSheet = false
+            }
+        }
     }
 
     private func saveAPIKey() {
@@ -166,10 +251,97 @@ struct SettingsView: View {
     private func dismissKeyboard() {
         isAPIFieldFocused = false
     }
+
+    private func createCampaign(title: String, ruleset: String) {
+        let name = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let campaign = Campaign(title: name.isEmpty ? "Solo Campaign" : name)
+        let trimmedRuleset = ruleset.trimmingCharacters(in: .whitespacesAndNewlines)
+        campaign.rulesetName = trimmedRuleset.isEmpty ? nil : trimmedRuleset
+        campaign.isActive = true
+        campaigns.forEach { $0.isActive = false }
+        modelContext.insert(campaign)
+        try? modelContext.save()
+    }
+
+    private func setActiveCampaign(_ campaign: Campaign) {
+        campaigns.forEach { $0.isActive = false }
+        campaign.isActive = true
+        try? modelContext.save()
+    }
+
+    private func deleteCampaign(_ campaign: Campaign) {
+        modelContext.delete(campaign)
+        try? modelContext.save()
+    }
+
+    private func clearAllCampaignData() {
+        deleteAll(Campaign.self)
+        deleteAll(SceneEntry.self)
+        deleteAll(CharacterEntry.self)
+        deleteAll(ThreadEntry.self)
+        deleteAll(NPCEntry.self)
+        deleteAll(WorldLoreEntry.self)
+        deleteAll(PlayerCharacter.self)
+        deleteAll(CharacterField.self)
+        deleteAll(CharacterFact.self)
+        deleteAll(CharacterChange.self)
+        deleteAll(LocationEntity.self)
+        deleteAll(LocationNode.self)
+        deleteAll(LocationEdge.self)
+        deleteAll(TrapEntity.self)
+        deleteAll(LocationFeature.self)
+        deleteAll(EventLogEntry.self)
+        deleteAll(TableRollRecord.self)
+        deleteAll(SkillCheckRecord.self)
+        deleteAll(FateQuestionRecord.self)
+        deleteAll(SceneInteraction.self)
+        deleteAll(CanonizationRecord.self)
+        deleteAll(Party.self)
+        deleteAll(PartyMember.self)
+        try? modelContext.save()
+    }
+
+    private func deleteAll<T: PersistentModel>(_ type: T.Type) {
+        let descriptor = FetchDescriptor<T>()
+        if let items = try? modelContext.fetch(descriptor) {
+            for item in items {
+                modelContext.delete(item)
+            }
+        }
+    }
 }
 
 #Preview {
     NavigationStack {
         SettingsView()
+    }
+}
+
+private struct CampaignCreateSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var title = ""
+    @State private var ruleset = ""
+
+    let onCreate: (String, String) -> Void
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                TextField("Campaign name", text: $title)
+                TextField("Ruleset (optional)", text: $ruleset)
+            }
+            .navigationTitle("New Campaign")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Create") {
+                        onCreate(title, ruleset)
+                        dismiss()
+                    }
+                }
+            }
+        }
     }
 }

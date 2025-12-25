@@ -218,7 +218,7 @@ struct WorldLoreView: View {
     }
 
     private func ensureCampaign() {
-        if let existing = campaigns.first {
+        if let existing = campaigns.first(where: { $0.isActive }) ?? campaigns.first {
             campaign = existing
         } else {
             let newCampaign = Campaign()
