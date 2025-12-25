@@ -36,6 +36,10 @@ struct MythicEngine {
         Int.random(in: 1...10)
     }
 
+    func rollD100() -> Int {
+        Int.random(in: 1...100)
+    }
+
     func classifyScene(chaosFactor: Int, roll: Int) -> SceneType {
         if roll > chaosFactor {
             return .expected

@@ -25,7 +25,10 @@ struct FoundationLabApp: App {
                     Campaign.self,
                     SceneEntry.self,
                     CharacterEntry.self,
-                    ThreadEntry.self
+                    ThreadEntry.self,
+                    SceneInteraction.self,
+                    SkillCheckRecord.self,
+                    FateQuestionRecord.self
                 ])
 #if os(macOS)
                 .frame(minWidth: 800, minHeight: 600)

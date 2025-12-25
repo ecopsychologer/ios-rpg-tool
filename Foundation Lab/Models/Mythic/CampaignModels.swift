@@ -49,6 +49,12 @@ final class SceneEntry {
     var threadsRemoved: [String]
     var pcsInControl: Bool
     var concluded: Bool
+    var interactions: [SceneInteraction]
+    var skillChecks: [SkillCheckRecord]
+    var fateQuestions: [FateQuestionRecord]
+    var places: [String]
+    var curiosities: [String]
+    var rollHighlights: [String]
 
     init(
         sceneNumber: Int,
@@ -69,7 +75,13 @@ final class SceneEntry {
         threadsFeatured: [String],
         threadsRemoved: [String],
         pcsInControl: Bool,
-        concluded: Bool
+        concluded: Bool,
+        interactions: [SceneInteraction] = [],
+        skillChecks: [SkillCheckRecord] = [],
+        fateQuestions: [FateQuestionRecord] = [],
+        places: [String] = [],
+        curiosities: [String] = [],
+        rollHighlights: [String] = []
     ) {
         self.id = UUID()
         self.sceneNumber = sceneNumber
@@ -92,6 +104,112 @@ final class SceneEntry {
         self.threadsRemoved = threadsRemoved
         self.pcsInControl = pcsInControl
         self.concluded = concluded
+        self.interactions = interactions
+        self.skillChecks = skillChecks
+        self.fateQuestions = fateQuestions
+        self.places = places
+        self.curiosities = curiosities
+        self.rollHighlights = rollHighlights
+    }
+}
+
+@Model
+final class SceneInteraction {
+    var id: UUID
+    var timestamp: Date
+    var playerText: String
+    var gmText: String
+    var turnSignal: String?
+
+    init(playerText: String, gmText: String, turnSignal: String? = nil) {
+        self.id = UUID()
+        self.timestamp = Date()
+        self.playerText = playerText
+        self.gmText = gmText
+        self.turnSignal = turnSignal
+    }
+}
+
+@Model
+final class SkillCheckRecord {
+    var id: UUID
+    var createdAt: Date
+    var playerAction: String
+    var checkType: String
+    var skill: String
+    var abilityOverride: String?
+    var dc: Int?
+    var opponentSkill: String?
+    var opponentDC: Int?
+    var advantageState: String
+    var stakes: String
+    var partialSuccessDC: Int?
+    var partialSuccessOutcome: String?
+    var reason: String
+    var rollResult: Int?
+    var modifier: Int?
+    var total: Int?
+    var outcome: String?
+    var consequence: String?
+
+    init(
+        playerAction: String,
+        checkType: String,
+        skill: String,
+        abilityOverride: String? = nil,
+        dc: Int? = nil,
+        opponentSkill: String? = nil,
+        opponentDC: Int? = nil,
+        advantageState: String,
+        stakes: String,
+        partialSuccessDC: Int? = nil,
+        partialSuccessOutcome: String? = nil,
+        reason: String
+    ) {
+        self.id = UUID()
+        self.createdAt = Date()
+        self.playerAction = playerAction
+        self.checkType = checkType
+        self.skill = skill
+        self.abilityOverride = abilityOverride
+        self.dc = dc
+        self.opponentSkill = opponentSkill
+        self.opponentDC = opponentDC
+        self.advantageState = advantageState
+        self.stakes = stakes
+        self.partialSuccessDC = partialSuccessDC
+        self.partialSuccessOutcome = partialSuccessOutcome
+        self.reason = reason
+    }
+}
+
+@Model
+final class FateQuestionRecord {
+    var id: UUID
+    var createdAt: Date
+    var question: String
+    var likelihood: String
+    var chaosFactor: Int
+    var roll: Int
+    var target: Int
+    var outcome: String
+
+    init(
+        question: String,
+        likelihood: String,
+        chaosFactor: Int,
+        roll: Int,
+        target: Int,
+        outcome: String
+    ) {
+        self.id = UUID()
+        self.createdAt = Date()
+        self.question = question
+        self.likelihood = likelihood
+        self.chaosFactor = chaosFactor
+        self.roll = roll
+        self.target = target
+        self.outcome = outcome
     }
 }
 

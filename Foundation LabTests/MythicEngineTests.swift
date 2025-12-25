@@ -53,4 +53,41 @@ final class MythicEngineTests: XCTestCase {
         list.remove(["borin"])
         XCTAssertNil(list.allEntries.first { $0.name.lowercased() == "borin" })
     }
+
+    func testCheckEvaluationSuccessAndFailure() {
+        var engine = MythicCampaignEngine()
+        let request = CheckRequest(
+            checkType: .skillCheck,
+            skillName: "Stealth",
+            abilityOverride: nil,
+            dc: 15,
+            opponentSkill: nil,
+            opponentDC: nil,
+            advantageState: .normal,
+            stakes: "You are spotted.",
+            partialSuccessDC: 10,
+            partialSuccessOutcome: "You slip through but leave a trace.",
+            reason: "Guards are alert in the rain."
+        )
+
+        let success = engine.evaluateCheck(request: request, roll: 14, modifier: 2)
+        XCTAssertEqual(success.outcome, "success")
+
+        let partial = engine.evaluateCheck(request: request, roll: 10, modifier: 0)
+        XCTAssertEqual(partial.outcome, "partial_success")
+
+        let failure = engine.evaluateCheck(request: request, roll: 4, modifier: 0)
+        XCTAssertEqual(failure.outcome, "failure")
+    }
+
+    func testFateQuestionUsesChaosFactor() {
+        let engine = MythicCampaignEngine()
+        let record = engine.resolveFateQuestion(
+            question: "Is there a chandelier?",
+            likelihood: .likely,
+            chaosFactor: 9,
+            roll: 42
+        )
+        XCTAssertEqual(record.target, 90)
+    }
 }
