@@ -49,12 +49,12 @@ final class SceneEntry {
     var threadsRemoved: [String]
     var pcsInControl: Bool
     var concluded: Bool
-    var interactions: [SceneInteraction]
-    var skillChecks: [SkillCheckRecord]
-    var fateQuestions: [FateQuestionRecord]
-    var places: [String]
-    var curiosities: [String]
-    var rollHighlights: [String]
+    var interactions: [SceneInteraction]?
+    var skillChecks: [SkillCheckRecord]?
+    var fateQuestions: [FateQuestionRecord]?
+    var places: [String]?
+    var curiosities: [String]?
+    var rollHighlights: [String]?
 
     init(
         sceneNumber: Int,
@@ -76,12 +76,12 @@ final class SceneEntry {
         threadsRemoved: [String],
         pcsInControl: Bool,
         concluded: Bool,
-        interactions: [SceneInteraction] = [],
-        skillChecks: [SkillCheckRecord] = [],
-        fateQuestions: [FateQuestionRecord] = [],
-        places: [String] = [],
-        curiosities: [String] = [],
-        rollHighlights: [String] = []
+        interactions: [SceneInteraction]? = nil,
+        skillChecks: [SkillCheckRecord]? = nil,
+        fateQuestions: [FateQuestionRecord]? = nil,
+        places: [String]? = nil,
+        curiosities: [String]? = nil,
+        rollHighlights: [String]? = nil
     ) {
         self.id = UUID()
         self.sceneNumber = sceneNumber

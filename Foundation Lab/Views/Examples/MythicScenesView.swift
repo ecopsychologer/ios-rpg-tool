@@ -50,8 +50,9 @@ struct MythicScenesView: View {
     @State private var engine = MythicCampaignEngine()
     @AppStorage("mythicAlteredMode") private var alteredModeRaw = AlteredMode.guided.rawValue
     @State private var phase: ScenePhase = .setup
-    @State private var expectedScene = ""
+    @State private var sceneInput = ""
     @State private var currentScene: SceneRecord?
+    @State private var editingScene: SceneEntry?
 
     @State private var selectedMethod: AlterationMethod?
     @State private var selectedAdjustment: SceneAdjustment = .raiseStakes
@@ -69,21 +70,20 @@ struct MythicScenesView: View {
     @State private var adventureConcluded = false
     @State private var sceneSummaryInput = ""
     @State private var isDraftingSummary = false
+    @AppStorage("mythicAutoDraftNextScene") private var autoDraftNextScene = false
+    @State private var isDraftingNextScene = false
+    @State private var nextSceneError: String?
 
     @State private var narration = ""
     @State private var narrationError: String?
     @State private var isNarrating = false
 
-    @State private var interactionInput = ""
     @State private var interactionDrafts: [InteractionDraft] = []
     @State private var isResponding = false
     @State private var gmResponseError: String?
 
-    @State private var checkActionInput = ""
-    @State private var isDraftingCheck = false
     @State private var checkDrafts: [SkillCheckDraft] = []
     @State private var pendingCheckID: UUID?
-    @State private var checkError: String?
     @State private var fateQuestionDrafts: [FateQuestionDraftState] = []
 
     private var alteredMode: AlteredMode {
@@ -109,7 +109,6 @@ struct MythicScenesView: View {
 
                     narrationSection(scene)
                     sceneConversationSection(scene)
-                    skillCheckSection(scene)
                     playOutSection
                 }
 
@@ -133,6 +132,9 @@ struct MythicScenesView: View {
         .navigationBarTitleDisplayMode(.large)
         .navigationSubtitle("Resolve scenes with Apple Intelligence")
 #endif
+        .sheet(item: $editingScene) { scene in
+            SceneEditorSheet(scene: scene)
+        }
     }
 
     private var headerSection: some View {
@@ -164,27 +166,68 @@ struct MythicScenesView: View {
             Text("Scene #\(campaign?.sceneNumber ?? 1)")
                 .font(.headline)
 
-            TextEditor(text: $expectedScene)
-                .font(.body)
-                .scrollContentBackground(.hidden)
-                .padding(Spacing.medium)
-                .frame(minHeight: 90)
-                .background(Color.gray.opacity(0.1))
-                .cornerRadius(12)
-                .disabled(phase != .setup)
+            if phase == .setup {
+                TextEditor(text: $sceneInput)
+                    .font(.body)
+                    .scrollContentBackground(.hidden)
+                    .padding(Spacing.medium)
+                    .frame(minHeight: 90)
+                    .background(Color.gray.opacity(0.1))
+                    .cornerRadius(12)
+                    .overlay(alignment: .topLeading) {
+                        if sceneInput.isEmpty {
+                            Text("Describe the expected scene...")
+                                .font(.callout)
+                                .foregroundColor(.secondary)
+                                .padding(.top, 12)
+                                .padding(.leading, 16)
+                        }
+                    }
 
-            Button(action: resolveScene) {
                 HStack(spacing: Spacing.small) {
-                    Image(systemName: "dice")
-                    Text("Resolve Scene")
-                        .font(.callout)
-                        .fontWeight(.medium)
+                    Button(action: resolveScene) {
+                        HStack(spacing: Spacing.small) {
+                            Image(systemName: "dice")
+                            Text("Resolve Scene")
+                                .font(.callout)
+                                .fontWeight(.medium)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, Spacing.small)
+                    }
+                    .buttonStyle(.glassProminent)
+                    .disabled(sceneInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || campaign == nil)
+
+                    Button(action: { draftNextScenePrompt(previousEntry: nil) }) {
+                        HStack(spacing: Spacing.small) {
+                            if isDraftingNextScene {
+                                ProgressView()
+                                    .scaleEffect(0.8)
+                            }
+                            Text(isDraftingNextScene ? "Drafting..." : "Draft Next Scene")
+                                .font(.callout)
+                                .fontWeight(.medium)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, Spacing.small)
+                    }
+                    .buttonStyle(.glassProminent)
+                    .disabled(isDraftingNextScene || campaign == nil)
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, Spacing.small)
+
+                Toggle("Auto-draft next scene prompt", isOn: $autoDraftNextScene)
+                    .font(.callout)
+
+                if let error = nextSceneError {
+                    Text(error)
+                        .font(.callout)
+                        .foregroundColor(.secondary)
+                }
+            } else {
+                Text("Scene setup is locked for the current scene.")
+                    .font(.callout)
+                    .foregroundColor(.secondary)
             }
-        .buttonStyle(.glassProminent)
-        .disabled(expectedScene.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || phase != .setup || campaign == nil)
         }
         .padding(Spacing.medium)
         .background(Color.gray.opacity(0.08))
@@ -388,37 +431,30 @@ struct MythicScenesView: View {
                 }
             }
 
-            TextField("Ask a question or describe your action...", text: $interactionInput, axis: .vertical)
+            if pendingCheckID != nil {
+                Text("Awaiting roll result for the last check.")
+                    .font(.callout)
+                    .foregroundColor(.secondary)
+            }
+
+            TextField("Ask a question or describe your action...", text: $sceneInput, axis: .vertical)
                 .textFieldStyle(.roundedBorder)
 
-            HStack(spacing: Spacing.small) {
-                Button(action: addInteractionNote) {
-                    Text("Add Note")
+            Button(action: { requestGMResponse(scene) }) {
+                HStack(spacing: Spacing.small) {
+                    if isResponding {
+                        ProgressView()
+                            .scaleEffect(0.8)
+                    }
+                    Text(isResponding ? "Waiting..." : "GM Respond")
                         .font(.callout)
                         .fontWeight(.medium)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, Spacing.small)
                 }
-                .buttonStyle(.glassProminent)
-                .tint(.secondary)
-                .disabled(interactionInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-
-                Button(action: { requestGMResponse(scene) }) {
-                    HStack(spacing: Spacing.small) {
-                        if isResponding {
-                            ProgressView()
-                                .scaleEffect(0.8)
-                        }
-                        Text(isResponding ? "Waiting..." : "GM Respond")
-                            .font(.callout)
-                            .fontWeight(.medium)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, Spacing.small)
-                }
-                .buttonStyle(.glassProminent)
-                .disabled(isResponding || interactionInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, Spacing.small)
             }
+            .buttonStyle(.glassProminent)
+            .disabled(isResponding || sceneInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
 
             if let error = gmResponseError {
                 Text(error)
@@ -453,93 +489,6 @@ struct MythicScenesView: View {
         .cornerRadius(14)
     }
 
-    private func skillCheckSection(_ scene: SceneRecord) -> some View {
-        VStack(alignment: .leading, spacing: Spacing.small) {
-            Text("SKILL CHECKS")
-                .font(.footnote)
-                .fontWeight(.medium)
-                .foregroundColor(.secondary)
-
-            Text("Use a skill check when the action is uncertain and consequential.")
-                .font(.callout)
-                .foregroundColor(.secondary)
-
-            TextField("Describe the action that might need a check...", text: $checkActionInput, axis: .vertical)
-                .textFieldStyle(.roundedBorder)
-
-            Button(action: { proposeSkillCheck(scene) }) {
-                HStack(spacing: Spacing.small) {
-                    if isDraftingCheck {
-                        ProgressView()
-                            .scaleEffect(0.8)
-                    }
-                    Text(isDraftingCheck ? "Drafting..." : "Propose Check")
-                        .font(.callout)
-                        .fontWeight(.medium)
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, Spacing.small)
-            }
-            .buttonStyle(.glassProminent)
-            .disabled(checkActionInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isDraftingCheck)
-
-            if let error = checkError {
-                Text(error)
-                    .font(.callout)
-                    .foregroundColor(.secondary)
-            }
-
-            ForEach($checkDrafts) { $draft in
-                VStack(alignment: .leading, spacing: Spacing.small) {
-                    Text("Action: \(draft.playerAction)")
-                        .font(.callout)
-                    Text("Type: \(draft.request.checkType.rawValue) · Skill: \(draft.request.skillName)")
-                        .font(.callout)
-                    if let dc = draft.request.dc {
-                        Text("DC \(dc) · \(draft.request.advantageState.rawValue)")
-                            .font(.callout)
-                    } else if let opponentDC = draft.request.opponentDC {
-                        Text("Opposed DC \(opponentDC) · \(draft.request.advantageState.rawValue)")
-                            .font(.callout)
-                    }
-                    Text("Stakes: \(draft.request.stakes)")
-                        .font(.callout)
-                        .foregroundColor(.secondary)
-
-                    HStack(spacing: Spacing.small) {
-                        TextField("Roll", value: $draft.roll, format: .number)
-                            .textFieldStyle(.roundedBorder)
-                            .frame(maxWidth: 90)
-                        TextField("Modifier", value: $draft.modifier, format: .number)
-                            .textFieldStyle(.roundedBorder)
-                            .frame(maxWidth: 110)
-                        Button("Evaluate") {
-                            evaluateCheck(&draft)
-                        }
-                        .buttonStyle(.borderedProminent)
-                    }
-
-                    if let outcome = draft.outcome, let total = draft.total {
-                        Text("Result: \(outcome) (Total \(total))")
-                            .font(.callout)
-                    }
-
-                    TextField("Narrative consequence", text: Binding(
-                        get: { draft.consequence ?? "" },
-                        set: { draft.consequence = $0 }
-                    ), axis: .vertical)
-                    .textFieldStyle(.roundedBorder)
-                }
-                .padding(Spacing.medium)
-                .background(Color.gray.opacity(0.08))
-                .cornerRadius(12)
-            }
-        }
-        .padding(Spacing.medium)
-        .background(Color.gray.opacity(0.08))
-        .cornerRadius(14)
-    }
-
     private var bookkeepingSection: some View {
         VStack(alignment: .leading, spacing: Spacing.small) {
             Text("END OF SCENE BOOKKEEPING")
@@ -556,7 +505,7 @@ struct MythicScenesView: View {
                 .cornerRadius(12)
                 .overlay(alignment: .topLeading) {
                     if sceneSummaryInput.isEmpty {
-                        Text("Scene summary (1-3 lines).")
+                        Text("Scene summary (length varies by scene).")
                             .font(.callout)
                             .foregroundColor(.secondary)
                             .padding(.top, 12)
@@ -679,6 +628,15 @@ struct MythicScenesView: View {
                             Text(entry.summary)
                                 .font(.callout)
 
+                            Text("Chaos Factor: \(entry.chaosFactor)")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+
+                            Button("Edit Scene") {
+                                editingScene = entry
+                            }
+                            .buttonStyle(.bordered)
+
                             if !entry.charactersAdded.isEmpty {
                                 let newCharactersList = entry.charactersAdded.joined(separator: ", ")
                                 Text("New Characters: \(newCharactersList)")
@@ -693,22 +651,22 @@ struct MythicScenesView: View {
                                     .foregroundColor(.secondary)
                             }
 
-                            if !entry.places.isEmpty {
-                                let placesList = entry.places.joined(separator: ", ")
+                            if let places = entry.places, !places.isEmpty {
+                                let placesList = places.joined(separator: ", ")
                                 Text("Places: \(placesList)")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                             }
 
-                            if !entry.curiosities.isEmpty {
-                                let curiositiesList = entry.curiosities.joined(separator: ", ")
+                            if let curiosities = entry.curiosities, !curiosities.isEmpty {
+                                let curiositiesList = curiosities.joined(separator: ", ")
                                 Text("Curiosities: \(curiositiesList)")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                             }
 
-                            if !entry.rollHighlights.isEmpty {
-                                let rollsList = entry.rollHighlights.joined(separator: ", ")
+                            if let rollHighlights = entry.rollHighlights, !rollHighlights.isEmpty {
+                                let rollsList = rollHighlights.joined(separator: ", ")
                                 Text("Rolls: \(rollsList)")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
@@ -719,6 +677,8 @@ struct MythicScenesView: View {
                             Text("Scene \(entry.sceneNumber)")
                             Spacer()
                             Text(entry.sceneType.capitalized)
+                                .foregroundColor(.secondary)
+                            Text("CF \(entry.chaosFactor)")
                                 .foregroundColor(.secondary)
                         }
                         .font(.callout)
@@ -737,13 +697,14 @@ struct MythicScenesView: View {
 
     private func resolveScene() {
         guard let campaign else { return }
-        let record = engine.resolveScene(campaign: campaign, expectedScene: expectedScene.trimmingCharacters(in: .whitespacesAndNewlines))
+        let record = engine.resolveScene(campaign: campaign, expectedScene: sceneInput.trimmingCharacters(in: .whitespacesAndNewlines))
         currentScene = record
         selectedMethod = nil
         selectedAdjustment = .raiseStakes
         narration = ""
         narrationError = nil
         phase = .resolved
+        sceneInput = ""
 
         if record.type == .altered && alteredMode == .guided {
             selectedMethod = .meaningWords
@@ -825,7 +786,7 @@ struct MythicScenesView: View {
             rollHighlights: parseCommaList(rollHighlightsInput)
         )
 
-        _ = engine.finalizeScene(campaign: campaign, scene: currentScene, bookkeeping: bookkeeping)
+        let savedEntry = engine.finalizeScene(campaign: campaign, scene: currentScene, bookkeeping: bookkeeping)
 
         do {
             try modelContext.save()
@@ -838,11 +799,14 @@ struct MythicScenesView: View {
         } else {
             resetSceneInputs()
             phase = .setup
+            if autoDraftNextScene {
+                draftNextScenePrompt(previousEntry: savedEntry)
+            }
         }
     }
 
     private func resetSceneInputs() {
-        expectedScene = ""
+        sceneInput = ""
         currentScene = nil
         selectedMethod = nil
         selectedAdjustment = .raiseStakes
@@ -860,13 +824,11 @@ struct MythicScenesView: View {
         pcsInControl = true
         adventureConcluded = false
         sceneSummaryInput = ""
-        interactionInput = ""
+        nextSceneError = nil
         interactionDrafts = []
         gmResponseError = nil
-        checkActionInput = ""
         checkDrafts = []
         pendingCheckID = nil
-        checkError = nil
         fateQuestionDrafts = []
     }
 
@@ -882,7 +844,7 @@ struct MythicScenesView: View {
     }
 
     private func parseCommaList(_ input: String) -> [String] {
-        input.split(separator: ",").map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }
+        input.split(separator: ",").map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
     }
 
     private func formattedEntries<T: ListEntryProtocol>(_ entries: [T]) -> String {
@@ -974,16 +936,9 @@ struct MythicScenesView: View {
         }
     }
 
-    private func addInteractionNote() {
-        let trimmed = interactionInput.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: "", turnSignal: nil))
-        interactionInput = ""
-    }
-
     private func requestGMResponse(_ scene: SceneRecord) {
         guard let campaign else { return }
-        let trimmed = interactionInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = sceneInput.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
 
         gmResponseError = nil
@@ -1008,14 +963,14 @@ struct MythicScenesView: View {
                         let gmText = "Got it. We move on without attempting the check."
                         interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
                         pendingCheckID = nil
-                        interactionInput = ""
+                        sceneInput = ""
                         return
                     }
 
                     guard let roll = rollDraft.content.roll else {
                         let gmText = "I need the roll result (and modifier if any) to resolve that."
                         interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
-                        interactionInput = ""
+                        sceneInput = ""
                         return
                     }
 
@@ -1040,7 +995,14 @@ struct MythicScenesView: View {
                     let gmText = "Result: \(outcomeText) (Total \(result.total)). \(consequence)"
                     interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
                     pendingCheckID = nil
-                    interactionInput = ""
+                    sceneInput = ""
+                    return
+                }
+
+                if isMetaMessage(trimmed) {
+                    let gmText = try await generateNormalGMResponse(session: session, context: context, playerText: trimmed, isMeta: true)
+                    interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
+                    sceneInput = ""
                     return
                 }
 
@@ -1057,16 +1019,16 @@ struct MythicScenesView: View {
                     )
 
                     if fateDraft.content.isFateQuestion == false {
-                        let gmText = try await generateNormalGMResponse(session: session, context: context, playerText: trimmed)
+                        let gmText = try await generateNormalGMResponse(session: session, context: context, playerText: trimmed, isMeta: false)
                         interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
-                        interactionInput = ""
+                        sceneInput = ""
                         return
                     }
 
                     guard let likelihood = FateLikelihood.from(name: fateDraft.content.likelihood) else {
                         let gmText = "I couldn't judge the odds. Want to rephrase the question?"
                         interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
-                        interactionInput = ""
+                        sceneInput = ""
                         return
                     }
 
@@ -1096,7 +1058,7 @@ struct MythicScenesView: View {
                     ))
 
                     interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
-                    interactionInput = ""
+                    sceneInput = ""
                     return
                 }
 
@@ -1110,14 +1072,14 @@ struct MythicScenesView: View {
                         let outcome = checkDraft.content.autoOutcome?.isEmpty == false ? checkDraft.content.autoOutcome! : "success"
                         let gmText = "No roll needed. Automatic outcome: \(outcome)."
                         interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
-                        interactionInput = ""
+                        sceneInput = ""
                         return
                     }
 
                     guard let request = engine.finalizeCheckRequest(from: checkDraft.content) else {
                         let gmText = "I couldn't settle on a clear check. Want to rephrase?"
                         interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
-                        interactionInput = ""
+                        sceneInput = ""
                         return
                     }
 
@@ -1127,99 +1089,17 @@ struct MythicScenesView: View {
 
                     let gmText = gmLineForCheck(request)
                     interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
-                    interactionInput = ""
+                    sceneInput = ""
                     return
                 }
 
-                let gmText = try await generateNormalGMResponse(session: session, context: context, playerText: trimmed)
+                let gmText = try await generateNormalGMResponse(session: session, context: context, playerText: trimmed, isMeta: false)
                 interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
-                interactionInput = ""
+                sceneInput = ""
             } catch {
                 gmResponseError = handleFoundationModelsError(error)
             }
         }
-    }
-
-    private func proposeSkillCheck(_ scene: SceneRecord) {
-        guard let campaign else { return }
-        let trimmed = checkActionInput.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-
-        checkError = nil
-        isDraftingCheck = true
-
-        Task {
-            do {
-                let model = SystemLanguageModel(useCase: .general)
-                let session = LanguageModelSession(model: model)
-                let context = engine.buildNarrationContext(campaign: campaign, scene: scene)
-
-                var prompt = """
-                You are proposing a ruleset-based skill check for a solo RPG.
-                Use these rules:
-                - Roll only if the action is uncertain and consequential.
-                - No roll for trivial or guaranteed actions.
-                - If no roll is needed, set requiresRoll to false and give autoOutcome.
-                - Use DC bands 5, 10, 15, 20, 25, 30.
-                - Advantage for strong leverage; disadvantage for harsh conditions.
-
-                Scene #\(context.sceneNumber)
-                Expected Scene: \(context.expectedScene)
-                Scene Type: \(context.sceneType.rawValue)
-                Chaos Factor: \(context.chaosFactor)
-                """
-
-                let skillList = engine.ruleset.skillNames.joined(separator: ", ")
-                prompt += "\nRuleset: \(engine.ruleset.displayName)"
-                prompt += "\nAvailable skills: \(skillList)"
-
-                if !context.activeCharacters.isEmpty {
-                    let names = context.activeCharacters.map { "\($0.name) (w=\($0.weight))" }.joined(separator: ", ")
-                    prompt += "\nActive Characters: \(names)"
-                }
-
-                if !context.activeThreads.isEmpty {
-                    let names = context.activeThreads.map { "\($0.name) (w=\($0.weight))" }.joined(separator: ", ")
-                    prompt += "\nActive Threads: \(names)"
-                }
-
-                prompt += "\nPlayer action: \(trimmed)"
-                prompt += "\nReturn a CheckRequestDraft object."
-
-                let response = try await session.respond(to: Prompt(prompt), generating: CheckRequestDraft.self)
-                if response.content.requiresRoll == false {
-                    checkError = response.content.autoOutcome?.isEmpty == false ?
-                        "No roll needed. Outcome: \(response.content.autoOutcome ?? "auto")" :
-                        "No roll needed. Automatic outcome."
-                    isDraftingCheck = false
-                    return
-                }
-                guard let request = engine.finalizeCheckRequest(from: response.content) else {
-                    checkError = "Could not parse a valid check request."
-                    isDraftingCheck = false
-                    return
-                }
-
-                checkDrafts.append(SkillCheckDraft(playerAction: trimmed, request: request, roll: nil, modifier: nil, total: nil, outcome: nil, consequence: nil))
-                checkActionInput = ""
-            } catch {
-                checkError = handleFoundationModelsError(error)
-            }
-
-            isDraftingCheck = false
-        }
-    }
-
-    private func evaluateCheck(_ draft: inout SkillCheckDraft) {
-        let roll = draft.roll ?? 0
-        let modifier = draft.modifier ?? 0
-        let result = engine.evaluateCheck(request: draft.request, roll: roll, modifier: modifier)
-        draft.total = result.total
-        draft.outcome = result.outcome
-        if draft.consequence == nil || draft.consequence?.isEmpty == true {
-            draft.consequence = result.consequence
-        }
-        appendRollHighlight(for: draft, outcome: result.outcome, total: result.total)
     }
 
     private func gmLineForCheck(_ request: CheckRequest) -> String {
@@ -1243,12 +1123,35 @@ struct MythicScenesView: View {
             let opponent = request.opponentSkill ?? "opponent"
             line += " Opposed by \(opponent) (DC \(opponentDC))."
         }
+        if !request.reason.isEmpty {
+            line += " Reason: \(request.reason)."
+        }
         line += " If you fail, \(request.stakes)"
         if let partialDC = request.partialSuccessDC, let partialText = request.partialSuccessOutcome, !partialText.isEmpty {
             line += " On a partial (DC \(partialDC)), \(partialText)"
         }
         line += " Want to attempt it?"
         return line
+    }
+
+    private func isMetaMessage(_ text: String) -> Bool {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return false }
+        let lower = trimmed.lowercased()
+
+        let metaPrefixes = ["gm", "dm", "game master", "dungeon master"]
+        for prefix in metaPrefixes {
+            guard lower.hasPrefix(prefix) else { continue }
+            let endIndex = lower.index(lower.startIndex, offsetBy: prefix.count)
+            if endIndex == lower.endIndex {
+                return true
+            }
+            let nextChar = lower[endIndex]
+            if nextChar.isWhitespace || nextChar == ":" || nextChar == "," {
+                return true
+            }
+        }
+        return false
     }
 
     private func makeIntentPrompt(playerText: String, context: NarrationContextPacket) -> String {
@@ -1286,6 +1189,7 @@ struct MythicScenesView: View {
         - No roll for trivial or guaranteed actions; set requiresRoll to false and give autoOutcome.
         - Use DC bands 5, 10, 15, 20, 25, 30.
         - Advantage for strong leverage; disadvantage for harsh conditions.
+        - Provide a concrete, in-fiction reason for the chosen DC.
         Return a CheckRequestDraft.
 
         Scene #\(context.sceneNumber)
@@ -1315,17 +1219,33 @@ struct MythicScenesView: View {
     private func generateNormalGMResponse(
         session: LanguageModelSession,
         context: NarrationContextPacket,
-        playerText: String
+        playerText: String,
+        isMeta: Bool
     ) async throws -> String {
         var prompt = """
         You are the game master in a solo RPG. Respond conversationally.
         Do not roll dice or change state. Ask clarifying questions when needed.
+        """
+
+        if isMeta {
+            prompt += """
+
+            The player is speaking out of character to the GM about rules, retcons, or clarifications.
+            Keep it short and practical. Confirm any changes before assuming they apply.
+            """
+        }
+
+        prompt += """
 
         Scene #\(context.sceneNumber)
         Expected Scene: \(context.expectedScene)
         Scene Type: \(context.sceneType.rawValue)
         Player: \(playerText)
         """
+
+        if !isMeta {
+            prompt += "\nAssume the player is speaking in character unless they address the GM directly."
+        }
 
         if !context.activeCharacters.isEmpty {
             let names = context.activeCharacters.map { "\($0.name) (w=\($0.weight))" }.joined(separator: ", ")
@@ -1380,6 +1300,7 @@ struct MythicScenesView: View {
         Scene #\(context.sceneNumber)
         Player action: \(check.playerAction)
         Skill: \(check.request.skillName)
+        Reason: \(check.request.reason)
         Outcome: \(result.outcome)
         Stakes on failure: \(check.request.stakes)
         """
@@ -1396,7 +1317,20 @@ struct MythicScenesView: View {
         let dc = check.request.dc ?? check.request.opponentDC ?? 10
         let totalText = total.map { " (Total \($0))" } ?? ""
         let cleanedOutcome = outcome.replacingOccurrences(of: "_", with: " ")
-        let highlight = "\(check.request.skillName) DC \(dc)\(totalText): \(cleanedOutcome)"
+        let reasonText = check.request.reason.isEmpty ? "" : " Reason: \(check.request.reason)."
+        let natMarker: String
+        if let roll = check.roll {
+            if roll == 1 {
+                natMarker = " Nat 1."
+            } else if roll == 20 {
+                natMarker = " Nat 20."
+            } else {
+                natMarker = ""
+            }
+        } else {
+            natMarker = ""
+        }
+        let highlight = "\(check.request.skillName) DC \(dc)\(totalText): \(cleanedOutcome).\(reasonText)\(natMarker)".trimmingCharacters(in: .whitespacesAndNewlines)
         var existing = parseCommaList(rollHighlightsInput)
         let normalized = existing.map { $0.lowercased() }
         if !normalized.contains(highlight.lowercased()) {
@@ -1416,9 +1350,24 @@ struct MythicScenesView: View {
                 let session = LanguageModelSession(model: model)
                 let context = engine.buildNarrationContext(campaign: campaign, scene: currentScene)
 
+                let interactionCount = interactionDrafts.count
+                let checkCount = checkDrafts.count
+                let fateCount = fateQuestionDrafts.count
+                let totalBeats = interactionCount + checkCount + fateCount
+                let lengthGuidance: String
+                if totalBeats <= 2 {
+                    lengthGuidance = "2-3 sentences."
+                } else if totalBeats <= 6 {
+                    lengthGuidance = "4-6 sentences."
+                } else {
+                    lengthGuidance = "6-10 sentences."
+                }
+
                 var prompt = """
                 Draft a concise scene wrap-up with suggestions for characters, threads, places, curiosities, and key rolls.
                 Only include important elements that clearly matter later.
+                Emphasize why rolls happened and their outcomes; mention totals only for notable nat 1/20 results.
+                Length guidance: \(lengthGuidance)
 
                 Scene #\(context.sceneNumber)
                 Expected Scene: \(context.expectedScene)
@@ -1438,7 +1387,9 @@ struct MythicScenesView: View {
                 if !checkDrafts.isEmpty {
                     prompt += "\nSkill Checks:"
                     for check in checkDrafts {
-                        prompt += "\n- \(check.playerAction) (\(check.request.skillName)) outcome: \(check.outcome ?? "unknown")"
+                        let reason = check.request.reason.isEmpty ? "n/a" : check.request.reason
+                        let outcome = check.outcome ?? "unknown"
+                        prompt += "\n- \(check.playerAction) (\(check.request.skillName)) outcome: \(outcome), reason: \(reason)"
                     }
                 }
 
@@ -1468,6 +1419,69 @@ struct MythicScenesView: View {
         }
     }
 
+    private func draftNextScenePrompt(previousEntry: SceneEntry?) {
+        guard let campaign else { return }
+        let latestEntry = previousEntry ?? campaign.scenes.sorted { $0.sceneNumber > $1.sceneNumber }.first
+        isDraftingNextScene = true
+        nextSceneError = nil
+
+        Task {
+            defer { isDraftingNextScene = false }
+            do {
+                let model = SystemLanguageModel(useCase: .general)
+                let session = LanguageModelSession(model: model)
+
+                var prompt = """
+                Draft the next expected scene for a solo RPG.
+                Keep it 1-3 sentences, concrete, and easy to play.
+                Return only the scene prompt text.
+                """
+
+                if let latestEntry {
+                    prompt += """
+
+                    Previous Scene #\(latestEntry.sceneNumber)
+                    Summary: \(latestEntry.summary)
+                    Scene Type: \(latestEntry.sceneType)
+                    Chaos Factor: \(latestEntry.chaosFactor)
+                    """
+
+                    if let places = latestEntry.places, !places.isEmpty {
+                        let placesList = places.joined(separator: ", ")
+                        prompt += "\nPlaces: \(placesList)"
+                    }
+
+                    if let curiosities = latestEntry.curiosities, !curiosities.isEmpty {
+                        let curiositiesList = curiosities.joined(separator: ", ")
+                        prompt += "\nCuriosities: \(curiositiesList)"
+                    }
+
+                    if let rollHighlights = latestEntry.rollHighlights, !rollHighlights.isEmpty {
+                        let rollsList = rollHighlights.joined(separator: ", ")
+                        prompt += "\nRecent Rolls: \(rollsList)"
+                    }
+                } else {
+                    prompt += "\nThere is no previous scene. Ask the player what they want to do next."
+                }
+
+                if !campaign.characters.isEmpty {
+                    let names = campaign.characters.map { "\($0.name) (w=\($0.weight))" }.joined(separator: ", ")
+                    prompt += "\nActive Characters: \(names)"
+                }
+
+                if !campaign.threads.isEmpty {
+                    let names = campaign.threads.map { "\($0.name) (w=\($0.weight))" }.joined(separator: ", ")
+                    prompt += "\nActive Threads: \(names)"
+                }
+
+                let response = try await session.respond(to: Prompt(prompt))
+                sceneInput = response.content.trimmingCharacters(in: .whitespacesAndNewlines)
+            } catch {
+                nextSceneError = handleFoundationModelsError(error)
+            }
+        }
+    }
+
     private func ensureCampaign() {
         if let existing = activeCampaigns.first {
             campaign = existing
@@ -1477,6 +1491,110 @@ struct MythicScenesView: View {
             campaign = newCampaign
             try? modelContext.save()
         }
+    }
+}
+
+private struct SceneEditorSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
+
+    let scene: SceneEntry
+
+    @State private var intent: String
+    @State private var summary: String
+    @State private var charactersAdded: String
+    @State private var charactersFeatured: String
+    @State private var charactersRemoved: String
+    @State private var threadsAdded: String
+    @State private var threadsFeatured: String
+    @State private var threadsRemoved: String
+    @State private var places: String
+    @State private var curiosities: String
+    @State private var rollHighlights: String
+
+    init(scene: SceneEntry) {
+        self.scene = scene
+        _intent = State(initialValue: scene.intent)
+        _summary = State(initialValue: scene.summary)
+        _charactersAdded = State(initialValue: scene.charactersAdded.joined(separator: ", "))
+        _charactersFeatured = State(initialValue: scene.charactersFeatured.joined(separator: ", "))
+        _charactersRemoved = State(initialValue: scene.charactersRemoved.joined(separator: ", "))
+        _threadsAdded = State(initialValue: scene.threadsAdded.joined(separator: ", "))
+        _threadsFeatured = State(initialValue: scene.threadsFeatured.joined(separator: ", "))
+        _threadsRemoved = State(initialValue: scene.threadsRemoved.joined(separator: ", "))
+        _places = State(initialValue: (scene.places ?? []).joined(separator: ", "))
+        _curiosities = State(initialValue: (scene.curiosities ?? []).joined(separator: ", "))
+        _rollHighlights = State(initialValue: (scene.rollHighlights ?? []).joined(separator: ", "))
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Scene") {
+                    Text("Scene #\(scene.sceneNumber)")
+                        .font(.callout)
+                        .foregroundColor(.secondary)
+                    TextField("Scene intent", text: $intent, axis: .vertical)
+                    TextField("Summary", text: $summary, axis: .vertical)
+                }
+
+                Section("Characters") {
+                    TextField("New Characters", text: $charactersAdded, axis: .vertical)
+                    TextField("Featured Characters", text: $charactersFeatured, axis: .vertical)
+                    TextField("Removed Characters", text: $charactersRemoved, axis: .vertical)
+                }
+
+                Section("Threads") {
+                    TextField("New Threads", text: $threadsAdded, axis: .vertical)
+                    TextField("Featured Threads", text: $threadsFeatured, axis: .vertical)
+                    TextField("Removed Threads", text: $threadsRemoved, axis: .vertical)
+                }
+
+                Section("World Notes") {
+                    TextField("Places", text: $places, axis: .vertical)
+                    TextField("Curiosities", text: $curiosities, axis: .vertical)
+                    TextField("Roll Highlights", text: $rollHighlights, axis: .vertical)
+                }
+            }
+            .navigationTitle("Edit Scene")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        applyEdits()
+                        dismiss()
+                    }
+                }
+            }
+        }
+    }
+
+    private func applyEdits() {
+        scene.intent = intent.trimmingCharacters(in: .whitespacesAndNewlines)
+        scene.summary = summary.trimmingCharacters(in: .whitespacesAndNewlines)
+        scene.charactersAdded = parseCommaList(charactersAdded)
+        scene.charactersFeatured = parseCommaList(charactersFeatured)
+        scene.charactersRemoved = parseCommaList(charactersRemoved)
+        scene.threadsAdded = parseCommaList(threadsAdded)
+        scene.threadsFeatured = parseCommaList(threadsFeatured)
+        scene.threadsRemoved = parseCommaList(threadsRemoved)
+        scene.places = parseOptionalList(places)
+        scene.curiosities = parseOptionalList(curiosities)
+        scene.rollHighlights = parseOptionalList(rollHighlights)
+        try? modelContext.save()
+    }
+
+    private func parseCommaList(_ input: String) -> [String] {
+        input.split(separator: ",").map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+    }
+
+    private func parseOptionalList(_ input: String) -> [String]? {
+        let values = parseCommaList(input)
+        return values.isEmpty ? nil : values
     }
 }
 

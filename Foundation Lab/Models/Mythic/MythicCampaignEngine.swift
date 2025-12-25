@@ -98,9 +98,9 @@ struct MythicCampaignEngine {
             .prefix(recentCount)
             .sorted { $0.sceneNumber < $1.sceneNumber }
 
-        let recentPlaces = uniqueStrings(from: recentScenes.flatMap { $0.places })
-        let recentCuriosities = uniqueStrings(from: recentScenes.flatMap { $0.curiosities })
-        let recentRollHighlights = uniqueStrings(from: recentScenes.flatMap { $0.rollHighlights })
+        let recentPlaces = uniqueStrings(from: recentScenes.flatMap { $0.places ?? [] })
+        let recentCuriosities = uniqueStrings(from: recentScenes.flatMap { $0.curiosities ?? [] })
+        let recentRollHighlights = uniqueStrings(from: recentScenes.flatMap { $0.rollHighlights ?? [] })
 
         return NarrationContextPacket(
             sceneNumber: scene.sceneNumber,
@@ -239,12 +239,12 @@ struct MythicCampaignEngine {
             threadsRemoved: bookkeeping.removedThreads,
             pcsInControl: bookkeeping.pcsInControl,
             concluded: bookkeeping.concluded,
-            interactions: bookkeeping.interactions,
-            skillChecks: bookkeeping.skillChecks,
-            fateQuestions: bookkeeping.fateQuestions,
-            places: bookkeeping.places,
-            curiosities: bookkeeping.curiosities,
-            rollHighlights: bookkeeping.rollHighlights
+            interactions: bookkeeping.interactions.isEmpty ? nil : bookkeeping.interactions,
+            skillChecks: bookkeeping.skillChecks.isEmpty ? nil : bookkeeping.skillChecks,
+            fateQuestions: bookkeeping.fateQuestions.isEmpty ? nil : bookkeeping.fateQuestions,
+            places: bookkeeping.places.isEmpty ? nil : bookkeeping.places,
+            curiosities: bookkeeping.curiosities.isEmpty ? nil : bookkeeping.curiosities,
+            rollHighlights: bookkeeping.rollHighlights.isEmpty ? nil : bookkeeping.rollHighlights
         )
 
         campaign.scenes.append(entry)
