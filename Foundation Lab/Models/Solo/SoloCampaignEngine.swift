@@ -42,7 +42,7 @@ struct SoloCampaignEngine {
     var resolver: SoloOracleEngine
     var ruleset: any Ruleset
 
-    init(resolver: SoloOracleEngine = SoloOracleEngine(), ruleset: any Ruleset = RulesetCatalog.dnd) {
+    init(resolver: SoloOracleEngine = SoloOracleEngine(), ruleset: any Ruleset = RulesetCatalog.srd) {
         self.resolver = resolver
         self.ruleset = ruleset
     }
@@ -101,9 +101,9 @@ struct SoloCampaignEngine {
             .prefix(recentCount)
             .sorted { $0.sceneNumber < $1.sceneNumber }
 
-        let recentPlaces = uniqueStrings(from: recentScenes.flatMap { $0.places ?? [] })
-        let recentCuriosities = uniqueStrings(from: recentScenes.flatMap { $0.curiosities ?? [] })
-        let recentRollHighlights = uniqueStrings(from: recentScenes.flatMap { $0.rollHighlights ?? [] })
+        let recentPlaces = uniqueStrings(from: recentScenes.flatMap { $0.places })
+        let recentCuriosities = uniqueStrings(from: recentScenes.flatMap { $0.curiosities })
+        let recentRollHighlights = uniqueStrings(from: recentScenes.flatMap { $0.rollHighlights })
 
         return NarrationContextPacket(
             sceneNumber: scene.sceneNumber,
@@ -245,9 +245,9 @@ struct SoloCampaignEngine {
             interactions: bookkeeping.interactions.isEmpty ? nil : bookkeeping.interactions,
             skillChecks: bookkeeping.skillChecks.isEmpty ? nil : bookkeeping.skillChecks,
             fateQuestions: bookkeeping.fateQuestions.isEmpty ? nil : bookkeeping.fateQuestions,
-            places: bookkeeping.places.isEmpty ? nil : bookkeeping.places,
-            curiosities: bookkeeping.curiosities.isEmpty ? nil : bookkeeping.curiosities,
-            rollHighlights: bookkeeping.rollHighlights.isEmpty ? nil : bookkeeping.rollHighlights,
+            places: bookkeeping.places,
+            curiosities: bookkeeping.curiosities,
+            rollHighlights: bookkeeping.rollHighlights,
             locationId: bookkeeping.locationId,
             generatedEntityIds: bookkeeping.generatedEntityIds.isEmpty ? nil : bookkeeping.generatedEntityIds,
             canonizations: bookkeeping.canonizations.isEmpty ? nil : bookkeeping.canonizations

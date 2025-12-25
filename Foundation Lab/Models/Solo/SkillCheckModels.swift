@@ -46,9 +46,9 @@ extension Ruleset {
     }
 }
 
-struct DndRuleset: Ruleset {
-    let id = "dnd_5e"
-    let displayName = "D&D 5E"
+struct SrdRuleset: Ruleset {
+    let id = "srd_5e"
+    let displayName = "SRD 5E"
 
     let abilities = [
         "Strength",
@@ -92,7 +92,7 @@ struct DndRuleset: Ruleset {
 }
 
 struct RulesetCatalog {
-    static let dnd = DndRuleset()
+    static let srd = SrdRuleset()
 }
 
 struct SkillCheckHeuristics {
@@ -200,6 +200,18 @@ struct InteractionIntentDraft {
 }
 
 @Generable
+struct MovementIntentDraft {
+    @Guide(description: "True if the player is moving into a new space or leaving the current location")
+    let isMovement: Bool
+
+    @Guide(description: "Short summary of the movement intent for logging")
+    let summary: String
+
+    @Guide(description: "Optional destination or direction, if specified")
+    let destination: String?
+}
+
+@Generable
 struct CanonizationDraft {
     @Guide(description: "True if the player is asserting a new fact that should be canonized")
     let shouldCanonize: Bool
@@ -260,4 +272,19 @@ struct RulesetHelpers {
     static func passiveScore(modifier: Int) -> Int {
         10 + modifier
     }
+}
+
+@Generable
+struct LocationFeatureDraft {
+    @Guide(description: "Stable inanimate features worth remembering")
+    let items: [LocationFeatureDraftItem]
+}
+
+@Generable
+struct LocationFeatureDraftItem {
+    @Guide(description: "Short name of the feature")
+    let name: String
+
+    @Guide(description: "One sentence summary")
+    let summary: String
 }

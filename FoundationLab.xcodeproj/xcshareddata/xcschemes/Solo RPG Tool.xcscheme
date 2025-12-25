@@ -16,8 +16,8 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "0AAE4FFE2DF76E6600838F13"
-               BuildableName = "Foundation Lab.app"
-               BlueprintName = "Foundation Lab"
+               BuildableName = "Solo RPG Tool.app"
+               BlueprintName = "Solo RPG Tool"
                ReferencedContainer = "container:FoundationLab.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -45,8 +45,8 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "0AAE4FFE2DF76E6600838F13"
-            BuildableName = "Foundation Lab.app"
-            BlueprintName = "Foundation Lab"
+            BuildableName = "Solo RPG Tool.app"
+            BlueprintName = "Solo RPG Tool"
             ReferencedContainer = "container:FoundationLab.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
@@ -62,8 +62,8 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "0AAE4FFE2DF76E6600838F13"
-            BuildableName = "Foundation Lab.app"
-            BlueprintName = "Foundation Lab"
+            BuildableName = "Solo RPG Tool.app"
+            BlueprintName = "Solo RPG Tool"
             ReferencedContainer = "container:FoundationLab.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>

@@ -99,6 +99,91 @@ struct SoloLocationEngine {
         return location
     }
 
+    mutating func advanceToNextNode(campaign: Campaign, reason: String) -> LocationNode? {
+        do {
+            try ensureTableEngine()
+        } catch {
+            return nil
+        }
+        guard var tableEngine else { return nil }
+        guard let location = campaign.locations?.first(where: { $0.id == campaign.activeLocationId }) else { return nil }
+        guard let currentNode = location.nodes?.first(where: { $0.id == campaign.activeNodeId }) else { return nil }
+
+        let seed = campaign.rngSeed ?? UInt64(Date().timeIntervalSince1970)
+        let sequence = campaign.rngSequence ?? 0
+        campaign.rngSeed = seed
+
+        let context = RollContext(
+            campaignId: campaign.id,
+            sceneId: campaign.activeSceneId,
+            locationId: location.id,
+            nodeId: currentNode.id,
+            tags: ["dungeon", "advance"],
+            dangerModifier: location.dangerModifier,
+            depth: 0
+        )
+
+        let execution = tableEngine.execute(tableId: "dungeon_next_node", context: context, seed: seed, sequence: sequence)
+        self.tableEngine = tableEngine
+        attachTableRolls(execution.rollResults, campaign: campaign, context: context)
+
+        let newNode = resolveStartNode(from: execution)
+        newNode.discovered = true
+        newNode.visitedCount = 1
+        newNode.location = location
+
+        if newNode.type == "room" {
+            applyRoomShape(to: newNode, campaign: campaign, context: context, seed: seed)
+            addRoomContents(to: newNode, campaign: campaign, context: context, seed: seed)
+        } else if newNode.type == "passage" {
+            addPassageFeatures(to: newNode, campaign: campaign, context: context, seed: seed)
+        }
+
+        if location.nodes == nil {
+            location.nodes = [currentNode, newNode]
+        } else {
+            location.nodes?.append(newNode)
+        }
+
+        if let edgeIndex = location.edges?.firstIndex(where: { $0.fromNodeId == currentNode.id && $0.toNodeId == nil }) {
+            location.edges?[edgeIndex].toNodeId = newNode.id
+        } else {
+            let edge = LocationEdge(
+                type: "passage",
+                fromNodeId: currentNode.id,
+                toNodeId: newNode.id,
+                isLocked: false,
+                lockDC: nil,
+                isTrapped: false,
+                requiresCheckSkill: nil,
+                requiresCheckDC: nil,
+                oneWay: false,
+                origin: "system"
+            )
+            if location.edges == nil {
+                location.edges = [edge]
+            } else {
+                location.edges?.append(edge)
+            }
+        }
+
+        campaign.activeNodeId = newNode.id
+
+        let logEntry = EventLogEntry(
+            summary: "Advanced to new node: \(newNode.summary) via \(reason)",
+            sceneId: campaign.activeSceneId,
+            rollIds: campaign.tableRolls?.suffix(execution.rollResults.count).map { $0.id },
+            entityIds: [location.id, newNode.id]
+        )
+        if campaign.eventLog == nil {
+            campaign.eventLog = [logEntry]
+        } else {
+            campaign.eventLog?.append(logEntry)
+        }
+
+        return newNode
+    }
+
     private mutating func applyRoomShape(
         to node: LocationNode,
         campaign: Campaign,
@@ -167,6 +252,22 @@ struct SoloLocationEngine {
                 )
             }
             node.traps = traps
+        }
+    }
+
+    private mutating func addPassageFeatures(
+        to node: LocationNode,
+        campaign: Campaign,
+        context: RollContext,
+        seed: UInt64
+    ) {
+        guard var tableEngine else { return }
+        let sequence = campaign.rngSequence ?? 0
+        let execution = tableEngine.execute(tableId: "passage_features", context: context, seed: seed, sequence: sequence)
+        self.tableEngine = tableEngine
+        attachTableRolls(execution.rollResults, campaign: campaign, context: context)
+        if let note = execution.logs.first, !note.isEmpty {
+            node.contentSummary = note
         }
     }
 

@@ -16,18 +16,18 @@
 /* Begin PBXFileReference section */
 		0A5454A72E1148A8002C2152 /* Foundation Lab.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = "Foundation Lab.icon"; sourceTree = "<group>"; };
 		0A9766662E1E562A008CFA37 /* Collections.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Collections.xcodeproj; sourceTree = "<group>"; };
-		0AAE4FFF2DF76E6600838F13 /* Foundation Lab.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Foundation Lab.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		0AAE4FFF2DF76E6600838F13 /* Solo RPG Tool.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Solo RPG Tool.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		6C9AECE22E728F6D00F4C37F /* SampleCode.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = SampleCode.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		0A5454A82E1148A8002C2152 /* Exceptions for "Foundation Lab" folder in "Foundation Lab" target */ = {
+		0A5454A82E1148A8002C2152 /* Exceptions for "Foundation Lab" folder in "Solo RPG Tool" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Playgrounds/README.md,
 				Views/Examples/DynamicSchemas/README.md,
 			);
-			target = 0AAE4FFE2DF76E6600838F13 /* Foundation Lab */;
+			target = 0AAE4FFE2DF76E6600838F13 /* Solo RPG Tool */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
@@ -35,7 +35,7 @@
 		0ADB46AD2E0CE6C100C29293 /* Foundation Lab */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				0A5454A82E1148A8002C2152 /* Exceptions for "Foundation Lab" folder in "Foundation Lab" target */,
+				0A5454A82E1148A8002C2152 /* Exceptions for "Foundation Lab" folder in "Solo RPG Tool" target */,
 			);
 			path = "Foundation Lab";
 			sourceTree = "<group>";
@@ -77,7 +77,7 @@
 		0AAE50002DF76E6600838F13 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				0AAE4FFF2DF76E6600838F13 /* Foundation Lab.app */,
+				0AAE4FFF2DF76E6600838F13 /* Solo RPG Tool.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -92,9 +92,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		0AAE4FFE2DF76E6600838F13 /* Foundation Lab */ = {
+		0AAE4FFE2DF76E6600838F13 /* Solo RPG Tool */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 0AAE500A2DF76E6800838F13 /* Build configuration list for PBXNativeTarget "Foundation Lab" */;
+			buildConfigurationList = 0AAE500A2DF76E6800838F13 /* Build configuration list for PBXNativeTarget "Solo RPG Tool" */;
 			buildPhases = (
 				0AAE4FFB2DF76E6600838F13 /* Sources */,
 				0AAE4FFC2DF76E6600838F13 /* Frameworks */,
@@ -107,14 +107,14 @@
 			fileSystemSynchronizedGroups = (
 				0ADB46AD2E0CE6C100C29293 /* Foundation Lab */,
 			);
-			name = "Foundation Lab";
+			name = "Solo RPG Tool";
 			packageProductDependencies = (
 				FA43F9402E13A16E00F24BCC /* HighlightSwift */,
 				0A979E832E1E5921008CFA37 /* FoundationModelsTools */,
 				0A21D7F02E518858004E8806 /* LiquidGlasKit */,
 			);
-			productName = FoundationLab;
-			productReference = 0AAE4FFF2DF76E6600838F13 /* Foundation Lab.app */;
+			productName = SoloRPGTool;
+			productReference = 0AAE4FFF2DF76E6600838F13 /* Solo RPG Tool.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -157,7 +157,7 @@
 			);
 			projectRoot = "";
 			targets = (
-				0AAE4FFE2DF76E6600838F13 /* Foundation Lab */,
+				0AAE4FFE2DF76E6600838F13 /* Solo RPG Tool */,
 			);
 		};
 /* End PBXProject section */
@@ -345,10 +345,10 @@
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "This app does not write health data.";
 				INFOPLIST_KEY_NSLocationUsageDescription = "This app needs access to your location to provide weather information and location-based services.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "This app needs access to your location to provide weather information and location-based services.";
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Foundation Lab needs access to your microphone to listen to your voice commands for creating reminders.";
-				INFOPLIST_KEY_NSRemindersFullAccessUsageDescription = "Foundation Lab needs full access to create and manage reminders from your voice commands.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Solo RPG Tool needs access to your microphone to listen to your voice commands for creating reminders.";
+				INFOPLIST_KEY_NSRemindersFullAccessUsageDescription = "Solo RPG Tool needs full access to create and manage reminders from your voice commands.";
 				INFOPLIST_KEY_NSRemindersUsageDescription = "This app needs access to your reminders to create and manage reminder tasks.";
-				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Foundation Lab uses speech recognition to convert your voice into text for creating reminders.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Solo RPG Tool uses speech recognition to convert your voice into text for creating reminders.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -426,10 +426,10 @@
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "This app does not write health data.";
 				INFOPLIST_KEY_NSLocationUsageDescription = "This app needs access to your location to provide weather information and location-based services.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "This app needs access to your location to provide weather information and location-based services.";
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Foundation Lab needs access to your microphone to listen to your voice commands for creating reminders.";
-				INFOPLIST_KEY_NSRemindersFullAccessUsageDescription = "Foundation Lab needs full access to create and manage reminders from your voice commands.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Solo RPG Tool needs access to your microphone to listen to your voice commands for creating reminders.";
+				INFOPLIST_KEY_NSRemindersFullAccessUsageDescription = "Solo RPG Tool needs full access to create and manage reminders from your voice commands.";
 				INFOPLIST_KEY_NSRemindersUsageDescription = "This app needs access to your reminders to create and manage reminder tasks.";
-				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Foundation Lab uses speech recognition to convert your voice into text for creating reminders.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Solo RPG Tool uses speech recognition to convert your voice into text for creating reminders.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -481,7 +481,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		0AAE500A2DF76E6800838F13 /* Build configuration list for PBXNativeTarget "Foundation Lab" */ = {
+		0AAE500A2DF76E6800838F13 /* Build configuration list for PBXNativeTarget "Solo RPG Tool" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				0AAE500B2DF76E6800838F13 /* Debug */,

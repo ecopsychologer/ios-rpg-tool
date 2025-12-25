@@ -36,9 +36,7 @@ struct AdaptiveNavigationView: View {
             set: { navigationCoordinator.tabSelection = $0 }
         )) {
             Tab(TabSelection.examples.displayName, systemImage: "sparkles", value: .examples) {
-                NavigationStack {
-                    ExamplesView(viewModel: $contentViewModel)
-                }
+                examplesNavigation
             }
 
             Tab(TabSelection.tools.displayName, systemImage: "wrench.and.screwdriver", value: .tools) {
@@ -99,9 +97,7 @@ struct AdaptiveNavigationView: View {
     private var detailView: some View {
         switch navigationCoordinator.splitViewSelection ?? .examples {
         case .examples:
-            NavigationStack {
-                ExamplesView(viewModel: $contentViewModel)
-            }
+            examplesNavigation
         case .tools:
             NavigationStack {
                 ToolsView()
@@ -118,6 +114,12 @@ struct AdaptiveNavigationView: View {
             NavigationStack {
                 SettingsView()
             }
+        }
+    }
+
+    private var examplesNavigation: some View {
+        NavigationStack {
+            ExamplesView(viewModel: $contentViewModel)
         }
     }
 }

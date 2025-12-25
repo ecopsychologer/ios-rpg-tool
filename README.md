@@ -42,10 +42,6 @@ It is part of the [Exploring Foundation Models](https://academy.rudrank.com/prod
 - Apple Intelligence enabled
 - Compatible Apple device with Apple Silicon
 
-## Try it on TestFlight
-
-You can now try Foundation Lab on TestFlight! Join the beta: [https://testflight.apple.com/join/JWR9FpP3](https://testflight.apple.com/join/JWR9FpP3)
-
 ## Getting Started
 
 - Clone the repository
@@ -110,6 +106,33 @@ Nine different example types showing framework capabilities:
 - Generation guides
 - Generation options (temperature, tokens, fitness)
 - Health dashboard
+
+## Solo RPG Tool Additions
+
+This repo includes a solo roleplaying system built on top of the on-device model. It is split into two layers:
+- **Campaign engine** (non-AI): state, randomness, persistence, and rules logic.
+- **Narrator** (on-device model): interpretation, conversation, and narration only.
+
+### Data Structure Overview
+- **Campaign**: scenes, characters, threads, chaos factor, party, and RNG state.
+- **Locations**: persistent location graphs with nodes, edges, and traps.
+- **Interactive challenges**: skill checks, traps, and fate-style questions, each stored as records.
+- **Table engine**: JSON-defined tables with deterministic rolls and action scripts.
+- **Event logs**: stored roll results and entity changes so sessions can be replayed.
+
+### Modules in the App
+- **Solo Scenes**: the main scene loop and conversation interface.
+- **Campaign Data**: browse saved campaign structures and generated entities.
+- **Tables**: edit the JSON tables stored on device.
+
+### Planned Features
+- Wilderness and settlement generation (travel segments, districts, rumors).
+- Encounter clocks for pacing area activity.
+- Multi-step skill challenges.
+- Table content packs with import/export and versioning.
+- Shop availability checks: track when the party is searching for a specific item and roll availability in a shop using SRD-style rarity/market logic.
+- Expanded editing tools for all campaign entities.
+- Add a structured “movement intent” system instead of keyword detection for advancing nodes
 
 ## Features
 

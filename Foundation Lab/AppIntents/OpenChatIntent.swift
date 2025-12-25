@@ -9,7 +9,7 @@ import AppIntents
 import SwiftUI
 
 nonisolated struct OpenChatIntent: AppIntent {
-    static let title: LocalizedStringResource = "Open Foundation Lab Examples"
+    static let title: LocalizedStringResource = "Open Solo RPG Tool Examples"
     static let description = IntentDescription("Opens the FoundationLab examples section")
 
     static let supportedModes: IntentModes = .foreground

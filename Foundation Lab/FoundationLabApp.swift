@@ -35,6 +35,7 @@ struct FoundationLabApp: App {
                     LocationEntity.self,
                     LocationNode.self,
                     LocationEdge.self,
+                    LocationFeature.self,
                     TrapEntity.self,
                     SkillCheckEntity.self,
                     EncounterEntity.self,
@@ -42,7 +43,19 @@ struct FoundationLabApp: App {
                     RumorEntity.self,
                     QuestEntity.self,
                     EventLogEntry.self,
-                    TableRollRecord.self
+                    TableRollRecord.self,
+                    NPCEntry.self,
+                    NPCSkillModifier.self,
+                    NPCAbilityScore.self,
+                    NPCAttack.self,
+                    NPCQuestHook.self,
+                    NPCRelationship.self,
+                    NPCGenerationRoll.self,
+                    WorldLoreEntry.self,
+                    PlayerCharacter.self,
+                    CharacterField.self,
+                    CharacterFact.self,
+                    CharacterChange.self
                 ])
 #if os(macOS)
                 .frame(minWidth: 800, minHeight: 600)

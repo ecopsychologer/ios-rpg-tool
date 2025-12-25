@@ -12,9 +12,13 @@ final class Campaign {
     var scenes: [SceneEntry]
     var characters: [CharacterEntry]
     var threads: [ThreadEntry]
+    var npcs: [NPCEntry] = []
+    var worldLore: [WorldLoreEntry] = []
+    var playerCharacters: [PlayerCharacter] = []
     var rulesetName: String?
     var contentPackVersion: String?
     var oracleConfig: String?
+    var worldVibe: String = ""
     var party: Party?
     var activeSceneId: UUID?
     var activeLocationId: UUID?
@@ -35,9 +39,13 @@ final class Campaign {
         self.scenes = []
         self.characters = []
         self.threads = []
+        self.npcs = []
+        self.worldLore = []
+        self.playerCharacters = []
         self.rulesetName = nil
         self.contentPackVersion = nil
         self.oracleConfig = nil
+        self.worldVibe = ""
         self.party = nil
         self.activeSceneId = nil
         self.activeLocationId = nil
@@ -76,9 +84,9 @@ final class SceneEntry {
     var interactions: [SceneInteraction]?
     var skillChecks: [SkillCheckRecord]?
     var fateQuestions: [FateQuestionRecord]?
-    var places: [String]?
-    var curiosities: [String]?
-    var rollHighlights: [String]?
+    var places: [String] = []
+    var curiosities: [String] = []
+    var rollHighlights: [String] = []
     var locationId: UUID?
     var generatedEntityIds: [UUID]?
     var canonizations: [CanonizationRecord]?
@@ -106,9 +114,9 @@ final class SceneEntry {
         interactions: [SceneInteraction]? = nil,
         skillChecks: [SkillCheckRecord]? = nil,
         fateQuestions: [FateQuestionRecord]? = nil,
-        places: [String]? = nil,
-        curiosities: [String]? = nil,
-        rollHighlights: [String]? = nil,
+        places: [String] = [],
+        curiosities: [String] = [],
+        rollHighlights: [String] = [],
         locationId: UUID? = nil,
         generatedEntityIds: [UUID]? = nil,
         canonizations: [CanonizationRecord]? = nil

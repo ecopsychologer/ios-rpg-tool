@@ -56,6 +56,12 @@ struct SoloScenesView: View {
         let outcome: String?
     }
 
+    private struct PendingLocationFeature: Identifiable {
+        let id = UUID()
+        let name: String
+        let summary: String
+    }
+
     @Environment(\.modelContext) private var modelContext
     @Query(filter: #Predicate<Campaign> { $0.isActive }) private var activeCampaigns: [Campaign]
     @State private var campaign: Campaign?
@@ -100,7 +106,8 @@ struct SoloScenesView: View {
     @State private var pendingCheckID: UUID?
     @State private var fateQuestionDrafts: [FateQuestionDraftState] = []
     @State private var canonizationDrafts: [CanonizationDraftState] = []
-    @State private var pendingCanonizationID: UUID?
+    @State private var pendingCanonizationId: UUID?
+    @State private var pendingLocationFeatures: [PendingLocationFeature] = []
 
     private var alteredMode: AlteredMode {
         AlteredMode(rawValue: alteredModeRaw) ?? .guided
@@ -143,6 +150,7 @@ struct SoloScenesView: View {
             .padding(.horizontal, Spacing.medium)
             .padding(.vertical, Spacing.large)
         }
+        .textSelection(.enabled)
         .onAppear(perform: ensureCampaign)
         .navigationTitle("Solo Scenes")
 #if os(iOS)
@@ -475,6 +483,13 @@ struct SoloScenesView: View {
                                     .foregroundColor(.secondary)
                             }
 
+                            if let features = node.features, !features.isEmpty {
+                                let featureNames = features.map { $0.name }.joined(separator: ", ")
+                                Text("Features: \(featureNames)")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+
                             if let traps = node.traps, !traps.isEmpty {
                                 let trapNames = traps.map { "\($0.name) [\($0.state)]" }.joined(separator: ", ")
                                 Text("Traps: \(trapNames)")
@@ -484,6 +499,40 @@ struct SoloScenesView: View {
                                 Text("Traps: none detected")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
+                            }
+                        }
+                    }
+
+                    if !showLocationDebug,
+                       let node = activeNode(in: campaign, location: location),
+                       let features = node.features,
+                       !features.isEmpty {
+                        let featureNames = features.map { $0.name }.joined(separator: ", ")
+                        Text("Known Features: \(featureNames)")
+                            .font(.callout)
+                    }
+
+                    if !pendingLocationFeatures.isEmpty {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Pending Features:")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            ForEach(pendingLocationFeatures) { feature in
+                                Text("- \(feature.name): \(feature.summary)")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                    .textSelection(.enabled)
+                            }
+                            HStack(spacing: Spacing.small) {
+                                Button("Apply") {
+                                    applyPendingLocationFeatures()
+                                }
+                                .buttonStyle(.borderedProminent)
+
+                                Button("Dismiss") {
+                                    pendingLocationFeatures = []
+                                }
+                                .buttonStyle(.bordered)
                             }
                         }
                     }
@@ -752,22 +801,22 @@ struct SoloScenesView: View {
                                     .foregroundColor(.secondary)
                             }
 
-                            if let places = entry.places, !places.isEmpty {
-                                let placesList = places.joined(separator: ", ")
+                            if !entry.places.isEmpty {
+                                let placesList = entry.places.joined(separator: ", ")
                                 Text("Places: \(placesList)")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                             }
 
-                            if let curiosities = entry.curiosities, !curiosities.isEmpty {
-                                let curiositiesList = curiosities.joined(separator: ", ")
+                            if !entry.curiosities.isEmpty {
+                                let curiositiesList = entry.curiosities.joined(separator: ", ")
                                 Text("Curiosities: \(curiositiesList)")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                             }
 
-                            if let rollHighlights = entry.rollHighlights, !rollHighlights.isEmpty {
-                                let rollsList = rollHighlights.joined(separator: ", ")
+                            if !entry.rollHighlights.isEmpty {
+                                let rollsList = entry.rollHighlights.joined(separator: ", ")
                                 Text("Rolls: \(rollsList)")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
@@ -947,7 +996,8 @@ struct SoloScenesView: View {
         pendingCheckID = nil
         fateQuestionDrafts = []
         canonizationDrafts = []
-        pendingCanonizationID = nil
+        pendingCanonizationId = nil
+        pendingLocationFeatures = []
     }
 
     private func resetAdventure() {
@@ -985,12 +1035,13 @@ struct SoloScenesView: View {
                 var prompt = """
                 You are the game master. In 2-4 lines, narrate the scene opener using the details below.
                 Keep it punchy and actionable. Avoid lore dumps.
-                Ask clarifying questions if the context is ambiguous.
+                Do not mention mechanics, rolls, or chaos factors.
+                Do not ask the player to invent threats or obstacles; discover those through play.
+                If clarification is needed, ask only about immediate positioning or intent.
+                End with a clear "What do you do?" prompt.
 
                 Scene #\(context.sceneNumber)
                 Expected Scene: \(context.expectedScene)
-                Chaos Factor: \(context.chaosFactor)
-                Roll: \(context.roll)
                 Scene Type: \(context.sceneType.rawValue)
                 """
 
@@ -1019,6 +1070,10 @@ struct SoloScenesView: View {
                     prompt += "\nLocation: \(campaignLocation.name) (\(campaignLocation.type))"
                     if let node = activeNode(in: campaign, location: campaignLocation) {
                         prompt += "\nCurrent Node: \(node.summary)"
+                        let featureSummary = locationFeatureSummary(for: node)
+                        if !featureSummary.isEmpty {
+                            prompt += "\nKnown Features: \(featureSummary)"
+                        }
                     }
                 }
 
@@ -1039,8 +1094,13 @@ struct SoloScenesView: View {
                     }
                 }
 
+                if shouldForeshadowLine() {
+                    prompt += "\nAdd one line starting with \"What you don't see is ...\" about an unseen consequence."
+                }
+
                 let response = try await session.respond(to: Prompt(prompt))
                 narration = response.content.trimmingCharacters(in: .whitespacesAndNewlines)
+                await captureLocationFeatures(from: narration, session: session, campaign: campaign)
             } catch {
                 narrationError = handleFoundationModelsError(error)
             }
@@ -1075,7 +1135,7 @@ struct SoloScenesView: View {
             do {
                 let model = SystemLanguageModel(useCase: .general)
                 let session = LanguageModelSession(model: model)
-                let context = engine.buildNarrationContext(campaign: campaign, scene: scene)
+                var context = engine.buildNarrationContext(campaign: campaign, scene: scene)
 
                 if let pendingID = pendingCheckID,
                    let index = checkDrafts.firstIndex(where: { $0.id == pendingID }) {
@@ -1125,7 +1185,7 @@ struct SoloScenesView: View {
                     return
                 }
 
-                if let pendingId = pendingCanonizationID,
+                if let pendingId = pendingCanonizationId,
                    let index = canonizationDrafts.firstIndex(where: { $0.id == pendingId }) {
                     let lower = trimmed.lowercased()
                     if isAffirmativeResponse(lower) {
@@ -1145,7 +1205,7 @@ struct SoloScenesView: View {
                             target: record.target,
                             outcome: record.outcome
                         )
-                        pendingCanonizationID = nil
+                        pendingCanonizationId = nil
                         let gmText = "Canon roll (\(likelihood.rawValue), CF \(campaign.chaosFactor)): \(record.roll) vs \(record.target) => \(record.outcome.uppercased())."
                         interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
                         sceneInput = ""
@@ -1153,7 +1213,7 @@ struct SoloScenesView: View {
                     }
 
                     if isNegativeResponse(lower) {
-                        pendingCanonizationID = nil
+                        pendingCanonizationId = nil
                         let gmText = "Okay. We will leave that unconfirmed for now."
                         interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
                         sceneInput = ""
@@ -1189,6 +1249,22 @@ struct SoloScenesView: View {
                     interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
                     sceneInput = ""
                     return
+                }
+
+                let didAdvance = try await resolveMovementIntent(
+                    session: session,
+                    context: context,
+                    playerText: trimmed,
+                    campaign: campaign
+                )
+                if didAdvance {
+                    context = engine.buildNarrationContext(campaign: campaign, scene: scene)
+                }
+
+                if shouldForceSkillCheck(for: trimmed), !trimmed.contains("?") {
+                    if try await resolveSkillCheckProposal(session: session, context: context, playerText: trimmed) {
+                        return
+                    }
                 }
 
                 let intent = try await session.respond(
@@ -1248,47 +1324,20 @@ struct SoloScenesView: View {
                 }
 
                 if intentValue == "skill_check" {
-                    let checkDraft = try await session.respond(
-                        to: Prompt(makeCheckProposalPrompt(playerText: trimmed, context: context)),
-                        generating: CheckRequestDraft.self
-                    )
-
-                    if checkDraft.content.requiresRoll == false {
-                        let outcome = checkDraft.content.autoOutcome?.isEmpty == false ? checkDraft.content.autoOutcome! : "success"
-                        let gmText = "No roll needed. Automatic outcome: \(outcome)."
-                        interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
-                        sceneInput = ""
+                    if try await resolveSkillCheckProposal(session: session, context: context, playerText: trimmed) {
                         return
                     }
+                }
 
-                    guard let request = engine.finalizeCheckRequest(from: checkDraft.content) else {
-                        let gmText = "I couldn't settle on a clear check. Want to rephrase?"
-                        interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
-                        sceneInput = ""
-                        return
-                    }
+                let gmText = try await generateNormalGMResponse(session: session, context: context, playerText: trimmed, isMeta: false)
+                await captureLocationFeatures(from: gmText, session: session, campaign: campaign)
 
-                    let draft = SkillCheckDraft(
-                        playerAction: trimmed,
-                        request: request,
-                        roll: nil,
-                        modifier: nil,
-                        total: nil,
-                        outcome: nil,
-                        consequence: nil,
-                        sourceTrapId: nil,
-                        sourceKind: nil
-                    )
-                    checkDrafts.append(draft)
-                    pendingCheckID = draft.id
-
-                    let gmText = gmLineForCheck(request)
+                if shouldSkipCanonization(for: trimmed) {
                     interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
                     sceneInput = ""
                     return
                 }
 
-                let gmText = try await generateNormalGMResponse(session: session, context: context, playerText: trimmed, isMeta: false)
                 let canonDraft = try await session.respond(
                     to: Prompt(makeCanonizationPrompt(playerText: trimmed, context: context)),
                     generating: CanonizationDraft.self
@@ -1305,7 +1354,7 @@ struct SoloScenesView: View {
                         outcome: nil
                     )
                     canonizationDrafts.append(state)
-                    pendingCanonizationID = state.id
+                    pendingCanonizationId = state.id
                     let combined = "\(gmText)\nCanonize: \(state.assumption). Roll fate to confirm? (y/n)"
                     interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: combined, turnSignal: "gm_response"))
                     sceneInput = ""
@@ -1480,6 +1529,37 @@ struct SoloScenesView: View {
         return node.traps?.first(where: { $0.state == "hidden" })
     }
 
+    private func resolveMovementIntent(
+        session: LanguageModelSession,
+        context: NarrationContextPacket,
+        playerText: String,
+        campaign: Campaign
+    ) async throws -> Bool {
+        guard campaign.activeLocationId != nil else { return false }
+        let movementDraft = try await session.respond(
+            to: Prompt(makeMovementIntentPrompt(playerText: playerText, context: context)),
+            generating: MovementIntentDraft.self
+        )
+        guard movementDraft.content.isMovement else { return false }
+
+        let summary = movementDraft.content.summary.trimmingCharacters(in: .whitespacesAndNewlines)
+        let destination = movementDraft.content.destination?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let reason: String
+        if !destination.isEmpty && !summary.isEmpty {
+            reason = "\(summary) (\(destination))"
+        } else if !summary.isEmpty {
+            reason = summary
+        } else if !destination.isEmpty {
+            reason = destination
+        } else {
+            reason = playerText
+        }
+
+        _ = locationEngine.advanceToNextNode(campaign: campaign, reason: reason)
+        try? modelContext.save()
+        return true
+    }
+
     private func normalizedSkillName(_ skill: String) -> String {
         if let match = engine.ruleset.skillNames.first(where: { $0.caseInsensitiveCompare(skill) == .orderedSame }) {
             return match
@@ -1488,6 +1568,53 @@ struct SoloScenesView: View {
             return fallback
         }
         return engine.ruleset.skillNames.first ?? skill
+    }
+
+    private func shouldForceSkillCheck(for playerText: String) -> Bool {
+        let lower = playerText.lowercased()
+        let keywords = [
+            "check for traps", "search for traps", "look for traps", "scan for traps", "inspect for traps",
+            "search", "investigate", "examine", "inspect", "sneak", "hide", "pick",
+            "climb", "jump", "force", "lift", "break", "convince", "persuade", "intimidate",
+            "listen", "peek", "track"
+        ]
+        return keywords.contains(where: { lower.contains($0) })
+    }
+
+    private func forcedCheckRequest(for playerText: String) -> CheckRequest? {
+        let lower = playerText.lowercased()
+        let skill: String
+        if lower.contains("trap") || lower.contains("investigate") || lower.contains("search") || lower.contains("inspect") {
+            skill = normalizedSkillName("Investigation")
+        } else if lower.contains("sneak") || lower.contains("hide") || lower.contains("stealth") {
+            skill = normalizedSkillName("Stealth")
+        } else if lower.contains("persuade") || lower.contains("convince") {
+            skill = normalizedSkillName("Persuasion")
+        } else if lower.contains("intimidate") {
+            skill = normalizedSkillName("Intimidation")
+        } else if lower.contains("climb") || lower.contains("jump") || lower.contains("force") || lower.contains("break") || lower.contains("lift") {
+            skill = normalizedSkillName("Athletics")
+        } else if lower.contains("balance") || lower.contains("acrobat") {
+            skill = normalizedSkillName("Acrobatics")
+        } else if lower.contains("listen") || lower.contains("peek") || lower.contains("spot") {
+            skill = normalizedSkillName("Perception")
+        } else {
+            skill = normalizedSkillName("Investigation")
+        }
+
+        return CheckRequest(
+            checkType: .skillCheck,
+            skillName: skill,
+            abilityOverride: nil,
+            dc: 15,
+            opponentSkill: nil,
+            opponentDC: nil,
+            advantageState: .normal,
+            stakes: "Failure complicates the attempt or leaves you exposed to consequences.",
+            partialSuccessDC: 10,
+            partialSuccessOutcome: "You make progress but introduce a complication.",
+            reason: "The action is uncertain and failure would matter."
+        )
     }
 
     private func activeLocationName(for context: NarrationContextPacket) -> String {
@@ -1518,7 +1645,7 @@ struct SoloScenesView: View {
         """
         Classify the player's message into one of: fate_question, skill_check, normal.
         Use fate_question only for yes/no questions about the world.
-        Use skill_check for action attempts that could require a roll.
+        Use skill_check for action attempts where failure would matter (searching, sneaking, climbing, forcing, persuading, checking for traps).
         Otherwise use normal.
 
         Scene #\(context.sceneNumber)
@@ -1529,12 +1656,36 @@ struct SoloScenesView: View {
         """
     }
 
+    private func makeMovementIntentPrompt(playerText: String, context: NarrationContextPacket) -> String {
+        var prompt = """
+        Decide if the player is moving into a new space or leaving the current location.
+        Return isMovement = true only when they explicitly move to a different room, corridor, exit, or location.
+        Return false for questions, investigations, conversations, or actions that stay in the current space.
+        Provide a short summary and optional destination if present.
+
+        Scene #\(context.sceneNumber)
+        Scene Type: \(context.sceneType.rawValue)
+        Player: \(playerText)
+        """
+
+        if let campaign, let location = activeLocation(in: campaign) {
+            prompt += "\nLocation: \(location.name) (\(location.type))"
+            if let node = activeNode(in: campaign, location: location) {
+                prompt += "\nCurrent Node: \(node.summary)"
+            }
+        }
+
+        prompt += "\nReturn a MovementIntentDraft."
+        return prompt
+    }
+
     private func makeCanonizationPrompt(playerText: String, context: NarrationContextPacket) -> String {
         var prompt = """
-        Determine if the player is asserting a new fact that should be canonized.
-        Only return shouldCanonize = true when the player is treating an assumption as true
-        and it would impact the world if accepted.
-        If they are asking a question, or speaking out of character to the GM, return false.
+        Determine if the player is asserting a new concrete fact about the world that should be canonized.
+        Only return shouldCanonize = true when the player explicitly states a detail as true
+        (not a question, not a plan, not dialogue) and it would matter if accepted.
+        Never infer NPC abilities, motives, or magical traits beyond what the player stated.
+        If they are asking a question, speaking in character, or describing an action, return false.
         Provide a concise assumption and a likelihood for a fate roll.
 
         Scene #\(context.sceneNumber)
@@ -1563,11 +1714,106 @@ struct SoloScenesView: View {
         """
     }
 
+    private func shouldSkipCanonization(for playerText: String) -> Bool {
+        let trimmed = playerText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return true }
+        let lower = trimmed.lowercased()
+        if lower.contains("?") { return true }
+        if lower.contains("\"") || lower.contains("“") || lower.contains("”") { return true }
+        if lower.hasPrefix("gm ") || lower.hasPrefix("dm ") || lower.hasPrefix("ooc") { return true }
+
+        let assertionMarkers = [
+            "there is", "there are", "there's", "you see", "i notice", "i spot",
+            "the room has", "the area has", "this place has", "the hall has"
+        ]
+        let actionPrefixes = ["i ", "we ", "my ", "our "]
+        if actionPrefixes.contains(where: { lower.hasPrefix($0) }) && !assertionMarkers.contains(where: { lower.contains($0) }) {
+            return true
+        }
+        return false
+    }
+
+    private func shouldForeshadowLine() -> Bool {
+        engine.rollD100() <= 15
+    }
+
+    private func shouldCaptureLocationFeatures(from text: String) -> Bool {
+        let lower = text.lowercased()
+        let cues = ["you see", "there is", "there are", "you notice", "the room", "the hall", "the chamber", "the area"]
+        return cues.contains(where: { lower.contains($0) }) && text.count > 20
+    }
+
+    private func makeLocationFeaturePrompt(text: String, location: LocationEntity, node: LocationNode) -> String {
+        let existing = (node.features ?? []).map { $0.name }.joined(separator: ", ")
+        return """
+        Extract stable, inanimate location features worth persisting.
+        Include furniture, fixtures, structures, and notable objects.
+        Exclude NPCs, creatures, actions, or temporary effects.
+        Limit to 0-5 items and keep summaries short.
+
+        Location: \(location.name) (\(location.type))
+        Node: \(node.summary)
+        Known features: \(existing.isEmpty ? "none" : existing)
+
+        Text: \(text)
+        """
+    }
+
+    private func captureLocationFeatures(
+        from text: String,
+        session: LanguageModelSession,
+        campaign: Campaign
+    ) async {
+        guard shouldCaptureLocationFeatures(from: text) else { return }
+        guard let location = activeLocation(in: campaign),
+              let node = activeNode(in: campaign, location: location) else { return }
+        do {
+            let prompt = makeLocationFeaturePrompt(text: text, location: location, node: node)
+            let draft = try await session.respond(
+                to: Prompt(prompt),
+                generating: LocationFeatureDraft.self
+            )
+            let pendingNames = await MainActor.run {
+                pendingLocationFeatures.map { $0.name.lowercased() }
+            }
+            let existingFeatureNames = await MainActor.run {
+                (node.features ?? []).map { $0.name.lowercased() }
+            }
+            let existingNames = Set(existingFeatureNames + pendingNames)
+            let candidates = draft.content.items.compactMap { item -> PendingLocationFeature? in
+                let name = item.name.trimmingCharacters(in: .whitespacesAndNewlines)
+                let summary = item.summary.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !name.isEmpty else { return nil }
+                guard !existingNames.contains(name.lowercased()) else { return nil }
+                return PendingLocationFeature(name: name, summary: summary)
+            }
+            guard !candidates.isEmpty else { return }
+            await MainActor.run {
+                pendingLocationFeatures.append(contentsOf: candidates)
+            }
+        } catch {
+            return
+        }
+    }
+
+    private func locationFeatureSummary(for node: LocationNode) -> String {
+        guard let features = node.features, !features.isEmpty else { return "" }
+        let summaries = features.prefix(4).map { feature in
+            if feature.summary.isEmpty {
+                return feature.name
+            }
+            return "\(feature.name) (\(feature.summary))"
+        }
+        return summaries.joined(separator: ", ")
+    }
+
     private func makeCheckProposalPrompt(playerText: String, context: NarrationContextPacket) -> String {
         """
         Propose a ruleset-based skill check for a solo RPG.
         - Roll only if the action is uncertain and consequential.
+        - If failure would change the situation in a meaningful way, a roll is required.
         - No roll for trivial or guaranteed actions; set requiresRoll to false and give autoOutcome.
+        - Searching for traps or hidden dangers always requires a roll.
         - Use DC bands 5, 10, 15, 20, 25, 30.
         - Advantage for strong leverage; disadvantage for harsh conditions.
         - Provide a concrete, in-fiction reason for the chosen DC.
@@ -1583,6 +1829,70 @@ struct SoloScenesView: View {
         Ruleset: \(engine.ruleset.displayName)
         Available skills: \(engine.ruleset.skillNames.joined(separator: ", "))
         """
+    }
+
+    private func resolveSkillCheckProposal(
+        session: LanguageModelSession,
+        context: NarrationContextPacket,
+        playerText: String
+    ) async throws -> Bool {
+        let checkDraft = try await session.respond(
+            to: Prompt(makeCheckProposalPrompt(playerText: playerText, context: context)),
+            generating: CheckRequestDraft.self
+        )
+
+        if checkDraft.content.requiresRoll == false {
+            if shouldForceSkillCheck(for: playerText), let forcedRequest = forcedCheckRequest(for: playerText) {
+                let draft = SkillCheckDraft(
+                    playerAction: playerText,
+                    request: forcedRequest,
+                    roll: nil,
+                    modifier: nil,
+                    total: nil,
+                    outcome: nil,
+                    consequence: nil,
+                    sourceTrapId: nil,
+                    sourceKind: nil
+                )
+                checkDrafts.append(draft)
+                pendingCheckID = draft.id
+                let gmText = gmLineForCheck(forcedRequest)
+                interactionDrafts.append(InteractionDraft(playerText: playerText, gmText: gmText, turnSignal: "gm_response"))
+                sceneInput = ""
+                return true
+            }
+            let outcome = checkDraft.content.autoOutcome?.isEmpty == false ? checkDraft.content.autoOutcome! : "success"
+            let gmText = "No roll needed. Automatic outcome: \(outcome)."
+            interactionDrafts.append(InteractionDraft(playerText: playerText, gmText: gmText, turnSignal: "gm_response"))
+            sceneInput = ""
+            return true
+        }
+
+        guard let request = engine.finalizeCheckRequest(from: checkDraft.content) else {
+            let gmText = "I couldn't settle on a clear check. Want to rephrase?"
+            interactionDrafts.append(InteractionDraft(playerText: playerText, gmText: gmText, turnSignal: "gm_response"))
+            sceneInput = ""
+            return true
+        }
+
+        let draft = SkillCheckDraft(
+            playerAction: playerText,
+            request: request,
+            roll: nil,
+            modifier: nil,
+            total: nil,
+            outcome: nil,
+            consequence: nil,
+            sourceTrapId: nil,
+            sourceKind: nil
+        )
+        checkDrafts.append(draft)
+        pendingCheckID = draft.id
+
+        let gmText = gmLineForCheck(request)
+        interactionDrafts.append(InteractionDraft(playerText: playerText, gmText: gmText, turnSignal: "gm_response"))
+        sceneInput = ""
+        return true
     }
 
     private func makeRollParsingPrompt(playerText: String, check: SkillCheckDraft) -> String {
@@ -1607,6 +1917,11 @@ struct SoloScenesView: View {
         var prompt = """
         You are the game master in a solo RPG. Respond conversationally.
         Do not roll dice or change state. Ask clarifying questions when needed.
+        Do not mention mechanics, chaos factor, or internal rolls.
+        Do not ask the player to invent threats or obstacles; discover them through play.
+        If the player pushes beyond the current scene scope, suggest ending the scene and offer:
+        - Use a relevant sense from here to perceive what lies beyond, or
+        - Move that way and start a new scene.
         """
 
         if isMeta {
@@ -1627,6 +1942,7 @@ struct SoloScenesView: View {
 
         if !isMeta {
             prompt += "\nAssume the player is speaking in character unless they address the GM directly."
+            prompt += "\nEnd with a short question like \"What do you do?\""
         }
 
         if !context.activeCharacters.isEmpty {
@@ -1643,6 +1959,10 @@ struct SoloScenesView: View {
             prompt += "\nLocation: \(location.name) (\(location.type))"
             if let node = activeNode(in: campaign, location: location) {
                 prompt += "\nCurrent Node: \(node.summary)"
+                let featureSummary = locationFeatureSummary(for: node)
+                if !featureSummary.isEmpty {
+                    prompt += "\nKnown Features: \(featureSummary)"
+                }
             }
         }
 
@@ -1685,6 +2005,8 @@ struct SoloScenesView: View {
         var prompt = """
         Provide a brief consequence (1-2 sentences) based on the check outcome.
         Keep the story moving and stay grounded.
+        If the d20 roll is a natural 20, make it an extraordinary success.
+        If the d20 roll is a natural 1, make it a significant failure.
 
         Scene #\(context.sceneNumber)
         Player action: \(check.playerAction)
@@ -1693,9 +2015,16 @@ struct SoloScenesView: View {
         Outcome: \(result.outcome)
         Stakes on failure: \(check.request.stakes)
         """
+        if let roll = check.roll {
+            prompt += "\nD20 roll: \(roll)"
+        }
 
         if let partial = check.request.partialSuccessOutcome, !partial.isEmpty {
             prompt += "\nPartial success: \(partial)"
+        }
+
+        if shouldForeshadowLine() {
+            prompt += "\nAdd a second line starting with \"What you don't see is ...\" about a subtle consequence."
         }
 
         let response = try await session.respond(to: Prompt(prompt))
@@ -1756,6 +2085,7 @@ struct SoloScenesView: View {
                 Draft a concise scene wrap-up with suggestions for characters, threads, places, curiosities, and key rolls.
                 Only include important elements that clearly matter later.
                 Emphasize why rolls happened and their outcomes; mention totals only for notable nat 1/20 results.
+                Only list characters that were explicitly named in the scene; do not invent names.
                 Length guidance: \(lengthGuidance)
 
                 Scene #\(context.sceneNumber)
@@ -1799,13 +2129,18 @@ struct SoloScenesView: View {
 
                 let response = try await session.respond(to: Prompt(prompt), generating: SceneWrapUpDraft.self)
                 let draft = response.content
+                let interactionText = interactionDrafts.map { "\($0.playerText) \($0.gmText)" }.joined(separator: " ").lowercased()
+                let knownCharacters = campaign.characters.map { $0.name }
+                let filteredNewCharacters = filterNames(draft.newCharacters, from: interactionText)
+                let filteredFeaturedCharacters = filterNames(draft.featuredCharacters, from: interactionText, allowList: knownCharacters)
+                let filteredRemovedCharacters = filterNames(draft.removedCharacters, from: interactionText, allowList: knownCharacters)
 
                 sceneSummaryInput = draft.summary
-                newCharactersInput = draft.newCharacters.joined(separator: ", ")
+                newCharactersInput = filteredNewCharacters.joined(separator: ", ")
                 newThreadsInput = draft.newThreads.joined(separator: ", ")
-                featuredCharactersInput = draft.featuredCharacters.joined(separator: ", ")
+                featuredCharactersInput = filteredFeaturedCharacters.joined(separator: ", ")
                 featuredThreadsInput = draft.featuredThreads.joined(separator: ", ")
-                removeCharactersInput = draft.removedCharacters.joined(separator: ", ")
+                removeCharactersInput = filteredRemovedCharacters.joined(separator: ", ")
                 removeThreadsInput = draft.removedThreads.joined(separator: ", ")
                 placesInput = draft.places.joined(separator: ", ")
                 curiositiesInput = draft.curiosities.joined(separator: ", ")
@@ -1813,6 +2148,17 @@ struct SoloScenesView: View {
             } catch {
                 narrationError = handleFoundationModelsError(error)
             }
+        }
+    }
+
+    private func filterNames(_ names: [String], from interactionText: String, allowList: [String] = []) -> [String] {
+        let allowed = Set(allowList.map { $0.lowercased() })
+        return names.filter { name in
+            let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { return false }
+            let lower = trimmed.lowercased()
+            if allowed.contains(lower) { return true }
+            return interactionText.contains(lower)
         }
     }
 
@@ -1846,6 +2192,33 @@ struct SoloScenesView: View {
         return location.nodes?.first(where: { $0.id == nodeId })
     }
 
+    private func applyPendingLocationFeatures() {
+        guard let campaign, let location = activeLocation(in: campaign), let node = activeNode(in: campaign, location: location) else {
+            pendingLocationFeatures = []
+            return
+        }
+
+        let existing = (node.features ?? []).map { $0.name.lowercased() }
+        var newFeatures: [LocationFeature] = node.features ?? []
+
+        for feature in pendingLocationFeatures {
+            if existing.contains(feature.name.lowercased()) { continue }
+            let item = LocationFeature(
+                name: feature.name,
+                summary: feature.summary,
+                category: "feature",
+                tags: nil,
+                origin: "ai",
+                locationNodeId: node.id
+            )
+            newFeatures.append(item)
+        }
+
+        node.features = newFeatures
+        pendingLocationFeatures = []
+        try? modelContext.save()
+    }
+
     private func draftNextScenePrompt(previousEntry: SceneEntry?) {
         guard let campaign else { return }
         let latestEntry = previousEntry ?? campaign.scenes.sorted { $0.sceneNumber > $1.sceneNumber }.first
@@ -1861,10 +2234,14 @@ struct SoloScenesView: View {
                 var prompt = """
                 Draft the next expected scene for a solo RPG.
                 Keep it 1-3 sentences, concrete, and easy to play.
+                Continue directly from the previous scene's outcome; do not repeat resolved obstacles.
+                Do not introduce new NPCs, enemies, or locations here. Those happen during scene play.
+                Advance time or position based on the last action.
                 Return only the scene prompt text.
                 """
 
                 if let latestEntry {
+                    let lastInteraction = latestEntry.interactions?.last?.playerText ?? ""
                     prompt += """
 
                     Previous Scene #\(latestEntry.sceneNumber)
@@ -1872,19 +2249,22 @@ struct SoloScenesView: View {
                     Scene Type: \(latestEntry.sceneType)
                     Chaos Factor: \(latestEntry.chaosFactor)
                     """
+                    if !lastInteraction.isEmpty {
+                        prompt += "\nLast Action: \(lastInteraction)"
+                    }
 
-                    if let places = latestEntry.places, !places.isEmpty {
-                        let placesList = places.joined(separator: ", ")
+                    if !latestEntry.places.isEmpty {
+                        let placesList = latestEntry.places.joined(separator: ", ")
                         prompt += "\nPlaces: \(placesList)"
                     }
 
-                    if let curiosities = latestEntry.curiosities, !curiosities.isEmpty {
-                        let curiositiesList = curiosities.joined(separator: ", ")
+                    if !latestEntry.curiosities.isEmpty {
+                        let curiositiesList = latestEntry.curiosities.joined(separator: ", ")
                         prompt += "\nCuriosities: \(curiositiesList)"
                     }
 
-                    if let rollHighlights = latestEntry.rollHighlights, !rollHighlights.isEmpty {
-                        let rollsList = rollHighlights.joined(separator: ", ")
+                    if !latestEntry.rollHighlights.isEmpty {
+                        let rollsList = latestEntry.rollHighlights.joined(separator: ", ")
                         prompt += "\nRecent Rolls: \(rollsList)"
                     }
                 } else {
@@ -1899,6 +2279,13 @@ struct SoloScenesView: View {
                 if !campaign.threads.isEmpty {
                     let names = campaign.threads.map { "\($0.name) (w=\($0.weight))" }.joined(separator: ", ")
                     prompt += "\nActive Threads: \(names)"
+                }
+
+                if let location = activeLocation(in: campaign) {
+                    prompt += "\nCurrent Location: \(location.name) (\(location.type))"
+                    if let node = activeNode(in: campaign, location: location) {
+                        prompt += "\nCurrent Node: \(node.summary)"
+                    }
                 }
 
                 let response = try await session.respond(to: Prompt(prompt))
@@ -1951,9 +2338,9 @@ private struct SceneEditorSheet: View {
         _threadsAdded = State(initialValue: scene.threadsAdded.joined(separator: ", "))
         _threadsFeatured = State(initialValue: scene.threadsFeatured.joined(separator: ", "))
         _threadsRemoved = State(initialValue: scene.threadsRemoved.joined(separator: ", "))
-        _places = State(initialValue: (scene.places ?? []).joined(separator: ", "))
-        _curiosities = State(initialValue: (scene.curiosities ?? []).joined(separator: ", "))
-        _rollHighlights = State(initialValue: (scene.rollHighlights ?? []).joined(separator: ", "))
+        _places = State(initialValue: scene.places.joined(separator: ", "))
+        _curiosities = State(initialValue: scene.curiosities.joined(separator: ", "))
+        _rollHighlights = State(initialValue: scene.rollHighlights.joined(separator: ", "))
     }
 
     var body: some View {
@@ -2011,9 +2398,9 @@ private struct SceneEditorSheet: View {
         scene.threadsAdded = parseCommaList(threadsAdded)
         scene.threadsFeatured = parseCommaList(threadsFeatured)
         scene.threadsRemoved = parseCommaList(threadsRemoved)
-        scene.places = parseOptionalList(places)
-        scene.curiosities = parseOptionalList(curiosities)
-        scene.rollHighlights = parseOptionalList(rollHighlights)
+        scene.places = parseCommaList(places)
+        scene.curiosities = parseCommaList(curiosities)
+        scene.rollHighlights = parseCommaList(rollHighlights)
         try? modelContext.save()
     }
 
@@ -2021,10 +2408,6 @@ private struct SceneEditorSheet: View {
         input.split(separator: ",").map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
     }
 
-    private func parseOptionalList(_ input: String) -> [String]? {
-        let values = parseCommaList(input)
-        return values.isEmpty ? nil : values
-    }
 }
 
 #Preview {

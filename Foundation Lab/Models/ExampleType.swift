@@ -11,6 +11,12 @@ import SwiftUI
 
 enum ExampleType: String, CaseIterable, Identifiable {
     case soloScenes = "solo_scenes"
+    case npcs = "npcs"
+    case worldLore = "world_lore"
+    case characterSheet = "character_sheet"
+    case srdImport = "srd_import"
+    case campaignData = "campaign_data"
+    case tables = "tables"
     case basicChat = "basic_chat"
     case businessIdeas = "business_ideas"
     case creativeWriting = "creative_writing"
@@ -28,6 +34,18 @@ enum ExampleType: String, CaseIterable, Identifiable {
         switch self {
         case .soloScenes:
             return "Solo Scenes"
+        case .npcs:
+            return "NPCs"
+        case .worldLore:
+            return "World Lore"
+        case .characterSheet:
+            return "Character Sheet"
+        case .srdImport:
+            return "SRD Import"
+        case .campaignData:
+            return "Campaign Data"
+        case .tables:
+            return "Tables"
         case .basicChat:
             return "One-shot"
         case .businessIdeas:
@@ -55,6 +73,18 @@ enum ExampleType: String, CaseIterable, Identifiable {
         switch self {
         case .soloScenes:
             return "Resolve scenes with a solo GM loop"
+        case .npcs:
+            return "Fast NPC reference and generation"
+        case .worldLore:
+            return "Build and review setting lore"
+        case .characterSheet:
+            return "Living character sheet with statuses"
+        case .srdImport:
+            return "Download SRD reference data"
+        case .campaignData:
+            return "Browse saved campaign structures"
+        case .tables:
+            return "Edit generation tables stored on device"
         case .basicChat:
             return "Single prompt-response interaction"
         case .businessIdeas:
@@ -82,6 +112,18 @@ enum ExampleType: String, CaseIterable, Identifiable {
         switch self {
         case .soloScenes:
             return "die.face.5"
+        case .npcs:
+            return "person.2.fill"
+        case .worldLore:
+            return "globe.americas.fill"
+        case .characterSheet:
+            return "person.text.rectangle"
+        case .srdImport:
+            return "square.and.arrow.down"
+        case .campaignData:
+            return "tray.full"
+        case .tables:
+            return "square.and.pencil"
         case .basicChat:
             return "ellipsis.message"
         case .businessIdeas:
@@ -109,6 +151,12 @@ enum ExampleType: String, CaseIterable, Identifiable {
     static var gridExamples: [ExampleType] {
         let ordered: [ExampleType] = [
             .soloScenes,
+            .npcs,
+            .worldLore,
+            .characterSheet,
+            .srdImport,
+            .campaignData,
+            .tables,
             .basicChat,
             .businessIdeas,
             .creativeWriting,

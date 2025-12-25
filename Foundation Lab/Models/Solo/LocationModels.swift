@@ -39,13 +39,24 @@ final class PartyMember {
     var role: String
     var level: Int
     var notes: String
+    var isNpc: Bool
+    var npcId: UUID?
 
-    init(name: String, role: String = "", level: Int = 1, notes: String = "") {
+    init(
+        name: String,
+        role: String = "",
+        level: Int = 1,
+        notes: String = "",
+        isNpc: Bool = false,
+        npcId: UUID? = nil
+    ) {
         self.id = UUID()
         self.name = name
         self.role = role
         self.level = level
         self.notes = notes
+        self.isNpc = isNpc
+        self.npcId = npcId
     }
 }
 
@@ -100,6 +111,7 @@ final class LocationNode {
     var traps: [TrapEntity]?
     var encounters: [EncounterEntity]?
     var clues: [ClueEntity]?
+    var features: [LocationFeature]?
     var location: LocationEntity?
 
     init(
@@ -120,6 +132,40 @@ final class LocationNode {
         self.traps = nil
         self.encounters = nil
         self.clues = nil
+        self.features = nil
+    }
+}
+
+@Model
+final class LocationFeature {
+    var id: UUID
+    var name: String
+    var summary: String
+    var category: String
+    var tags: [String]?
+    var origin: String
+    var createdAt: Date
+    var locationNodeId: UUID?
+    var locationEdgeId: UUID?
+
+    init(
+        name: String,
+        summary: String,
+        category: String = "feature",
+        tags: [String]? = nil,
+        origin: String = "system",
+        locationNodeId: UUID? = nil,
+        locationEdgeId: UUID? = nil
+    ) {
+        self.id = UUID()
+        self.name = name
+        self.summary = summary
+        self.category = category
+        self.tags = tags
+        self.origin = origin
+        self.createdAt = Date()
+        self.locationNodeId = locationNodeId
+        self.locationEdgeId = locationEdgeId
     }
 }
 

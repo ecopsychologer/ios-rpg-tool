@@ -26,32 +26,6 @@ struct ExamplesView: View {
 #if os(iOS)
         .navigationBarTitleDisplayMode(.large)
 #endif
-        .navigationDestination(for: ExampleType.self) { exampleType in
-            switch exampleType {
-            case .soloScenes:
-                SoloScenesView()
-            case .basicChat:
-                BasicChatView()
-            case .structuredData:
-                StructuredDataView()
-            case .generationGuides:
-                GenerationGuidesView()
-            case .streamingResponse:
-                StreamingResponseView()
-            case .businessIdeas:
-                BusinessIdeasView()
-            case .creativeWriting:
-                CreativeWritingView()
-            case .modelAvailability:
-                ModelAvailabilityView()
-            case .generationOptions:
-                GenerationOptionsView()
-            case .health:
-                HealthExampleView()
-            case .chat:
-                EmptyView()
-            }
-        }
 #if os(iOS)
         .fullScreenCover(isPresented: $showChatFullscreen) {
             NavigationStack {
@@ -103,7 +77,9 @@ struct ExamplesView: View {
     private var examplesGridView: some View {
         LazyVGrid(columns: adaptiveGridColumns, spacing: Spacing.large) {
             ForEach(ExampleType.gridExamples) { exampleType in
-                NavigationLink(value: exampleType) {
+                NavigationLink {
+                    exampleDestination(for: exampleType)
+                } label: {
                     GenericCardView(
                         icon: exampleType.icon,
                         title: exampleType.title,
@@ -160,6 +136,46 @@ struct ExamplesView: View {
 #if os(iOS) || os(macOS)
             .glassEffect(.regular, in: .capsule)
 #endif
+        }
+    }
+
+    @ViewBuilder
+    private func exampleDestination(for exampleType: ExampleType) -> some View {
+        switch exampleType {
+        case .soloScenes:
+            SoloScenesView()
+        case .npcs:
+            NPCsView()
+        case .worldLore:
+            WorldLoreView()
+        case .characterSheet:
+            CharacterSheetView()
+        case .srdImport:
+            SrdImportView()
+        case .campaignData:
+            CampaignDataView()
+        case .tables:
+            TablesView()
+        case .basicChat:
+            BasicChatView()
+        case .structuredData:
+            StructuredDataView()
+        case .generationGuides:
+            GenerationGuidesView()
+        case .streamingResponse:
+            StreamingResponseView()
+        case .businessIdeas:
+            BusinessIdeasView()
+        case .creativeWriting:
+            CreativeWritingView()
+        case .modelAvailability:
+            ModelAvailabilityView()
+        case .generationOptions:
+            GenerationOptionsView()
+        case .health:
+            HealthExampleView()
+        case .chat:
+            EmptyView()
         }
     }
 }
