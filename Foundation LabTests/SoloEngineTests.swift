@@ -1,9 +1,9 @@
 import XCTest
 @testable import FoundationLab
 
-final class MythicEngineTests: XCTestCase {
+final class SoloEngineTests: XCTestCase {
     func testSceneClassificationAcrossChaosFactorBoundaries() {
-        let engine = MythicEngine()
+        let engine = SoloOracleEngine()
         let chaosFactors = [1, 5, 9]
 
         for chaosFactor in chaosFactors {
@@ -21,7 +21,7 @@ final class MythicEngineTests: XCTestCase {
     }
 
     func testOddEvenAlteredVsInterruptWhenRollBelowChaosFactor() {
-        let engine = MythicEngine()
+        let engine = SoloOracleEngine()
         let chaosFactor = 5
 
         let oddRoll = 3
@@ -32,7 +32,7 @@ final class MythicEngineTests: XCTestCase {
     }
 
     func testChaosFactorClamping() {
-        let engine = MythicEngine()
+        let engine = SoloOracleEngine()
         XCTAssertEqual(engine.updateChaosFactor(current: 1, pcsInControl: true), 1)
         XCTAssertEqual(engine.updateChaosFactor(current: 9, pcsInControl: false), 9)
     }
@@ -55,7 +55,7 @@ final class MythicEngineTests: XCTestCase {
     }
 
     func testCheckEvaluationSuccessAndFailure() {
-        var engine = MythicCampaignEngine()
+        var engine = SoloCampaignEngine()
         let request = CheckRequest(
             checkType: .skillCheck,
             skillName: "Stealth",
@@ -81,7 +81,7 @@ final class MythicEngineTests: XCTestCase {
     }
 
     func testFateQuestionUsesChaosFactor() {
-        let engine = MythicCampaignEngine()
+        let engine = SoloCampaignEngine()
         let record = engine.resolveFateQuestion(
             question: "Is there a chandelier?",
             likelihood: .likely,
@@ -89,5 +89,28 @@ final class MythicEngineTests: XCTestCase {
             roll: 42
         )
         XCTAssertEqual(record.target, 90)
+    }
+
+    func testTableEngineDeterminism() throws {
+        let pack = try ContentPackStore().loadDefaultPack()
+        let context = RollContext(
+            campaignId: UUID(),
+            sceneId: nil,
+            locationId: nil,
+            nodeId: nil,
+            tags: ["dungeon"],
+            dangerModifier: 0,
+            depth: 0
+        )
+
+        var engineA = TableEngine(contentPack: pack)
+        var engineB = TableEngine(contentPack: pack)
+
+        let resultA = engineA.execute(tableId: "room_contents", context: context, seed: 12345, sequence: 0)
+        let resultB = engineB.execute(tableId: "room_contents", context: context, seed: 12345, sequence: 0)
+
+        XCTAssertEqual(resultA.rollResults.first?.roll.total, resultB.rollResults.first?.roll.total)
+        XCTAssertEqual(resultA.rollResults.first?.entry.min, resultB.rollResults.first?.entry.min)
+        XCTAssertEqual(resultA.spawnedTraps.count, resultB.spawnedTraps.count)
     }
 }

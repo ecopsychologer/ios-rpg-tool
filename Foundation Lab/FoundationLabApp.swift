@@ -28,7 +28,21 @@ struct FoundationLabApp: App {
                     ThreadEntry.self,
                     SceneInteraction.self,
                     SkillCheckRecord.self,
-                    FateQuestionRecord.self
+                    FateQuestionRecord.self,
+                    CanonizationRecord.self,
+                    Party.self,
+                    PartyMember.self,
+                    LocationEntity.self,
+                    LocationNode.self,
+                    LocationEdge.self,
+                    TrapEntity.self,
+                    SkillCheckEntity.self,
+                    EncounterEntity.self,
+                    ClueEntity.self,
+                    RumorEntity.self,
+                    QuestEntity.self,
+                    EventLogEntry.self,
+                    TableRollRecord.self
                 ])
 #if os(macOS)
                 .frame(minWidth: 800, minHeight: 600)

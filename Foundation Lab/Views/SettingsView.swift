@@ -10,6 +10,7 @@ import LiquidGlasKit
 
 struct SettingsView: View {
     @AppStorage("exaAPIKey") private var exaAPIKey: String = ""
+    @AppStorage("soloShowLocationDebug") private var showLocationDebug = false
     @State private var tempAPIKey: String = ""
     @State private var showingAlert = false
     @State private var alertMessage = ""
@@ -75,6 +76,21 @@ struct SettingsView: View {
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Solo RPG Tools")
+                    .font(.headline)
+
+                Toggle("Show generated location details", isOn: $showLocationDebug)
+                    .font(.callout)
+
+                Text("Expose behind-the-scenes location data for debugging and editing.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            .padding()
+            .glassCard()
+            .padding([.horizontal, .top])
 
             VStack(alignment: .leading, spacing: 16) {
                 Link(destination: URL(string: "https://github.com/rudrankriyam/Foundation-Models-Framework-Example/issues")!) {

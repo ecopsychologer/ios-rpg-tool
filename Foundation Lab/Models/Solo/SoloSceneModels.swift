@@ -118,7 +118,7 @@ struct SceneRecord: Identifiable {
     var randomEvent: RandomEvent?
 }
 
-struct MythicState {
+struct SoloState {
     var chaosFactor: Int = 5
     var threads = WeightedList()
     var characters = WeightedList()

@@ -10,7 +10,7 @@ import FoundationModels
 import SwiftUI
 
 enum ExampleType: String, CaseIterable, Identifiable {
-    case mythicScenes = "mythic_scenes"
+    case soloScenes = "solo_scenes"
     case basicChat = "basic_chat"
     case businessIdeas = "business_ideas"
     case creativeWriting = "creative_writing"
@@ -26,8 +26,8 @@ enum ExampleType: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .mythicScenes:
-            return "Mythic Scenes"
+        case .soloScenes:
+            return "Solo Scenes"
         case .basicChat:
             return "One-shot"
         case .businessIdeas:
@@ -53,8 +53,8 @@ enum ExampleType: String, CaseIterable, Identifiable {
 
     var subtitle: String {
         switch self {
-        case .mythicScenes:
-            return "Resolve scenes with a Mythic-style loop"
+        case .soloScenes:
+            return "Resolve scenes with a solo GM loop"
         case .basicChat:
             return "Single prompt-response interaction"
         case .businessIdeas:
@@ -80,7 +80,7 @@ enum ExampleType: String, CaseIterable, Identifiable {
 
     var icon: String {
         switch self {
-        case .mythicScenes:
+        case .soloScenes:
             return "die.face.5"
         case .basicChat:
             return "ellipsis.message"
@@ -108,7 +108,7 @@ enum ExampleType: String, CaseIterable, Identifiable {
     /// Static property for examples displayed in the grid (excludes chat)
     static var gridExamples: [ExampleType] {
         let ordered: [ExampleType] = [
-            .mythicScenes,
+            .soloScenes,
             .basicChat,
             .businessIdeas,
             .creativeWriting,

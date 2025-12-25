@@ -2,7 +2,7 @@ import FoundationModels
 import SwiftUI
 import SwiftData
 
-struct MythicScenesView: View {
+struct SoloScenesView: View {
     private enum ScenePhase {
         case setup
         case resolved
@@ -31,6 +31,8 @@ struct MythicScenesView: View {
         var total: Int?
         var outcome: String?
         var consequence: String?
+        var sourceTrapId: UUID?
+        var sourceKind: String?
     }
 
     private struct FateQuestionDraftState: Identifiable {
@@ -44,11 +46,22 @@ struct MythicScenesView: View {
         let gmText: String
     }
 
+    private struct CanonizationDraftState: Identifiable {
+        let id = UUID()
+        let assumption: String
+        let likelihood: FateLikelihood
+        let chaosFactor: Int
+        let roll: Int?
+        let target: Int?
+        let outcome: String?
+    }
+
     @Environment(\.modelContext) private var modelContext
     @Query(filter: #Predicate<Campaign> { $0.isActive }) private var activeCampaigns: [Campaign]
     @State private var campaign: Campaign?
-    @State private var engine = MythicCampaignEngine()
-    @AppStorage("mythicAlteredMode") private var alteredModeRaw = AlteredMode.guided.rawValue
+    @State private var engine = SoloCampaignEngine()
+    @State private var locationEngine = SoloLocationEngine()
+    @AppStorage("soloAlteredMode") private var alteredModeRaw = AlteredMode.guided.rawValue
     @State private var phase: ScenePhase = .setup
     @State private var sceneInput = ""
     @State private var currentScene: SceneRecord?
@@ -70,9 +83,10 @@ struct MythicScenesView: View {
     @State private var adventureConcluded = false
     @State private var sceneSummaryInput = ""
     @State private var isDraftingSummary = false
-    @AppStorage("mythicAutoDraftNextScene") private var autoDraftNextScene = false
+    @AppStorage("soloAutoDraftNextScene") private var autoDraftNextScene = false
     @State private var isDraftingNextScene = false
     @State private var nextSceneError: String?
+    @AppStorage("soloShowLocationDebug") private var showLocationDebug = false
 
     @State private var narration = ""
     @State private var narrationError: String?
@@ -85,6 +99,8 @@ struct MythicScenesView: View {
     @State private var checkDrafts: [SkillCheckDraft] = []
     @State private var pendingCheckID: UUID?
     @State private var fateQuestionDrafts: [FateQuestionDraftState] = []
+    @State private var canonizationDrafts: [CanonizationDraftState] = []
+    @State private var pendingCanonizationID: UUID?
 
     private var alteredMode: AlteredMode {
         AlteredMode(rawValue: alteredModeRaw) ?? .guided
@@ -95,6 +111,7 @@ struct MythicScenesView: View {
             VStack(alignment: .leading, spacing: Spacing.large) {
                 headerSection
                 sceneSetupSection
+                locationSection
 
                 if let scene = currentScene {
                     sceneSummarySection(scene)
@@ -127,7 +144,7 @@ struct MythicScenesView: View {
             .padding(.vertical, Spacing.large)
         }
         .onAppear(perform: ensureCampaign)
-        .navigationTitle("Mythic Scenes")
+        .navigationTitle("Solo Scenes")
 #if os(iOS)
         .navigationBarTitleDisplayMode(.large)
         .navigationSubtitle("Resolve scenes with Apple Intelligence")
@@ -144,7 +161,7 @@ struct MythicScenesView: View {
                 .fontWeight(.medium)
                 .foregroundColor(.secondary)
 
-            Text("Use the Mythic-style loop to resolve scenes, track lists, and keep chaos moving.")
+            Text("Use the solo GM loop to resolve scenes, track lists, and keep chaos moving.")
                 .font(.callout)
                 .foregroundColor(.secondary)
 
@@ -395,6 +412,90 @@ struct MythicScenesView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(Color.gray.opacity(0.1))
                     .cornerRadius(12)
+            }
+        }
+        .padding(Spacing.medium)
+        .background(Color.gray.opacity(0.08))
+        .cornerRadius(14)
+    }
+
+    private var locationSection: some View {
+        VStack(alignment: .leading, spacing: Spacing.small) {
+            Text("LOCATION")
+                .font(.footnote)
+                .fontWeight(.medium)
+                .foregroundColor(.secondary)
+
+            if let campaign {
+                Button(action: generateDungeonStart) {
+                    HStack(spacing: Spacing.small) {
+                        Image(systemName: "map")
+                        Text("Generate Dungeon Start")
+                            .font(.callout)
+                            .fontWeight(.medium)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, Spacing.small)
+                }
+                .buttonStyle(.glassProminent)
+
+                Button(action: regenerateActiveLocation) {
+                    HStack(spacing: Spacing.small) {
+                        Image(systemName: "arrow.clockwise")
+                        Text("Override: Regenerate Location")
+                            .font(.callout)
+                            .fontWeight(.medium)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, Spacing.small)
+                }
+                .buttonStyle(.glassProminent)
+                .tint(.secondary)
+                .disabled(campaign.activeLocationId == nil)
+
+                if let location = activeLocation(in: campaign) {
+                    Text("Active Location: \(location.name) (\(location.type))")
+                        .font(.callout)
+
+                    if showLocationDebug {
+                        let nodeCount = location.nodes?.count ?? 0
+                        let edgeCount = location.edges?.count ?? 0
+                        Text("Nodes: \(nodeCount) · Edges: \(edgeCount)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+
+                        if let node = activeNode(in: campaign, location: location) {
+                            Text("Current Node: \(node.summary)")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+
+                            if let contentSummary = node.contentSummary, !contentSummary.isEmpty {
+                                Text("Details: \(contentSummary)")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+
+                            if let traps = node.traps, !traps.isEmpty {
+                                let trapNames = traps.map { "\($0.name) [\($0.state)]" }.joined(separator: ", ")
+                                Text("Traps: \(trapNames)")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            } else {
+                                Text("Traps: none detected")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    }
+                } else {
+                    Text("No active location yet.")
+                        .font(.callout)
+                        .foregroundColor(.secondary)
+                }
+            } else {
+                Text("Start a campaign to generate locations.")
+                    .font(.callout)
+                    .foregroundColor(.secondary)
             }
         }
         .padding(Spacing.medium)
@@ -767,6 +868,17 @@ struct MythicScenesView: View {
                 outcome: draft.outcome
             )
         }
+        let canonModels = canonizationDrafts.compactMap { draft -> CanonizationRecord? in
+            guard let roll = draft.roll, let target = draft.target, let outcome = draft.outcome else { return nil }
+            return CanonizationRecord(
+                assumption: draft.assumption,
+                likelihood: draft.likelihood.rawValue,
+                chaosFactor: draft.chaosFactor,
+                roll: roll,
+                target: target,
+                outcome: outcome
+            )
+        }
 
         let bookkeeping = BookkeepingInput(
             summary: sceneSummaryInput.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -783,10 +895,14 @@ struct MythicScenesView: View {
             fateQuestions: fateModels,
             places: parseCommaList(placesInput),
             curiosities: parseCommaList(curiositiesInput),
-            rollHighlights: parseCommaList(rollHighlightsInput)
+            rollHighlights: parseCommaList(rollHighlightsInput),
+            locationId: campaign.activeLocationId,
+            generatedEntityIds: [],
+            canonizations: canonModels
         )
 
         let savedEntry = engine.finalizeScene(campaign: campaign, scene: currentScene, bookkeeping: bookkeeping)
+        campaign.activeSceneId = savedEntry.id
 
         do {
             try modelContext.save()
@@ -830,6 +946,8 @@ struct MythicScenesView: View {
         checkDrafts = []
         pendingCheckID = nil
         fateQuestionDrafts = []
+        canonizationDrafts = []
+        pendingCanonizationID = nil
     }
 
     private func resetAdventure() {
@@ -895,6 +1013,13 @@ struct MythicScenesView: View {
                 if !context.activeThreads.isEmpty {
                     let names = context.activeThreads.map { "\($0.name) (w=\($0.weight))" }.joined(separator: ", ")
                     prompt += "\nActive Threads: \(names)"
+                }
+
+                if let campaignLocation = activeLocation(in: campaign) {
+                    prompt += "\nLocation: \(campaignLocation.name) (\(campaignLocation.type))"
+                    if let node = activeNode(in: campaign, location: campaignLocation) {
+                        prompt += "\nCurrent Node: \(node.summary)"
+                    }
                 }
 
                 if !context.recentScenes.isEmpty {
@@ -982,6 +1107,7 @@ struct MythicScenesView: View {
                     checkDrafts[index].total = result.total
                     checkDrafts[index].outcome = result.outcome
                     appendRollHighlight(for: checkDrafts[index], outcome: result.outcome, total: result.total)
+                    applyTrapOutcomeIfNeeded(for: checkDrafts[index], outcome: result.outcome)
 
                     let consequence = try await generateCheckConsequence(
                         session: session,
@@ -999,8 +1125,67 @@ struct MythicScenesView: View {
                     return
                 }
 
+                if let pendingId = pendingCanonizationID,
+                   let index = canonizationDrafts.firstIndex(where: { $0.id == pendingId }) {
+                    let lower = trimmed.lowercased()
+                    if isAffirmativeResponse(lower) {
+                        let likelihood = canonizationDrafts[index].likelihood
+                        let roll = engine.rollD100()
+                        let record = engine.resolveFateQuestion(
+                            question: canonizationDrafts[index].assumption,
+                            likelihood: likelihood,
+                            chaosFactor: campaign.chaosFactor,
+                            roll: roll
+                        )
+                        canonizationDrafts[index] = CanonizationDraftState(
+                            assumption: canonizationDrafts[index].assumption,
+                            likelihood: likelihood,
+                            chaosFactor: campaign.chaosFactor,
+                            roll: record.roll,
+                            target: record.target,
+                            outcome: record.outcome
+                        )
+                        pendingCanonizationID = nil
+                        let gmText = "Canon roll (\(likelihood.rawValue), CF \(campaign.chaosFactor)): \(record.roll) vs \(record.target) => \(record.outcome.uppercased())."
+                        interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
+                        sceneInput = ""
+                        return
+                    }
+
+                    if isNegativeResponse(lower) {
+                        pendingCanonizationID = nil
+                        let gmText = "Okay. We will leave that unconfirmed for now."
+                        interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
+                        sceneInput = ""
+                        return
+                    }
+
+                    let gmText = "Want to roll fate to canonize that assumption? (y/n)"
+                    interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
+                    sceneInput = ""
+                    return
+                }
+
                 if isMetaMessage(trimmed) {
                     let gmText = try await generateNormalGMResponse(session: session, context: context, playerText: trimmed, isMeta: true)
+                    interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
+                    sceneInput = ""
+                    return
+                }
+
+                if let trapDraft = trapSearchDraftIfNeeded(playerText: trimmed, campaign: campaign) {
+                    checkDrafts.append(trapDraft)
+                    pendingCheckID = trapDraft.id
+                    let gmText = gmLineForCheck(trapDraft.request)
+                    interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
+                    sceneInput = ""
+                    return
+                }
+
+                if let trapTriggerDraft = trapTriggerDraftIfNeeded(playerText: trimmed, campaign: campaign) {
+                    checkDrafts.append(trapTriggerDraft)
+                    pendingCheckID = trapTriggerDraft.id
+                    let gmText = "Trap triggered: \(trapTriggerDraft.request.stakes) " + gmLineForCheck(trapTriggerDraft.request)
                     interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
                     sceneInput = ""
                     return
@@ -1083,7 +1268,17 @@ struct MythicScenesView: View {
                         return
                     }
 
-                    let draft = SkillCheckDraft(playerAction: trimmed, request: request, roll: nil, modifier: nil, total: nil, outcome: nil, consequence: nil)
+                    let draft = SkillCheckDraft(
+                        playerAction: trimmed,
+                        request: request,
+                        roll: nil,
+                        modifier: nil,
+                        total: nil,
+                        outcome: nil,
+                        consequence: nil,
+                        sourceTrapId: nil,
+                        sourceKind: nil
+                    )
                     checkDrafts.append(draft)
                     pendingCheckID = draft.id
 
@@ -1094,6 +1289,29 @@ struct MythicScenesView: View {
                 }
 
                 let gmText = try await generateNormalGMResponse(session: session, context: context, playerText: trimmed, isMeta: false)
+                let canonDraft = try await session.respond(
+                    to: Prompt(makeCanonizationPrompt(playerText: trimmed, context: context)),
+                    generating: CanonizationDraft.self
+                )
+
+                if canonDraft.content.shouldCanonize,
+                   let likelihood = FateLikelihood.from(name: canonDraft.content.likelihood) {
+                    let state = CanonizationDraftState(
+                        assumption: canonDraft.content.assumption,
+                        likelihood: likelihood,
+                        chaosFactor: campaign.chaosFactor,
+                        roll: nil,
+                        target: nil,
+                        outcome: nil
+                    )
+                    canonizationDrafts.append(state)
+                    pendingCanonizationID = state.id
+                    let combined = "\(gmText)\nCanonize: \(state.assumption). Roll fate to confirm? (y/n)"
+                    interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: combined, turnSignal: "gm_response"))
+                    sceneInput = ""
+                    return
+                }
+
                 interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
                 sceneInput = ""
             } catch {
@@ -1154,6 +1372,148 @@ struct MythicScenesView: View {
         return false
     }
 
+    private func isAffirmativeResponse(_ text: String) -> Bool {
+        let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return ["y", "yes", "yeah", "yep", "sure", "ok", "okay", "please"].contains(normalized)
+    }
+
+    private func isNegativeResponse(_ text: String) -> Bool {
+        let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return ["n", "no", "nope", "nah", "skip"].contains(normalized)
+    }
+
+    private func trapSearchDraftIfNeeded(playerText: String, campaign: Campaign) -> SkillCheckDraft? {
+        let lower = playerText.lowercased()
+        let searchKeywords = ["check for traps", "search for traps", "look for traps", "scan for traps", "inspect for traps"]
+        guard searchKeywords.contains(where: { lower.contains($0) }) else { return nil }
+        guard let trap = currentHiddenTrap(in: campaign) else { return nil }
+
+        let skillName = normalizedSkillName(trap.detectionSkill)
+        let request = CheckRequest(
+            checkType: .skillCheck,
+            skillName: skillName,
+            abilityOverride: nil,
+            dc: trap.detectionDC,
+            opponentSkill: nil,
+            opponentDC: nil,
+            advantageState: .normal,
+            stakes: "You miss the trap and remain at risk of triggering it.",
+            partialSuccessDC: max(5, trap.detectionDC - 5),
+            partialSuccessOutcome: "You notice hints but not the exact trigger.",
+            reason: "Hidden \(trap.category) trap: \(trap.trigger)."
+        )
+
+        return SkillCheckDraft(
+            playerAction: playerText,
+            request: request,
+            roll: nil,
+            modifier: nil,
+            total: nil,
+            outcome: nil,
+            consequence: nil,
+            sourceTrapId: trap.id,
+            sourceKind: "trap_detection"
+        )
+    }
+
+    private func trapTriggerDraftIfNeeded(playerText: String, campaign: Campaign) -> SkillCheckDraft? {
+        let lower = playerText.lowercased()
+        let triggerKeywords = ["open", "pull", "push", "touch", "step", "cross", "enter", "lift"]
+        guard triggerKeywords.contains(where: { lower.contains($0) }) else { return nil }
+        guard let trap = currentHiddenTrap(in: campaign) else { return nil }
+
+        trap.state = "triggered"
+        try? modelContext.save()
+        let skillName = normalizedSkillName(trap.saveSkill ?? "Acrobatics")
+        let dc = trap.saveDC ?? trap.detectionDC
+        let request = CheckRequest(
+            checkType: .skillCheck,
+            skillName: skillName,
+            abilityOverride: nil,
+            dc: dc,
+            opponentSkill: nil,
+            opponentDC: nil,
+            advantageState: .normal,
+            stakes: trap.effectSummary,
+            partialSuccessDC: max(5, dc - 5),
+            partialSuccessOutcome: "You avoid the worst of it but still suffer a complication.",
+            reason: "Trap trigger: \(trap.trigger)."
+        )
+
+        return SkillCheckDraft(
+            playerAction: playerText,
+            request: request,
+            roll: nil,
+            modifier: nil,
+            total: nil,
+            outcome: nil,
+            consequence: nil,
+            sourceTrapId: trap.id,
+            sourceKind: "trap_trigger"
+        )
+    }
+
+    private func applyTrapOutcomeIfNeeded(for draft: SkillCheckDraft, outcome: String) {
+        guard let campaign, let trapId = draft.sourceTrapId else { return }
+        guard let location = activeLocation(in: campaign) else { return }
+        guard let node = activeNode(in: campaign, location: location) else { return }
+        guard let traps = node.traps else { return }
+        guard let trapIndex = traps.firstIndex(where: { $0.id == trapId }) else { return }
+
+        let trap = traps[trapIndex]
+        switch draft.sourceKind {
+        case "trap_detection":
+            if outcome == "success" || outcome == "partial_success" {
+                trap.state = "spotted"
+            }
+        case "trap_trigger":
+            trap.state = "triggered"
+        default:
+            break
+        }
+        try? modelContext.save()
+    }
+
+    private func currentHiddenTrap(in campaign: Campaign) -> TrapEntity? {
+        guard let location = activeLocation(in: campaign) else { return nil }
+        guard let node = activeNode(in: campaign, location: location) else { return nil }
+        return node.traps?.first(where: { $0.state == "hidden" })
+    }
+
+    private func normalizedSkillName(_ skill: String) -> String {
+        if let match = engine.ruleset.skillNames.first(where: { $0.caseInsensitiveCompare(skill) == .orderedSame }) {
+            return match
+        }
+        if let fallback = engine.ruleset.skillNames.first(where: { $0.caseInsensitiveCompare("Investigation") == .orderedSame }) {
+            return fallback
+        }
+        return engine.ruleset.skillNames.first ?? skill
+    }
+
+    private func activeLocationName(for context: NarrationContextPacket) -> String {
+        guard let campaign else { return "none" }
+        if let location = activeLocation(in: campaign) {
+            if let node = activeNode(in: campaign, location: location) {
+                return "\(location.name) (\(location.type)) - \(node.summary)"
+            }
+            return "\(location.name) (\(location.type))"
+        }
+        return "none"
+    }
+
+    private func canonizationFacts(for campaign: Campaign) -> String {
+        guard let location = activeLocation(in: campaign) else { return "" }
+        var facts: [String] = ["Location: \(location.name) (\(location.type))"]
+        if let node = activeNode(in: campaign, location: location) {
+            facts.append("Node: \(node.summary)")
+            if let traps = node.traps, !traps.isEmpty {
+                let trapFacts = traps.map { "\($0.name) [\($0.state)]" }.joined(separator: ", ")
+                facts.append("Traps: \(trapFacts)")
+            }
+        }
+        return facts.joined(separator: " · ")
+    }
+
     private func makeIntentPrompt(playerText: String, context: NarrationContextPacket) -> String {
         """
         Classify the player's message into one of: fate_question, skill_check, normal.
@@ -1167,6 +1527,27 @@ struct MythicScenesView: View {
 
         Return an InteractionIntentDraft.
         """
+    }
+
+    private func makeCanonizationPrompt(playerText: String, context: NarrationContextPacket) -> String {
+        var prompt = """
+        Determine if the player is asserting a new fact that should be canonized.
+        Only return shouldCanonize = true when the player is treating an assumption as true
+        and it would impact the world if accepted.
+        If they are asking a question, or speaking out of character to the GM, return false.
+        Provide a concise assumption and a likelihood for a fate roll.
+
+        Scene #\(context.sceneNumber)
+        Expected Scene: \(context.expectedScene)
+        Player: \(playerText)
+        """
+        if let campaign {
+            let facts = canonizationFacts(for: campaign)
+            if !facts.isEmpty {
+                prompt += "\nKnown system facts: \(facts)"
+            }
+        }
+        return prompt
     }
 
     private func makeFatePrompt(playerText: String, context: NarrationContextPacket) -> String {
@@ -1198,6 +1579,7 @@ struct MythicScenesView: View {
         Player action: \(playerText)
         Recent places: \(context.recentPlaces.joined(separator: ", "))
         Recent curiosities: \(context.recentCuriosities.joined(separator: ", "))
+        Active location: \(activeLocationName(for: context))
         Ruleset: \(engine.ruleset.displayName)
         Available skills: \(engine.ruleset.skillNames.joined(separator: ", "))
         """
@@ -1255,6 +1637,13 @@ struct MythicScenesView: View {
         if !context.activeThreads.isEmpty {
             let names = context.activeThreads.map { "\($0.name) (w=\($0.weight))" }.joined(separator: ", ")
             prompt += "\nActive Threads: \(names)"
+        }
+
+        if let campaign, let location = activeLocation(in: campaign) {
+            prompt += "\nLocation: \(location.name) (\(location.type))"
+            if let node = activeNode(in: campaign, location: location) {
+                prompt += "\nCurrent Node: \(node.summary)"
+            }
         }
 
         if !context.recentPlaces.isEmpty {
@@ -1400,6 +1789,14 @@ struct MythicScenesView: View {
                     }
                 }
 
+                if !canonizationDrafts.isEmpty {
+                    prompt += "\nCanonizations:"
+                    for canon in canonizationDrafts {
+                        let outcome = canon.outcome?.uppercased() ?? "PENDING"
+                        prompt += "\n- \(canon.assumption) => \(outcome)"
+                    }
+                }
+
                 let response = try await session.respond(to: Prompt(prompt), generating: SceneWrapUpDraft.self)
                 let draft = response.content
 
@@ -1417,6 +1814,36 @@ struct MythicScenesView: View {
                 narrationError = handleFoundationModelsError(error)
             }
         }
+    }
+
+    private func generateDungeonStart() {
+        guard let campaign else { return }
+        let location = locationEngine.generateDungeonStart(campaign: campaign)
+        if location == nil {
+            gmResponseError = "Could not generate a dungeon location."
+            return
+        }
+        try? modelContext.save()
+    }
+
+    private func regenerateActiveLocation() {
+        guard let campaign else { return }
+        if let activeId = campaign.activeLocationId {
+            campaign.locations?.removeAll { $0.id == activeId }
+        }
+        campaign.activeLocationId = nil
+        campaign.activeNodeId = nil
+        generateDungeonStart()
+    }
+
+    private func activeLocation(in campaign: Campaign) -> LocationEntity? {
+        guard let activeId = campaign.activeLocationId else { return nil }
+        return campaign.locations?.first(where: { $0.id == activeId })
+    }
+
+    private func activeNode(in campaign: Campaign, location: LocationEntity) -> LocationNode? {
+        guard let nodeId = campaign.activeNodeId else { return nil }
+        return location.nodes?.first(where: { $0.id == nodeId })
     }
 
     private func draftNextScenePrompt(previousEntry: SceneEntry?) {
@@ -1487,6 +1914,8 @@ struct MythicScenesView: View {
             campaign = existing
         } else {
             let newCampaign = Campaign()
+            newCampaign.rulesetName = engine.ruleset.displayName
+            newCampaign.contentPackVersion = "solo_default@0.1"
             modelContext.insert(newCampaign)
             campaign = newCampaign
             try? modelContext.save()
@@ -1600,6 +2029,6 @@ private struct SceneEditorSheet: View {
 
 #Preview {
     NavigationStack {
-        MythicScenesView()
+        SoloScenesView()
     }
 }

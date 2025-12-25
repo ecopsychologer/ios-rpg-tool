@@ -33,13 +33,16 @@ struct BookkeepingInput {
     let places: [String]
     let curiosities: [String]
     let rollHighlights: [String]
+    let locationId: UUID?
+    let generatedEntityIds: [UUID]
+    let canonizations: [CanonizationRecord]
 }
 
-struct MythicCampaignEngine {
-    var resolver: MythicEngine
+struct SoloCampaignEngine {
+    var resolver: SoloOracleEngine
     var ruleset: any Ruleset
 
-    init(resolver: MythicEngine = MythicEngine(), ruleset: any Ruleset = RulesetCatalog.dnd) {
+    init(resolver: SoloOracleEngine = SoloOracleEngine(), ruleset: any Ruleset = RulesetCatalog.dnd) {
         self.resolver = resolver
         self.ruleset = ruleset
     }
@@ -244,7 +247,10 @@ struct MythicCampaignEngine {
             fateQuestions: bookkeeping.fateQuestions.isEmpty ? nil : bookkeeping.fateQuestions,
             places: bookkeeping.places.isEmpty ? nil : bookkeeping.places,
             curiosities: bookkeeping.curiosities.isEmpty ? nil : bookkeeping.curiosities,
-            rollHighlights: bookkeeping.rollHighlights.isEmpty ? nil : bookkeeping.rollHighlights
+            rollHighlights: bookkeeping.rollHighlights.isEmpty ? nil : bookkeeping.rollHighlights,
+            locationId: bookkeeping.locationId,
+            generatedEntityIds: bookkeeping.generatedEntityIds.isEmpty ? nil : bookkeeping.generatedEntityIds,
+            canonizations: bookkeeping.canonizations.isEmpty ? nil : bookkeeping.canonizations
         )
 
         campaign.scenes.append(entry)

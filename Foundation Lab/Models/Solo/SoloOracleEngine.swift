@@ -20,7 +20,7 @@ struct DefaultWordListProvider: WordListProvider {
     ]
 }
 
-struct MythicEngine {
+struct SoloOracleEngine {
     var wordListProvider: WordListProvider
     var focusOptions: [RandomEventFocus]
 

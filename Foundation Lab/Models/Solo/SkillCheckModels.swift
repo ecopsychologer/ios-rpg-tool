@@ -200,6 +200,18 @@ struct InteractionIntentDraft {
 }
 
 @Generable
+struct CanonizationDraft {
+    @Guide(description: "True if the player is asserting a new fact that should be canonized")
+    let shouldCanonize: Bool
+
+    @Guide(description: "The assumption or fact the player wants to establish")
+    let assumption: String
+
+    @Guide(description: "Likelihood for the fate roll: impossible, unlikely, 50_50, likely, veryLikely, nearlyCertain")
+    let likelihood: String
+}
+
+@Generable
 struct CheckRollDraft {
     @Guide(description: "The d20 roll result if provided")
     let roll: Int?

@@ -12,6 +12,18 @@ final class Campaign {
     var scenes: [SceneEntry]
     var characters: [CharacterEntry]
     var threads: [ThreadEntry]
+    var rulesetName: String?
+    var contentPackVersion: String?
+    var oracleConfig: String?
+    var party: Party?
+    var activeSceneId: UUID?
+    var activeLocationId: UUID?
+    var activeNodeId: UUID?
+    var locations: [LocationEntity]?
+    var eventLog: [EventLogEntry]?
+    var tableRolls: [TableRollRecord]?
+    var rngSeed: UInt64?
+    var rngSequence: Int?
 
     init(title: String = "Solo Campaign") {
         self.id = UUID()
@@ -23,6 +35,18 @@ final class Campaign {
         self.scenes = []
         self.characters = []
         self.threads = []
+        self.rulesetName = nil
+        self.contentPackVersion = nil
+        self.oracleConfig = nil
+        self.party = nil
+        self.activeSceneId = nil
+        self.activeLocationId = nil
+        self.activeNodeId = nil
+        self.locations = nil
+        self.eventLog = nil
+        self.tableRolls = nil
+        self.rngSeed = nil
+        self.rngSequence = nil
     }
 }
 
@@ -55,6 +79,9 @@ final class SceneEntry {
     var places: [String]?
     var curiosities: [String]?
     var rollHighlights: [String]?
+    var locationId: UUID?
+    var generatedEntityIds: [UUID]?
+    var canonizations: [CanonizationRecord]?
 
     init(
         sceneNumber: Int,
@@ -81,7 +108,10 @@ final class SceneEntry {
         fateQuestions: [FateQuestionRecord]? = nil,
         places: [String]? = nil,
         curiosities: [String]? = nil,
-        rollHighlights: [String]? = nil
+        rollHighlights: [String]? = nil,
+        locationId: UUID? = nil,
+        generatedEntityIds: [UUID]? = nil,
+        canonizations: [CanonizationRecord]? = nil
     ) {
         self.id = UUID()
         self.sceneNumber = sceneNumber
@@ -110,6 +140,39 @@ final class SceneEntry {
         self.places = places
         self.curiosities = curiosities
         self.rollHighlights = rollHighlights
+        self.locationId = locationId
+        self.generatedEntityIds = generatedEntityIds
+        self.canonizations = canonizations
+    }
+}
+
+@Model
+final class CanonizationRecord {
+    var id: UUID
+    var createdAt: Date
+    var assumption: String
+    var likelihood: String
+    var chaosFactor: Int
+    var roll: Int
+    var target: Int
+    var outcome: String
+
+    init(
+        assumption: String,
+        likelihood: String,
+        chaosFactor: Int,
+        roll: Int,
+        target: Int,
+        outcome: String
+    ) {
+        self.id = UUID()
+        self.createdAt = Date()
+        self.assumption = assumption
+        self.likelihood = likelihood
+        self.chaosFactor = chaosFactor
+        self.roll = roll
+        self.target = target
+        self.outcome = outcome
     }
 }
 
