@@ -1,57 +1,61 @@
 import Foundation
+import WorldState
 
-struct NarrationContextPacket {
-    let sceneNumber: Int
-    let expectedScene: String
-    let chaosFactor: Int
-    let roll: Int
-    let sceneType: SceneType
-    let alterationMethod: AlterationMethod?
-    let alterationDetail: String?
-    let randomEvent: RandomEvent?
-    let recentScenes: [SceneEntry]
-    let activeCharacters: [CharacterEntry]
-    let activeThreads: [ThreadEntry]
-    let recentPlaces: [String]
-    let recentCuriosities: [String]
-    let recentRollHighlights: [String]
+public struct NarrationContextPacket {
+    public let sceneNumber: Int
+    public let expectedScene: String
+    public let chaosFactor: Int
+    public let roll: Int
+    public let sceneType: SceneType
+    public let alterationMethod: AlterationMethod?
+    public let alterationDetail: String?
+    public let randomEvent: RandomEvent?
+    public let recentScenes: [SceneEntry]
+    public let activeCharacters: [CharacterEntry]
+    public let activeThreads: [ThreadEntry]
+    public let recentPlaces: [String]
+    public let recentCuriosities: [String]
+    public let recentRollHighlights: [String]
+    public let currentLocation: String?
+    public let currentNode: String?
+    public let currentExits: [String]
 }
 
-struct BookkeepingInput {
-    let summary: String
-    let newCharacters: [String]
-    let newThreads: [String]
-    let featuredCharacters: [String]
-    let featuredThreads: [String]
-    let removedCharacters: [String]
-    let removedThreads: [String]
-    let pcsInControl: Bool
-    let concluded: Bool
-    let interactions: [SceneInteraction]
-    let skillChecks: [SkillCheckRecord]
-    let fateQuestions: [FateQuestionRecord]
-    let places: [String]
-    let curiosities: [String]
-    let rollHighlights: [String]
-    let locationId: UUID?
-    let generatedEntityIds: [UUID]
-    let canonizations: [CanonizationRecord]
+public struct BookkeepingInput {
+    public let summary: String
+    public let newCharacters: [String]
+    public let newThreads: [String]
+    public let featuredCharacters: [String]
+    public let featuredThreads: [String]
+    public let removedCharacters: [String]
+    public let removedThreads: [String]
+    public let pcsInControl: Bool
+    public let concluded: Bool
+    public let interactions: [SceneInteraction]
+    public let skillChecks: [SkillCheckRecord]
+    public let fateQuestions: [FateQuestionRecord]
+    public let places: [String]
+    public let curiosities: [String]
+    public let rollHighlights: [String]
+    public let locationId: UUID?
+    public let generatedEntityIds: [UUID]
+    public let canonizations: [CanonizationRecord]
 }
 
-struct SoloCampaignEngine {
-    var resolver: SoloOracleEngine
-    var ruleset: any Ruleset
+public struct SoloCampaignEngine {
+    public var resolver: SoloOracleEngine
+    public var ruleset: any Ruleset
 
-    init(resolver: SoloOracleEngine = SoloOracleEngine(), ruleset: any Ruleset = RulesetCatalog.srd) {
+    public init(resolver: SoloOracleEngine = SoloOracleEngine(), ruleset: any Ruleset = RulesetCatalog.srd) {
         self.resolver = resolver
         self.ruleset = ruleset
     }
 
-    func rollD100() -> Int {
+    public func rollD100() -> Int {
         resolver.rollD100()
     }
 
-    mutating func resolveScene(campaign: Campaign, expectedScene: String) -> SceneRecord {
+    public mutating func resolveScene(campaign: Campaign, expectedScene: String) -> SceneRecord {
         let roll = resolver.rollD10()
         let type = resolver.classifyScene(chaosFactor: campaign.chaosFactor, roll: roll)
 
@@ -73,7 +77,7 @@ struct SoloCampaignEngine {
         return record
     }
 
-    mutating func applyAlterationMethod(
+    public mutating func applyAlterationMethod(
         scene: SceneRecord,
         method: AlterationMethod,
         adjustment: SceneAdjustment
@@ -92,7 +96,7 @@ struct SoloCampaignEngine {
         return updated
     }
 
-    func buildNarrationContext(
+    public func buildNarrationContext(
         campaign: Campaign,
         scene: SceneRecord,
         recentCount: Int = 3
@@ -104,6 +108,10 @@ struct SoloCampaignEngine {
         let recentPlaces = uniqueStrings(from: recentScenes.flatMap { $0.places })
         let recentCuriosities = uniqueStrings(from: recentScenes.flatMap { $0.curiosities })
         let recentRollHighlights = uniqueStrings(from: recentScenes.flatMap { $0.rollHighlights })
+
+        let locationSummary = activeLocationSummary(in: campaign)
+        let nodeSummary = activeNodeSummary(in: campaign)
+        let exits = activeExitSummaries(in: campaign)
 
         return NarrationContextPacket(
             sceneNumber: scene.sceneNumber,
@@ -119,11 +127,44 @@ struct SoloCampaignEngine {
             activeThreads: campaign.threads.sorted { $0.weight > $1.weight },
             recentPlaces: recentPlaces,
             recentCuriosities: recentCuriosities,
-            recentRollHighlights: recentRollHighlights
+            recentRollHighlights: recentRollHighlights,
+            currentLocation: locationSummary,
+            currentNode: nodeSummary,
+            currentExits: exits
         )
     }
 
-    func finalizeCheckRequest(from draft: CheckRequestDraft) -> CheckRequest? {
+    private func activeLocationSummary(in campaign: Campaign) -> String? {
+        guard let activeId = campaign.activeLocationId,
+              let location = campaign.locations?.first(where: { $0.id == activeId }) else { return nil }
+        return "\(location.name) (\(location.type))"
+    }
+
+    private func activeNodeSummary(in campaign: Campaign) -> String? {
+        guard let activeId = campaign.activeLocationId,
+              let location = campaign.locations?.first(where: { $0.id == activeId }),
+              let nodeId = campaign.activeNodeId,
+              let node = location.nodes?.first(where: { $0.id == nodeId }) else { return nil }
+        return node.summary
+    }
+
+    private func activeExitSummaries(in campaign: Campaign) -> [String] {
+        guard let activeId = campaign.activeLocationId,
+              let location = campaign.locations?.first(where: { $0.id == activeId }),
+              let nodeId = campaign.activeNodeId else { return [] }
+
+        let exits = (location.edges ?? []).filter { $0.fromNodeId == nodeId }
+        return exits.map { edge in
+            let label = (edge.label?.isEmpty == false) ? (edge.label ?? edge.type.capitalized) : edge.type.capitalized
+            if let toId = edge.toNodeId,
+               let target = location.nodes?.first(where: { $0.id == toId }) {
+                return "\(label) (Leads to: \(target.summary))"
+            }
+            return "\(label) (Unexplored)"
+        }
+    }
+
+    public func finalizeCheckRequest(from draft: CheckRequestDraft) -> CheckRequest? {
         guard draft.requiresRoll else { return nil }
         let type = CheckType(rawValue: draft.checkType.trimmingCharacters(in: .whitespacesAndNewlines))
         let skillName = draft.skill.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -160,7 +201,7 @@ struct SoloCampaignEngine {
         )
     }
 
-    func evaluateCheck(request: CheckRequest, roll: Int, modifier: Int) -> CheckResult {
+    public func evaluateCheck(request: CheckRequest, roll: Int, modifier: Int) -> CheckResult {
         let total = roll + modifier
         let outcome: String
 
@@ -189,11 +230,11 @@ struct SoloCampaignEngine {
         return CheckResult(total: total, outcome: outcome, consequence: consequence)
     }
 
-    func defaultPartialSuccessDC(for dc: Int) -> Int {
+    public func defaultPartialSuccessDC(for dc: Int) -> Int {
         max(5, dc - 5)
     }
 
-    func resolveFateQuestion(
+    public func resolveFateQuestion(
         question: String,
         likelihood: FateLikelihood,
         chaosFactor: Int,
@@ -211,7 +252,7 @@ struct SoloCampaignEngine {
         )
     }
 
-    mutating func finalizeScene(
+    public mutating func finalizeScene(
         campaign: Campaign,
         scene: SceneRecord,
         bookkeeping: BookkeepingInput
@@ -353,24 +394,24 @@ struct SoloCampaignEngine {
     }
 }
 
-protocol ListEntryProtocol: AnyObject {
-    var name: String { get set }
-    var key: String { get set }
-    var weight: Int { get set }
+public protocol ListEntryProtocol: AnyObject {
+    public var name: String { get set }
+    public var key: String { get set }
+    public var weight: Int { get set }
 }
 
 extension CharacterEntry: ListEntryProtocol {}
 extension ThreadEntry: ListEntryProtocol {}
 
 extension AdvantageState {
-    static func from(name: String?) -> AdvantageState? {
+    public static func from(name: String?) -> AdvantageState? {
         guard let name else { return nil }
         return AdvantageState.allCases.first { $0.rawValue.caseInsensitiveCompare(name) == .orderedSame }
     }
 }
 
 extension FateLikelihood {
-    static func from(name: String?) -> FateLikelihood? {
+    public static func from(name: String?) -> FateLikelihood? {
         guard let name else { return nil }
         let normalized = name
             .trimmingCharacters(in: .whitespacesAndNewlines)

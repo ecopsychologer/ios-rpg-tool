@@ -8,6 +8,7 @@
 import SwiftUI
 import SwiftData
 import LiquidGlasKit
+import WorldState
 
 struct SettingsView: View {
     @Environment(\.modelContext) private var modelContext

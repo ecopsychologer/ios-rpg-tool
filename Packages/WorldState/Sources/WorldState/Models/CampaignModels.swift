@@ -2,34 +2,35 @@ import Foundation
 import SwiftData
 
 @Model
-final class Campaign {
-    var id: UUID
-    var title: String
-    var createdAt: Date
-    var isActive: Bool
-    var chaosFactor: Int
-    var sceneNumber: Int
-    var scenes: [SceneEntry]
-    var characters: [CharacterEntry]
-    var threads: [ThreadEntry]
-    var npcs: [NPCEntry] = []
-    var worldLore: [WorldLoreEntry] = []
-    var playerCharacters: [PlayerCharacter] = []
-    var rulesetName: String?
-    var contentPackVersion: String?
-    var oracleConfig: String?
-    var worldVibe: String = ""
-    var party: Party?
-    var activeSceneId: UUID?
-    var activeLocationId: UUID?
-    var activeNodeId: UUID?
-    var locations: [LocationEntity]?
-    var eventLog: [EventLogEntry]?
-    var tableRolls: [TableRollRecord]?
-    var rngSeed: UInt64?
-    var rngSequence: Int?
+public final class Campaign {
+    public var id: UUID
+    public var title: String
+    public var createdAt: Date
+    public var isActive: Bool
+    public var chaosFactor: Int
+    public var sceneNumber: Int
+    public var scenes: [SceneEntry]
+    public var characters: [CharacterEntry]
+    public var threads: [ThreadEntry]
+    public var npcs: [NPCEntry] = []
+    public var worldLore: [WorldLoreEntry] = []
+    public var playerCharacters: [PlayerCharacter] = []
+    public var rulesetName: String?
+    public var contentPackVersion: String?
+    public var oracleConfig: String?
+    public var worldVibe: String = ""
+    public var party: Party?
+    public var activeSceneId: UUID?
+    public var activeLocationId: UUID?
+    public var activeNodeId: UUID?
+    public var lastNodeId: UUID?
+    public var locations: [LocationEntity]?
+    public var eventLog: [EventLogEntry]?
+    public var tableRolls: [TableRollRecord]?
+    public var rngSeed: UInt64?
+    public var rngSequence: Int?
 
-    init(title: String = "Solo Campaign") {
+    public init(title: String = "Solo Campaign") {
         self.id = UUID()
         self.title = title
         self.createdAt = Date()
@@ -50,6 +51,7 @@ final class Campaign {
         self.activeSceneId = nil
         self.activeLocationId = nil
         self.activeNodeId = nil
+        self.lastNodeId = nil
         self.locations = nil
         self.eventLog = nil
         self.tableRolls = nil
@@ -59,39 +61,39 @@ final class Campaign {
 }
 
 @Model
-final class SceneEntry {
-    var id: UUID
-    var sceneNumber: Int
-    var createdAt: Date
-    var intent: String
-    var roll: Int
-    var chaosFactor: Int
-    var sceneType: String
-    var alterationMethod: String?
-    var alterationDetail: String?
-    var randomEventFocus: String?
-    var meaningWord1: String?
-    var meaningWord2: String?
-    var summary: String
-    var charactersAdded: [String]
-    var charactersFeatured: [String]
-    var charactersRemoved: [String]
-    var threadsAdded: [String]
-    var threadsFeatured: [String]
-    var threadsRemoved: [String]
-    var pcsInControl: Bool
-    var concluded: Bool
-    var interactions: [SceneInteraction]?
-    var skillChecks: [SkillCheckRecord]?
-    var fateQuestions: [FateQuestionRecord]?
-    var places: [String] = []
-    var curiosities: [String] = []
-    var rollHighlights: [String] = []
-    var locationId: UUID?
-    var generatedEntityIds: [UUID]?
-    var canonizations: [CanonizationRecord]?
+public final class SceneEntry {
+    public var id: UUID
+    public var sceneNumber: Int
+    public var createdAt: Date
+    public var intent: String
+    public var roll: Int
+    public var chaosFactor: Int
+    public var sceneType: String
+    public var alterationMethod: String?
+    public var alterationDetail: String?
+    public var randomEventFocus: String?
+    public var meaningWord1: String?
+    public var meaningWord2: String?
+    public var summary: String
+    public var charactersAdded: [String]
+    public var charactersFeatured: [String]
+    public var charactersRemoved: [String]
+    public var threadsAdded: [String]
+    public var threadsFeatured: [String]
+    public var threadsRemoved: [String]
+    public var pcsInControl: Bool
+    public var concluded: Bool
+    public var interactions: [SceneInteraction]?
+    public var skillChecks: [SkillCheckRecord]?
+    public var fateQuestions: [FateQuestionRecord]?
+    public var places: [String] = []
+    public var curiosities: [String] = []
+    public var rollHighlights: [String] = []
+    public var locationId: UUID?
+    public var generatedEntityIds: [UUID]?
+    public var canonizations: [CanonizationRecord]?
 
-    init(
+    public init(
         sceneNumber: Int,
         intent: String,
         roll: Int,
@@ -155,17 +157,17 @@ final class SceneEntry {
 }
 
 @Model
-final class CanonizationRecord {
-    var id: UUID
-    var createdAt: Date
-    var assumption: String
-    var likelihood: String
-    var chaosFactor: Int
-    var roll: Int
-    var target: Int
-    var outcome: String
+public final class CanonizationRecord {
+    public var id: UUID
+    public var createdAt: Date
+    public var assumption: String
+    public var likelihood: String
+    public var chaosFactor: Int
+    public var roll: Int
+    public var target: Int
+    public var outcome: String
 
-    init(
+    public init(
         assumption: String,
         likelihood: String,
         chaosFactor: Int,
@@ -185,14 +187,14 @@ final class CanonizationRecord {
 }
 
 @Model
-final class SceneInteraction {
-    var id: UUID
-    var timestamp: Date
-    var playerText: String
-    var gmText: String
-    var turnSignal: String?
+public final class SceneInteraction {
+    public var id: UUID
+    public var timestamp: Date
+    public var playerText: String
+    public var gmText: String
+    public var turnSignal: String?
 
-    init(playerText: String, gmText: String, turnSignal: String? = nil) {
+    public init(playerText: String, gmText: String, turnSignal: String? = nil) {
         self.id = UUID()
         self.timestamp = Date()
         self.playerText = playerText
@@ -202,28 +204,28 @@ final class SceneInteraction {
 }
 
 @Model
-final class SkillCheckRecord {
-    var id: UUID
-    var createdAt: Date
-    var playerAction: String
-    var checkType: String
-    var skill: String
-    var abilityOverride: String?
-    var dc: Int?
-    var opponentSkill: String?
-    var opponentDC: Int?
-    var advantageState: String
-    var stakes: String
-    var partialSuccessDC: Int?
-    var partialSuccessOutcome: String?
-    var reason: String
-    var rollResult: Int?
-    var modifier: Int?
-    var total: Int?
-    var outcome: String?
-    var consequence: String?
+public final class SkillCheckRecord {
+    public var id: UUID
+    public var createdAt: Date
+    public var playerAction: String
+    public var checkType: String
+    public var skill: String
+    public var abilityOverride: String?
+    public var dc: Int?
+    public var opponentSkill: String?
+    public var opponentDC: Int?
+    public var advantageState: String
+    public var stakes: String
+    public var partialSuccessDC: Int?
+    public var partialSuccessOutcome: String?
+    public var reason: String
+    public var rollResult: Int?
+    public var modifier: Int?
+    public var total: Int?
+    public var outcome: String?
+    public var consequence: String?
 
-    init(
+    public init(
         playerAction: String,
         checkType: String,
         skill: String,
@@ -255,17 +257,17 @@ final class SkillCheckRecord {
 }
 
 @Model
-final class FateQuestionRecord {
-    var id: UUID
-    var createdAt: Date
-    var question: String
-    var likelihood: String
-    var chaosFactor: Int
-    var roll: Int
-    var target: Int
-    var outcome: String
+public final class FateQuestionRecord {
+    public var id: UUID
+    public var createdAt: Date
+    public var question: String
+    public var likelihood: String
+    public var chaosFactor: Int
+    public var roll: Int
+    public var target: Int
+    public var outcome: String
 
-    init(
+    public init(
         question: String,
         likelihood: String,
         chaosFactor: Int,
@@ -285,13 +287,13 @@ final class FateQuestionRecord {
 }
 
 @Model
-final class CharacterEntry {
-    var id: UUID
-    var name: String
-    var key: String
-    var weight: Int
+public final class CharacterEntry {
+    public var id: UUID
+    public var name: String
+    public var key: String
+    public var weight: Int
 
-    init(name: String, weight: Int = 1) {
+    public init(name: String, weight: Int = 1) {
         self.id = UUID()
         self.name = name
         self.key = name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
@@ -300,13 +302,13 @@ final class CharacterEntry {
 }
 
 @Model
-final class ThreadEntry {
-    var id: UUID
-    var name: String
-    var key: String
-    var weight: Int
+public final class ThreadEntry {
+    public var id: UUID
+    public var name: String
+    public var key: String
+    public var weight: Int
 
-    init(name: String, weight: Int = 1) {
+    public init(name: String, weight: Int = 1) {
         self.id = UUID()
         self.name = name
         self.key = name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()

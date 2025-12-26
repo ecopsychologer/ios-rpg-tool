@@ -1,17 +1,19 @@
 import Foundation
+import TableEngine
+import WorldState
 
-struct NpcGenerationOptions {
-    var name: String?
-    var species: String?
-    var roleTag: String?
-    var importance: NPCImportance
+public struct NpcGenerationOptions {
+    public var name: String?
+    public var species: String?
+    public var roleTag: String?
+    public var importance: NPCImportance
 }
 
-struct SoloNpcEngine {
+public struct SoloNpcEngine {
     private var tableEngine: TableEngine?
     private let packStore = ContentPackStore()
 
-    mutating func generateNPC(campaign: Campaign, options: NpcGenerationOptions) -> NPCEntry? {
+    public mutating func generateNPC(campaign: Campaign, options: NpcGenerationOptions) -> NPCEntry? {
         do {
             try ensureTableEngine()
         } catch {

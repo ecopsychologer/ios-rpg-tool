@@ -1,6 +1,6 @@
 import Foundation
 
-struct WeightedList: Sendable {
+public struct WeightedList: Sendable {
     struct Entry: Identifiable, Sendable, Equatable {
         let id = UUID()
         let name: String
@@ -16,15 +16,15 @@ struct WeightedList: Sendable {
     private var entries: [StoredEntry] = []
     private var indexByKey: [String: Int] = [:]
 
-    var allEntries: [Entry] {
+    public var allEntries: [Entry] {
         entries.map { Entry(name: $0.name, weight: $0.weight) }
     }
 
-    var isEmpty: Bool {
+    public var isEmpty: Bool {
         entries.isEmpty
     }
 
-    mutating func addNew(_ names: [String]) {
+    public mutating func addNew(_ names: [String]) {
         for name in names {
             let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !trimmed.isEmpty else { continue }
@@ -36,7 +36,7 @@ struct WeightedList: Sendable {
         }
     }
 
-    mutating func featureExisting(_ names: [String]) {
+    public mutating func featureExisting(_ names: [String]) {
         for name in names {
             let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !trimmed.isEmpty else { continue }
@@ -46,7 +46,7 @@ struct WeightedList: Sendable {
         }
     }
 
-    mutating func remove(_ names: [String]) {
+    public mutating func remove(_ names: [String]) {
         var keysToRemove: Set<String> = []
         for name in names {
             let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)

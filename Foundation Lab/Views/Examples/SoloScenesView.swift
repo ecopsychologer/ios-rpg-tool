@@ -1,6 +1,8 @@
 import FoundationModels
 import SwiftUI
 import SwiftData
+import WorldState
+import RPGEngine
 
 struct SoloScenesView: View {
     private enum ScenePhase {
@@ -60,6 +62,13 @@ struct SoloScenesView: View {
         let id = UUID()
         let name: String
         let summary: String
+    }
+
+    private struct ExitDisplay: Identifiable {
+        let id: UUID
+        let label: String
+        let targetSummary: String
+        let edge: LocationEdge
     }
 
     @Environment(\.modelContext) private var modelContext
@@ -510,6 +519,34 @@ struct SoloScenesView: View {
                         let featureNames = features.map { $0.name }.joined(separator: ", ")
                         Text("Known Features: \(featureNames)")
                             .font(.callout)
+                    }
+
+                    if let node = activeNode(in: campaign, location: location) {
+                        let exitItems = exitDisplays(for: location, node: node)
+                        if !exitItems.isEmpty {
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text("Exits")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                ForEach(exitItems) { item in
+                                    HStack(alignment: .top, spacing: Spacing.small) {
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text(item.label)
+                                                .font(.callout)
+                                            Text(item.targetSummary)
+                                                .font(.caption)
+                                                .foregroundColor(.secondary)
+                                        }
+                                        Spacer()
+                                        Button("Go") {
+                                            traverseEdge(item.edge, reason: item.label)
+                                        }
+                                        .buttonStyle(.bordered)
+                                    }
+                                }
+                            }
+                            .padding(.top, 4)
+                        }
                     }
 
                     if !pendingLocationFeatures.isEmpty {
@@ -1077,6 +1114,10 @@ struct SoloScenesView: View {
                     }
                 }
 
+                if !context.currentExits.isEmpty {
+                    prompt += "\nCurrent Exits: \(context.currentExits.joined(separator: " · "))"
+                }
+
                 if !context.recentScenes.isEmpty {
                     prompt += "\nRecent Scenes:"
                     for entry in context.recentScenes {
@@ -1544,6 +1585,7 @@ struct SoloScenesView: View {
 
         let summary = movementDraft.content.summary.trimmingCharacters(in: .whitespacesAndNewlines)
         let destination = movementDraft.content.destination?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let exitLabel = movementDraft.content.exitLabel?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let reason: String
         if !destination.isEmpty && !summary.isEmpty {
             reason = "\(summary) (\(destination))"
@@ -1555,7 +1597,13 @@ struct SoloScenesView: View {
             reason = playerText
         }
 
-        _ = locationEngine.advanceToNextNode(campaign: campaign, reason: reason)
+        if let location = activeLocation(in: campaign),
+           let node = activeNode(in: campaign, location: location),
+           let edge = edgeForExitLabel(exitLabel, location: location, node: node) {
+            _ = locationEngine.advanceAlongEdge(campaign: campaign, edge: edge, reason: reason)
+        } else {
+            _ = locationEngine.advanceToNextNode(campaign: campaign, reason: reason)
+        }
         try? modelContext.save()
         return true
     }
@@ -1662,6 +1710,7 @@ struct SoloScenesView: View {
         Return isMovement = true only when they explicitly move to a different room, corridor, exit, or location.
         Return false for questions, investigations, conversations, or actions that stay in the current space.
         Provide a short summary and optional destination if present.
+        If they reference a specific exit, include its label or type in exitLabel.
 
         Scene #\(context.sceneNumber)
         Scene Type: \(context.sceneType.rawValue)
@@ -1673,6 +1722,10 @@ struct SoloScenesView: View {
             if let node = activeNode(in: campaign, location: location) {
                 prompt += "\nCurrent Node: \(node.summary)"
             }
+        }
+
+        if !context.currentExits.isEmpty {
+            prompt += "\nKnown Exits: \(context.currentExits.joined(separator: " · "))"
         }
 
         prompt += "\nReturn a MovementIntentDraft."
@@ -1966,6 +2019,10 @@ struct SoloScenesView: View {
             }
         }
 
+        if !context.currentExits.isEmpty {
+            prompt += "\nCurrent Exits: \(context.currentExits.joined(separator: " · "))"
+        }
+
         if !context.recentPlaces.isEmpty {
             prompt += "\nRecent Places: \(context.recentPlaces.joined(separator: ", "))"
         }
@@ -2180,6 +2237,41 @@ struct SoloScenesView: View {
         campaign.activeLocationId = nil
         campaign.activeNodeId = nil
         generateDungeonStart()
+    }
+
+    private func traverseEdge(_ edge: LocationEdge, reason: String) {
+        guard let campaign else { return }
+        _ = locationEngine.advanceAlongEdge(campaign: campaign, edge: edge, reason: reason)
+        try? modelContext.save()
+    }
+
+    private func exitDisplays(for location: LocationEntity, node: LocationNode) -> [ExitDisplay] {
+        let exits = (location.edges ?? []).filter { $0.fromNodeId == node.id }
+        return exits.map { edge in
+            let label = (edge.label?.isEmpty == false) ? (edge.label ?? edge.type.capitalized) : edge.type.capitalized
+            let targetSummary: String
+            if let toId = edge.toNodeId,
+               let target = location.nodes?.first(where: { $0.id == toId }) {
+                targetSummary = "Leads to: \(target.summary)"
+            } else {
+                targetSummary = "Unexplored"
+            }
+            return ExitDisplay(id: edge.id, label: label, targetSummary: targetSummary, edge: edge)
+        }
+    }
+
+    private func edgeForExitLabel(
+        _ label: String,
+        location: LocationEntity,
+        node: LocationNode
+    ) -> LocationEdge? {
+        let trimmed = label.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !trimmed.isEmpty else { return nil }
+        let exits = (location.edges ?? []).filter { $0.fromNodeId == node.id }
+        return exits.first(where: { edge in
+            let edgeLabel = (edge.label?.isEmpty == false) ? (edge.label ?? edge.type) : edge.type
+            return edgeLabel.lowercased().contains(trimmed) || edge.type.lowercased().contains(trimmed)
+        })
     }
 
     private func activeLocation(in campaign: Campaign) -> LocationEntity? {

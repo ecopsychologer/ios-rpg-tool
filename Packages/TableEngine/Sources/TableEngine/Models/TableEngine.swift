@@ -1,112 +1,112 @@
 import Foundation
 
-struct ContentPack: Codable {
-    let id: String
-    let version: String
-    let tables: [TableDefinition]
+public struct ContentPack: Codable {
+    public let id: String
+    public let version: String
+    public let tables: [TableDefinition]
 }
 
-struct TableDefinition: Codable {
-    let id: String
-    let name: String
-    let scope: String
-    let diceSpec: String
-    let entries: [TableEntry]
+public struct TableDefinition: Codable {
+    public let id: String
+    public let name: String
+    public let scope: String
+    public let diceSpec: String
+    public let entries: [TableEntry]
 }
 
-struct TableEntry: Codable {
-    let min: Int
-    let max: Int
-    let actions: [OutcomeAction]
+public struct TableEntry: Codable {
+    public let min: Int
+    public let max: Int
+    public let actions: [OutcomeAction]
 }
 
-struct OutcomeAction: Codable {
-    let type: String
-    let nodeType: String?
-    let edgeType: String?
-    let summary: String?
-    let tags: [String]?
-    let category: String?
-    let trigger: String?
-    let detectionSkill: String?
-    let detectionDC: Int?
-    let disarmSkill: String?
-    let disarmDC: Int?
-    let saveSkill: String?
-    let saveDC: Int?
-    let effect: String?
-    let tableId: String?
-    let diceSpec: String?
-    let threshold: Int?
-    let modifier: Int?
-    let thenActions: [OutcomeAction]?
-    let elseActions: [OutcomeAction]?
-    let message: String?
+public struct OutcomeAction: Codable {
+    public let type: String
+    public let nodeType: String?
+    public let edgeType: String?
+    public let summary: String?
+    public let tags: [String]?
+    public let category: String?
+    public let trigger: String?
+    public let detectionSkill: String?
+    public let detectionDC: Int?
+    public let disarmSkill: String?
+    public let disarmDC: Int?
+    public let saveSkill: String?
+    public let saveDC: Int?
+    public let effect: String?
+    public let tableId: String?
+    public let diceSpec: String?
+    public let threshold: Int?
+    public let modifier: Int?
+    public let thenActions: [OutcomeAction]?
+    public let elseActions: [OutcomeAction]?
+    public let message: String?
 }
 
-struct RollContext {
-    let campaignId: UUID
-    let sceneId: UUID?
-    let locationId: UUID?
-    let nodeId: UUID?
-    let tags: [String]
-    let dangerModifier: Int
-    let depth: Int
+public struct RollContext {
+    public let campaignId: UUID
+    public let sceneId: UUID?
+    public let locationId: UUID?
+    public let nodeId: UUID?
+    public let tags: [String]
+    public let dangerModifier: Int
+    public let depth: Int
 }
 
-struct TableRollResult {
-    let tableId: String
-    let entry: TableEntry
-    let roll: DiceRoll
-    let sequence: Int
-    let seed: UInt64
+public struct TableRollResult {
+    public let tableId: String
+    public let entry: TableEntry
+    public let roll: DiceRoll
+    public let sequence: Int
+    public let seed: UInt64
 }
 
-struct TableExecution {
-    let rollResults: [TableRollResult]
-    let spawnedNodes: [TableSpawnNode]
-    let spawnedEdges: [TableSpawnEdge]
-    let spawnedTraps: [TableSpawnTrap]
-    let logs: [String]
+public struct TableExecution {
+    public let rollResults: [TableRollResult]
+    public let spawnedNodes: [TableSpawnNode]
+    public let spawnedEdges: [TableSpawnEdge]
+    public let spawnedTraps: [TableSpawnTrap]
+    public let logs: [String]
 }
 
-struct TableSpawnNode {
-    let nodeType: String
-    let summary: String
-    let tags: [String]
+public struct TableSpawnNode {
+    public let nodeType: String
+    public let summary: String
+    public let tags: [String]
 }
 
-struct TableSpawnEdge {
-    let edgeType: String
-    let summary: String
-    let tags: [String]
+public struct TableSpawnEdge {
+    public let edgeType: String
+    public let summary: String
+    public let tags: [String]
 }
 
-struct TableSpawnTrap {
-    let category: String
-    let trigger: String
-    let detectionSkill: String
-    let detectionDC: Int
-    let disarmSkill: String
-    let disarmDC: Int
-    let saveSkill: String?
-    let saveDC: Int?
-    let effect: String
+public struct TableSpawnTrap {
+    public let category: String
+    public let trigger: String
+    public let detectionSkill: String
+    public let detectionDC: Int
+    public let disarmSkill: String
+    public let disarmDC: Int
+    public let saveSkill: String?
+    public let saveDC: Int?
+    public let effect: String
 }
 
-struct DiceRoll {
-    let spec: String
-    let rolls: [Int]
-    let modifier: Int
-    let total: Int
+public struct DiceRoll {
+    public let spec: String
+    public let rolls: [Int]
+    public let modifier: Int
+    public let total: Int
 }
 
-struct DiceSpec {
-    let count: Int
-    let sides: Int
-    let modifier: Int
+public struct DiceSpec {
+    public let count: Int
+    public let sides: Int
+    public let modifier: Int
 
-    static func parse(_ input: String) -> DiceSpec? {
+    public static func parse(_ input: String) -> DiceSpec? {
         let normalized = input.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         let parts = normalized.split(separator: "d", maxSplits: 1).map(String.init)
         guard parts.count == 2 else { return nil }
@@ -121,14 +121,14 @@ struct DiceSpec {
     }
 }
 
-struct SeededRNG {
+public struct SeededRNG {
     private(set) var state: UInt64
 
-    init(seed: UInt64) {
+    public init(seed: UInt64) {
         self.state = seed == 0 ? 0x9E3779B97F4A7C15 : seed
     }
 
-    mutating func next() -> UInt64 {
+    public mutating func next() -> UInt64 {
         state &+= 0x9E3779B97F4A7C15
         var z = state
         z = (z ^ (z >> 30)) &* 0xBF58476D1CE4E5B9
@@ -136,17 +136,17 @@ struct SeededRNG {
         return z ^ (z >> 31)
     }
 
-    mutating func nextInt(upperBound: Int) -> Int {
+    public mutating func nextInt(upperBound: Int) -> Int {
         let value = next()
         return Int(value % UInt64(upperBound))
     }
 }
 
-struct DiceRoller {
+public struct DiceRoller {
     private var rng: SeededRNG
     private(set) var sequence: Int
 
-    init(seed: UInt64, sequence: Int) {
+    public init(seed: UInt64, sequence: Int) {
         self.rng = SeededRNG(seed: seed)
         self.sequence = sequence
         if sequence > 0 {
@@ -156,7 +156,7 @@ struct DiceRoller {
         }
     }
 
-    mutating func roll(spec: String) -> DiceRoll {
+    public mutating func roll(spec: String) -> DiceRoll {
         let diceSpec = DiceSpec.parse(spec) ?? DiceSpec(count: 1, sides: 100, modifier: 0)
         var results: [Int] = []
         for _ in 0..<diceSpec.count {
@@ -169,10 +169,10 @@ struct DiceRoller {
     }
 }
 
-struct TableEngine {
-    let tables: [String: TableDefinition]
+public struct TableEngine {
+    public let tables: [String: TableDefinition]
 
-    init(contentPack: ContentPack) {
+    public init(contentPack: ContentPack) {
         var tableMap: [String: TableDefinition] = [:]
         for table in contentPack.tables {
             tableMap[table.id] = table
@@ -180,11 +180,11 @@ struct TableEngine {
         self.tables = tableMap
     }
 
-    func table(id: String) -> TableDefinition? {
+    public func table(id: String) -> TableDefinition? {
         tables[id]
     }
 
-    mutating func execute(
+    public mutating func execute(
         tableId: String,
         context: RollContext,
         seed: UInt64,

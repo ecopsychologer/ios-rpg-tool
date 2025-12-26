@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import FoundationModels
+import WorldState
 
 struct WorldLoreView: View {
     @Environment(\.modelContext) private var modelContext

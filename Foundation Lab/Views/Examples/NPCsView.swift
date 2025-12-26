@@ -1,5 +1,7 @@
 import SwiftUI
 import SwiftData
+import WorldState
+import RPGEngine
 
 struct NPCsView: View {
     @Environment(\.modelContext) private var modelContext

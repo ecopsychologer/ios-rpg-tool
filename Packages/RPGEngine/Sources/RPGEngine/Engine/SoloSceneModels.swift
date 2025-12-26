@@ -1,28 +1,28 @@
 import Foundation
 
-enum SceneType: String, CaseIterable, Hashable {
+public enum SceneType: String, CaseIterable, Hashable {
     case expected
     case altered
     case interrupt
 
-    var title: String {
+    public var title: String {
         rawValue.capitalized
     }
 }
 
-struct MeaningWords: Equatable {
-    let first: String
-    let second: String
+public struct MeaningWords: Equatable {
+    public let first: String
+    public let second: String
 }
 
-enum AlterationMethod: CaseIterable, Hashable {
+public enum AlterationMethod: CaseIterable, Hashable {
     case nextMostLikely
     case tweakOneElement
     case fateQuestion
     case meaningWords
     case sceneAdjustment
 
-    var label: String {
+    public var label: String {
         switch self {
         case .nextMostLikely:
             return "Next Most Likely"
@@ -37,7 +37,7 @@ enum AlterationMethod: CaseIterable, Hashable {
         }
     }
 
-    var guidance: String {
+    public var guidance: String {
         switch self {
         case .nextMostLikely:
             return "Go with the next most likely idea and proceed confidently."
@@ -53,14 +53,14 @@ enum AlterationMethod: CaseIterable, Hashable {
     }
 }
 
-enum SceneAdjustment: CaseIterable, Hashable {
+public enum SceneAdjustment: CaseIterable, Hashable {
     case raiseStakes
     case shiftLocation
     case delayGoal
     case addComplication
     case revealMotivation
 
-    var label: String {
+    public var label: String {
         switch self {
         case .raiseStakes:
             return "Raise the Stakes"
@@ -75,7 +75,7 @@ enum SceneAdjustment: CaseIterable, Hashable {
         }
     }
 
-    var guidance: String {
+    public var guidance: String {
         switch self {
         case .raiseStakes:
             return "Something makes success costlier or riskier."
@@ -91,7 +91,7 @@ enum SceneAdjustment: CaseIterable, Hashable {
     }
 }
 
-enum RandomEventFocus: String, CaseIterable, Hashable {
+public enum RandomEventFocus: String, CaseIterable, Hashable {
     case npcAction = "NPC Action"
     case npcIntroduced = "New NPC"
     case remoteEvent = "Remote Event"
@@ -101,26 +101,26 @@ enum RandomEventFocus: String, CaseIterable, Hashable {
     case pcPositive = "PC Positive"
 }
 
-struct RandomEvent: Equatable {
-    let focus: RandomEventFocus
-    let meaningWords: MeaningWords
+public struct RandomEvent: Equatable {
+    public let focus: RandomEventFocus
+    public let meaningWords: MeaningWords
 }
 
-struct SceneRecord: Identifiable {
-    let id = UUID()
-    let sceneNumber: Int
-    let expectedScene: String
-    let roll: Int
-    let chaosFactor: Int
-    let type: SceneType
-    var alterationMethod: AlterationMethod?
-    var alterationDetail: String?
-    var randomEvent: RandomEvent?
+public struct SceneRecord: Identifiable {
+    public let id = UUID()
+    public let sceneNumber: Int
+    public let expectedScene: String
+    public let roll: Int
+    public let chaosFactor: Int
+    public let type: SceneType
+    public var alterationMethod: AlterationMethod?
+    public var alterationDetail: String?
+    public var randomEvent: RandomEvent?
 }
 
-struct SoloState {
-    var chaosFactor: Int = 5
-    var threads = WeightedList()
-    var characters = WeightedList()
-    var sceneNumber: Int = 1
+public struct SoloState {
+    public var chaosFactor: Int = 5
+    public var threads = WeightedList()
+    public var characters = WeightedList()
+    public var sceneNumber: Int = 1
 }

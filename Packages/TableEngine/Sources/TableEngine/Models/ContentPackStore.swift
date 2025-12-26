@@ -1,15 +1,15 @@
 import Foundation
 
-struct ContentPackStore {
-    let fileName = "solo_default_tables.json"
+public struct ContentPackStore {
+    public let fileName = "solo_default_tables.json"
 
-    func loadDefaultPack() throws -> ContentPack {
+    public func loadDefaultPack() throws -> ContentPack {
         let url = try ensureDefaultPackExists()
         let data = try Data(contentsOf: url)
         return try JSONDecoder().decode(ContentPack.self, from: data)
     }
 
-    func ensureDefaultPackExists() throws -> URL {
+    public func ensureDefaultPackExists() throws -> URL {
         let fileManager = FileManager.default
         let directory = try fileManager.url(
             for: .applicationSupportDirectory,
@@ -51,6 +51,19 @@ struct ContentPackStore {
                 { "min": 1, "max": 3, "actions": [ { "type": "spawnNode", "nodeType": "room", "summary": "Stone chamber beyond", "tags": ["room"] } ] },
                 { "min": 4, "max": 5, "actions": [ { "type": "spawnNode", "nodeType": "passage", "summary": "Narrow passage extending ahead", "tags": ["passage"] } ] },
                 { "min": 6, "max": 6, "actions": [ { "type": "spawnNode", "nodeType": "room", "summary": "Small annex with low ceiling", "tags": ["room"] } ] }
+              ]
+            },
+            {
+              "id": "dungeon_edge",
+              "name": "Dungeon Edge",
+              "scope": "dungeon",
+              "diceSpec": "d6",
+              "entries": [
+                { "min": 1, "max": 2, "actions": [ { "type": "spawnEdge", "edgeType": "passage", "summary": "Open archway", "tags": ["open"] } ] },
+                { "min": 3, "max": 3, "actions": [ { "type": "spawnEdge", "edgeType": "door", "summary": "Heavy wooden door", "tags": ["door", "wood"] } ] },
+                { "min": 4, "max": 4, "actions": [ { "type": "spawnEdge", "edgeType": "door", "summary": "Locked iron-banded door", "tags": ["door", "locked"] } ] },
+                { "min": 5, "max": 5, "actions": [ { "type": "spawnEdge", "edgeType": "stairs", "summary": "Stairwell descending", "tags": ["stairs", "down"] } ] },
+                { "min": 6, "max": 6, "actions": [ { "type": "spawnEdge", "edgeType": "stairs", "summary": "Stairwell ascending", "tags": ["stairs", "up"] } ] }
               ]
             },
             {

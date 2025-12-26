@@ -2,17 +2,17 @@ import Foundation
 import SwiftData
 
 @Model
-final class Party {
-    var id: UUID
-    var name: String
-    var averageLevel: Int
-    var tier: Int
-    var resourcesSummary: String
-    var inventorySummary: String
-    var conditions: [String]?
-    var members: [PartyMember]?
+public final class Party {
+    public var id: UUID
+    public var name: String
+    public var averageLevel: Int
+    public var tier: Int
+    public var resourcesSummary: String
+    public var inventorySummary: String
+    public var conditions: [String]?
+    public var members: [PartyMember]?
 
-    init(
+    public init(
         name: String = "Adventuring Party",
         averageLevel: Int = 1,
         tier: Int = 1,
@@ -33,16 +33,16 @@ final class Party {
 }
 
 @Model
-final class PartyMember {
-    var id: UUID
-    var name: String
-    var role: String
-    var level: Int
-    var notes: String
-    var isNpc: Bool
-    var npcId: UUID?
+public final class PartyMember {
+    public var id: UUID
+    public var name: String
+    public var role: String
+    public var level: Int
+    public var notes: String
+    public var isNpc: Bool
+    public var npcId: UUID?
 
-    init(
+    public init(
         name: String,
         role: String = "",
         level: Int = 1,
@@ -61,19 +61,19 @@ final class PartyMember {
 }
 
 @Model
-final class LocationEntity {
-    var id: UUID
-    var name: String
-    var type: String
-    var createdAt: Date
-    var tags: [String]?
-    var dangerModifier: Int
-    var themeTags: [String]?
-    var origin: String
-    var nodes: [LocationNode]?
-    var edges: [LocationEdge]?
+public final class LocationEntity {
+    public var id: UUID
+    public var name: String
+    public var type: String
+    public var createdAt: Date
+    public var tags: [String]?
+    public var dangerModifier: Int
+    public var themeTags: [String]?
+    public var origin: String
+    public var nodes: [LocationNode]?
+    public var edges: [LocationEdge]?
 
-    init(
+    public init(
         name: String,
         type: String,
         tags: [String]? = nil,
@@ -97,24 +97,24 @@ final class LocationEntity {
 }
 
 @Model
-final class LocationNode {
-    var id: UUID
-    var type: String
-    var name: String?
-    var summary: String
-    var discovered: Bool
-    var visitedCount: Int
-    var notes: String?
-    var contentSummary: String?
-    var tags: [String]?
-    var origin: String
-    var traps: [TrapEntity]?
-    var encounters: [EncounterEntity]?
-    var clues: [ClueEntity]?
-    var features: [LocationFeature]?
-    var location: LocationEntity?
+public final class LocationNode {
+    public var id: UUID
+    public var type: String
+    public var name: String?
+    public var summary: String
+    public var discovered: Bool
+    public var visitedCount: Int
+    public var notes: String?
+    public var contentSummary: String?
+    public var tags: [String]?
+    public var origin: String
+    public var traps: [TrapEntity]?
+    public var encounters: [EncounterEntity]?
+    public var clues: [ClueEntity]?
+    public var features: [LocationFeature]?
+    public var location: LocationEntity?
 
-    init(
+    public init(
         type: String,
         summary: String,
         discovered: Bool = false,
@@ -137,18 +137,18 @@ final class LocationNode {
 }
 
 @Model
-final class LocationFeature {
-    var id: UUID
-    var name: String
-    var summary: String
-    var category: String
-    var tags: [String]?
-    var origin: String
-    var createdAt: Date
-    var locationNodeId: UUID?
-    var locationEdgeId: UUID?
+public final class LocationFeature {
+    public var id: UUID
+    public var name: String
+    public var summary: String
+    public var category: String
+    public var tags: [String]?
+    public var origin: String
+    public var createdAt: Date
+    public var locationNodeId: UUID?
+    public var locationEdgeId: UUID?
 
-    init(
+    public init(
         name: String,
         summary: String,
         category: String = "feature",
@@ -170,23 +170,25 @@ final class LocationFeature {
 }
 
 @Model
-final class LocationEdge {
-    var id: UUID
-    var type: String
-    var fromNodeId: UUID?
-    var toNodeId: UUID?
-    var isLocked: Bool
-    var lockDC: Int?
-    var isTrapped: Bool
-    var requiresCheckSkill: String?
-    var requiresCheckDC: Int?
-    var oneWay: Bool
-    var origin: String
-    var trap: TrapEntity?
-    var location: LocationEntity?
+public final class LocationEdge {
+    public var id: UUID
+    public var type: String
+    public var label: String?
+    public var fromNodeId: UUID?
+    public var toNodeId: UUID?
+    public var isLocked: Bool
+    public var lockDC: Int?
+    public var isTrapped: Bool
+    public var requiresCheckSkill: String?
+    public var requiresCheckDC: Int?
+    public var oneWay: Bool
+    public var origin: String
+    public var trap: TrapEntity?
+    public var location: LocationEntity?
 
-    init(
+    public init(
         type: String,
+        label: String? = nil,
         fromNodeId: UUID? = nil,
         toNodeId: UUID? = nil,
         isLocked: Bool = false,
@@ -199,6 +201,7 @@ final class LocationEdge {
     ) {
         self.id = UUID()
         self.type = type
+        self.label = label
         self.fromNodeId = fromNodeId
         self.toNodeId = toNodeId
         self.isLocked = isLocked
@@ -212,25 +215,25 @@ final class LocationEdge {
 }
 
 @Model
-final class TrapEntity {
-    var id: UUID
-    var name: String
-    var category: String
-    var trigger: String
-    var detectionSkill: String
-    var detectionDC: Int
-    var disarmSkill: String
-    var disarmDC: Int
-    var saveSkill: String?
-    var saveDC: Int?
-    var effectSummary: String
-    var state: String
-    var isResettable: Bool
-    var origin: String
-    var locationNodeId: UUID?
-    var locationEdgeId: UUID?
+public final class TrapEntity {
+    public var id: UUID
+    public var name: String
+    public var category: String
+    public var trigger: String
+    public var detectionSkill: String
+    public var detectionDC: Int
+    public var disarmSkill: String
+    public var disarmDC: Int
+    public var saveSkill: String?
+    public var saveDC: Int?
+    public var effectSummary: String
+    public var state: String
+    public var isResettable: Bool
+    public var origin: String
+    public var locationNodeId: UUID?
+    public var locationEdgeId: UUID?
 
-    init(
+    public init(
         name: String,
         category: String,
         trigger: String,
@@ -267,25 +270,25 @@ final class TrapEntity {
 }
 
 @Model
-final class SkillCheckEntity {
-    var id: UUID
-    var prompt: String
-    var skill: String
-    var abilityOverride: String?
-    var dc: Int
-    var advantageState: String
-    var stakes: String
-    var reason: String
-    var roll: Int?
-    var modifier: Int?
-    var total: Int?
-    var outcome: String?
-    var consequence: String?
-    var origin: String
-    var locationNodeId: UUID?
-    var locationEdgeId: UUID?
+public final class SkillCheckEntity {
+    public var id: UUID
+    public var prompt: String
+    public var skill: String
+    public var abilityOverride: String?
+    public var dc: Int
+    public var advantageState: String
+    public var stakes: String
+    public var reason: String
+    public var roll: Int?
+    public var modifier: Int?
+    public var total: Int?
+    public var outcome: String?
+    public var consequence: String?
+    public var origin: String
+    public var locationNodeId: UUID?
+    public var locationEdgeId: UUID?
 
-    init(
+    public init(
         prompt: String,
         skill: String,
         dc: Int,
@@ -312,17 +315,17 @@ final class SkillCheckEntity {
 }
 
 @Model
-final class EncounterEntity {
-    var id: UUID
-    var type: String
-    var difficulty: String
-    var participantsSummary: String
-    var hooks: [String]?
-    var resolved: Bool
-    var origin: String
-    var locationNodeId: UUID?
+public final class EncounterEntity {
+    public var id: UUID
+    public var type: String
+    public var difficulty: String
+    public var participantsSummary: String
+    public var hooks: [String]?
+    public var resolved: Bool
+    public var origin: String
+    public var locationNodeId: UUID?
 
-    init(
+    public init(
         type: String,
         difficulty: String,
         participantsSummary: String,
@@ -343,17 +346,17 @@ final class EncounterEntity {
 }
 
 @Model
-final class ClueEntity {
-    var id: UUID
-    var text: String
-    var keywords: [String]?
-    var relatesTo: String?
-    var discoveredAt: Date
-    var confidence: String
-    var origin: String
-    var locationNodeId: UUID?
+public final class ClueEntity {
+    public var id: UUID
+    public var text: String
+    public var keywords: [String]?
+    public var relatesTo: String?
+    public var discoveredAt: Date
+    public var confidence: String
+    public var origin: String
+    public var locationNodeId: UUID?
 
-    init(
+    public init(
         text: String,
         keywords: [String]? = nil,
         relatesTo: String? = nil,
@@ -373,15 +376,15 @@ final class ClueEntity {
 }
 
 @Model
-final class RumorEntity {
-    var id: UUID
-    var text: String
-    var sourceNPC: String?
-    var pointsTo: String?
-    var resolved: Bool
-    var origin: String
+public final class RumorEntity {
+    public var id: UUID
+    public var text: String
+    public var sourceNPC: String?
+    public var pointsTo: String?
+    public var resolved: Bool
+    public var origin: String
 
-    init(
+    public init(
         text: String,
         sourceNPC: String? = nil,
         pointsTo: String? = nil,
@@ -398,17 +401,17 @@ final class RumorEntity {
 }
 
 @Model
-final class QuestEntity {
-    var id: UUID
-    var title: String
-    var objectives: [String]?
-    var giver: String?
-    var locationTargets: [String]?
-    var progress: String
-    var reward: String
-    var origin: String
+public final class QuestEntity {
+    public var id: UUID
+    public var title: String
+    public var objectives: [String]?
+    public var giver: String?
+    public var locationTargets: [String]?
+    public var progress: String
+    public var reward: String
+    public var origin: String
 
-    init(
+    public init(
         title: String,
         objectives: [String]? = nil,
         giver: String? = nil,
@@ -429,16 +432,16 @@ final class QuestEntity {
 }
 
 @Model
-final class EventLogEntry {
-    var id: UUID
-    var timestamp: Date
-    var sceneId: UUID?
-    var summary: String
-    var rollIds: [UUID]?
-    var entityIds: [UUID]?
-    var origin: String
+public final class EventLogEntry {
+    public var id: UUID
+    public var timestamp: Date
+    public var sceneId: UUID?
+    public var summary: String
+    public var rollIds: [UUID]?
+    public var entityIds: [UUID]?
+    public var origin: String
 
-    init(
+    public init(
         summary: String,
         sceneId: UUID? = nil,
         rollIds: [UUID]? = nil,
@@ -456,20 +459,20 @@ final class EventLogEntry {
 }
 
 @Model
-final class TableRollRecord {
-    var id: UUID
-    var timestamp: Date
-    var tableId: String
-    var entryRange: String
-    var diceSpec: String
-    var rollTotal: Int
-    var modifier: Int
-    var seed: UInt64
-    var sequence: Int
-    var contextSummary: String
-    var outcomeSummary: String
+public final class TableRollRecord {
+    public var id: UUID
+    public var timestamp: Date
+    public var tableId: String
+    public var entryRange: String
+    public var diceSpec: String
+    public var rollTotal: Int
+    public var modifier: Int
+    public var seed: UInt64
+    public var sequence: Int
+    public var contextSummary: String
+    public var outcomeSummary: String
 
-    init(
+    public init(
         tableId: String,
         entryRange: String,
         diceSpec: String,

@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import WorldState
 
 struct CampaignDataView: View {
     @Query private var campaigns: [Campaign]

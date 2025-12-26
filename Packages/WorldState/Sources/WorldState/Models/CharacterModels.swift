@@ -1,28 +1,28 @@
 import Foundation
 import SwiftData
 
-enum SheetFieldStatus: String, CaseIterable, Identifiable {
+public enum SheetFieldStatus: String, CaseIterable, Identifiable {
     case unknown
     case provisional
     case confirmed
 
-    var id: String { rawValue }
+    public var id: String { rawValue }
 }
 
 @Model
-final class PlayerCharacter {
-    var id: UUID
-    var displayName: String
-    var rulesetId: String
-    var createdAt: Date
-    var updatedAt: Date
-    var fields: [CharacterField]
-    var facts: [CharacterFact]?
-    var changes: [CharacterChange]?
-    var derivedSummary: String?
-    var origin: String
+public final class PlayerCharacter {
+    public var id: UUID
+    public var displayName: String
+    public var rulesetId: String
+    public var createdAt: Date
+    public var updatedAt: Date
+    public var fields: [CharacterField]
+    public var facts: [CharacterFact]?
+    public var changes: [CharacterChange]?
+    public var derivedSummary: String?
+    public var origin: String
 
-    init(
+    public init(
         displayName: String = "",
         rulesetId: String = "srd_5e",
         origin: String = "player"
@@ -41,24 +41,24 @@ final class PlayerCharacter {
 }
 
 @Model
-final class CharacterField {
-    var id: UUID
-    var section: String
-    var key: String
-    var label: String
-    var valueType: String
-    var valueString: String?
-    var valueInt: Int?
-    var valueDouble: Double?
-    var valueStringList: [String]?
-    var status: String
-    var sourceType: String
-    var sourceId: String?
-    var note: String?
-    var updatedAt: Date
-    var order: Int
+public final class CharacterField {
+    public var id: UUID
+    public var section: String
+    public var key: String
+    public var label: String
+    public var valueType: String
+    public var valueString: String?
+    public var valueInt: Int?
+    public var valueDouble: Double?
+    public var valueStringList: [String]?
+    public var status: String
+    public var sourceType: String
+    public var sourceId: String?
+    public var note: String?
+    public var updatedAt: Date
+    public var order: Int
 
-    init(
+    public init(
         section: String,
         key: String,
         label: String,
@@ -86,18 +86,18 @@ final class CharacterField {
 }
 
 @Model
-final class CharacterFact {
-    var id: UUID
-    var kind: String
-    var payload: String
-    var status: String
-    var sourceType: String
-    var sourceId: String?
-    var note: String?
-    var createdAt: Date
-    var sceneId: UUID?
+public final class CharacterFact {
+    public var id: UUID
+    public var kind: String
+    public var payload: String
+    public var status: String
+    public var sourceType: String
+    public var sourceId: String?
+    public var note: String?
+    public var createdAt: Date
+    public var sceneId: UUID?
 
-    init(
+    public init(
         kind: String,
         payload: String,
         status: String = SheetFieldStatus.provisional.rawValue,
@@ -119,15 +119,15 @@ final class CharacterFact {
 }
 
 @Model
-final class CharacterChange {
-    var id: UUID
-    var fieldKey: String
-    var oldValue: String?
-    var newValue: String?
-    var changedAt: Date
-    var changedBy: String
+public final class CharacterChange {
+    public var id: UUID
+    public var fieldKey: String
+    public var oldValue: String?
+    public var newValue: String?
+    public var changedAt: Date
+    public var changedBy: String
 
-    init(fieldKey: String, oldValue: String?, newValue: String?, changedBy: String = "player") {
+    public init(fieldKey: String, oldValue: String?, newValue: String?, changedBy: String = "player") {
         self.id = UUID()
         self.fieldKey = fieldKey
         self.oldValue = oldValue
@@ -137,7 +137,7 @@ final class CharacterChange {
     }
 }
 
-struct CharacterSheetDefinitions {
+public struct CharacterSheetDefinitions {
     static let sectionOrder = [
         "Identity",
         "Progression",
@@ -150,7 +150,7 @@ struct CharacterSheetDefinitions {
         "Notes"
     ]
 
-    static func defaultFields() -> [CharacterField] {
+    public static func defaultFields() -> [CharacterField] {
         var order = 0
         func field(section: String, key: String, label: String, type: String) -> CharacterField {
             order += 1

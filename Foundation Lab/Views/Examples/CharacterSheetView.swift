@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import WorldState
 
 struct CharacterSheetView: View {
     @Environment(\.modelContext) private var modelContext

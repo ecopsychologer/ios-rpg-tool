@@ -124,6 +124,80 @@ This repo includes a solo roleplaying system built on top of the on-device model
 - **Solo Scenes**: the main scene loop and conversation interface.
 - **Campaign Data**: browse saved campaign structures and generated entities.
 - **Tables**: edit the JSON tables stored on device.
+- **NPCs**: generate and edit NPCs with expandable details.
+- **World Lore**: store persistent setting facts and campaign setup.
+- **Character Sheet**: living sheet with unknown/provisional/confirmed fields.
+
+### Expansion Progress
+Current stage: persistent locations, scene chat loop, skill checks, and content pack tables are live. Movement intent parsing is active (with exit label matching). NPCs, world lore, and character sheets are implemented as separate modules. Markdown table import (paste or file) is now available in Tables (log-only actions by default). Location navigation now exposes exits for deterministic traversal and reuse, and narrator context includes current exits.
+
+Work-in-progress task list (engine expansion):
+- **Architecture**: define module boundaries (engine, narrator, world state, tables) and plan a Swift package split without breaking current UI.
+- **Tables**: finish markdown/JSON import pipeline, validate ranges, and add import UI for custom tables. (Import UI added; wiring to action scripts still in progress.)
+- **World state**: harden location graph continuity (no duplicate nodes on revisit; now reuses existing nodes and exposes exits), add region/settlement layers.
+- **Tables**: edge labels now come from a dedicated dungeon edge table for more descriptive exits.
+- **Persistence**: versioned migrations and safe backups for campaign data.
+- **Narrator**: stricter tool-based contract (engine decides outcomes, narrator only interprets).
+- **Scene control**: end-of-scene detection and next-scene drafting based on last action.
+- **Skill checks**: contested checks, passive checks, and check-to-oracle modifiers.
+- **Encounters**: encounter clocks and repeatable encounter state.
+- **Campaign tools**: import/export, duplicate campaigns, and per-campaign rulesets.
+
+### Module Split Plan (Draft)
+Goal: separate engine and narrator concerns while keeping the current UI intact.
+- **WorldState**: data models + persistence helpers (Campaign, Locations, NPCs, Character sheet).
+- **TableEngine**: table execution, dice, seeded RNG, table import utilities.
+- **RPGEngine**: scene logic, chaos/fate checks, skill checks, location traversal.
+- **NarratorAgent**: prompt assembly, intent routing, and AI response orchestration.
+- **AppUI**: SwiftUI views that call into the engines.
+Dependency rule: WorldState + TableEngine at the base; RPGEngine depends on them; NarratorAgent depends on RPGEngine; AppUI depends on all.
+
+### Module Split Plan (Detailed)
+Aligned with the engine/narrator separation in `info/Solo_RPG_Engine_Expansion_Guide.md`.
+
+**WorldState (base layer)**
+- `Foundation Lab/Models/Solo/CampaignModels.swift`
+- `Foundation Lab/Models/Solo/LocationModels.swift`
+- `Foundation Lab/Models/Solo/NpcModels.swift`
+- `Foundation Lab/Models/Solo/CharacterModels.swift`
+- `Foundation Lab/Models/Solo/WorldLoreModels.swift`
+- `Foundation Lab/Models/Solo/PartyModels.swift`
+- Persistence helpers (future): `WorldStateStore.swift`
+
+**TableEngine (base layer)**
+- `Foundation Lab/Models/Solo/TableEngine.swift`
+- `Foundation Lab/Models/Solo/TableImporter.swift`
+- `Foundation Lab/Models/Solo/ContentPackStore.swift`
+
+**RPGEngine (logic layer)**
+- `Foundation Lab/Models/Solo/SkillCheckModels.swift`
+- `Foundation Lab/Models/Solo/Ruleset.swift`
+- `Foundation Lab/Models/Solo/LocationEngine.swift`
+- `Foundation Lab/Models/Solo/NpcEngine.swift`
+- `Foundation Lab/Models/Solo/SoloEngine.swift`
+
+**NarratorAgent (AI orchestration)**
+- `Foundation Lab/Models/Solo/NarrationContext.swift`
+- `Foundation Lab/Models/Solo/NarrationPrompts.swift`
+- Intent parsing + GM response helpers currently inside `Foundation Lab/Views/Examples/SoloScenesView.swift` (to extract later).
+
+**AppUI (SwiftUI)**
+- `Foundation Lab/Views/Examples/SoloScenesView.swift`
+- `Foundation Lab/Views/Examples/NPCsView.swift`
+- `Foundation Lab/Views/Examples/WorldLoreView.swift`
+- `Foundation Lab/Views/Examples/CharacterSheetView.swift`
+- `Foundation Lab/Views/Examples/CampaignDataView.swift`
+- `Foundation Lab/Views/Examples/TablesView.swift`
+- `Foundation Lab/Views/SettingsView.swift`
+
+**Split sequence**
+1) Create Swift packages with empty targets and shared types.
+2) Move base models (WorldState) first, then TableEngine.
+3) Move RPGEngine logic next (LocationEngine, SoloEngine, skill checks).
+4) Extract NarratorAgent helpers from SoloScenesView.
+5) Update imports in AppUI.
+
+Status: Step 1 complete (package scaffolding added under `Packages/`). Step 2 complete (TableEngine + WorldState sources moved into packages and imported). Step 3 in progress (RPGEngine sources moved into package and imported). Step 4 started (NarratorAgent prompt scaffolding added).
 
 ### Planned Features
 - Wilderness and settlement generation (travel segments, districts, rumors).
@@ -132,7 +206,6 @@ This repo includes a solo roleplaying system built on top of the on-device model
 - Table content packs with import/export and versioning.
 - Shop availability checks: track when the party is searching for a specific item and roll availability in a shop using SRD-style rarity/market logic.
 - Expanded editing tools for all campaign entities.
-- Add a structured “movement intent” system instead of keyword detection for advancing nodes
 
 ## Features
 

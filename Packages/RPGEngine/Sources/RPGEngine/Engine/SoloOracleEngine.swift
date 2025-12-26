@@ -1,30 +1,32 @@
 import Foundation
 
-protocol WordListProvider {
+public protocol WordListProvider {
     var listA: [String] { get }
     var listB: [String] { get }
 }
 
-struct DefaultWordListProvider: WordListProvider {
+public struct DefaultWordListProvider: WordListProvider {
     // Placeholder word lists; replace with your own tables if desired.
-    let listA: [String] = [
+    public let listA: [String] = [
         "ancient", "bold", "broken", "calm", "chaotic", "cold", "distant", "eager",
         "fragile", "grim", "hidden", "honest", "jagged", "luminous", "muffled", "narrow",
         "ominous", "quiet", "restless", "scarred", "silent", "tangled", "urgent", "worn"
     ]
 
-    let listB: [String] = [
+    public let listB: [String] = [
         "ally", "barrier", "bridge", "cargo", "crowd", "debt", "doorway", "echo",
         "fire", "garden", "hunger", "key", "memory", "message", "path", "promise",
         "refuge", "signal", "storm", "trail", "vault", "warning", "whisper", "wound"
     ]
+
+    public init() {}
 }
 
-struct SoloOracleEngine {
-    var wordListProvider: WordListProvider
-    var focusOptions: [RandomEventFocus]
+public struct SoloOracleEngine {
+    public var wordListProvider: WordListProvider
+    public var focusOptions: [RandomEventFocus]
 
-    init(
+    public init(
         wordListProvider: WordListProvider = DefaultWordListProvider(),
         focusOptions: [RandomEventFocus] = RandomEventFocus.allCases
     ) {
@@ -32,15 +34,15 @@ struct SoloOracleEngine {
         self.focusOptions = focusOptions
     }
 
-    func rollD10() -> Int {
+    public func rollD10() -> Int {
         Int.random(in: 1...10)
     }
 
-    func rollD100() -> Int {
+    public func rollD100() -> Int {
         Int.random(in: 1...100)
     }
 
-    func classifyScene(chaosFactor: Int, roll: Int) -> SceneType {
+    public func classifyScene(chaosFactor: Int, roll: Int) -> SceneType {
         if roll > chaosFactor {
             return .expected
         }
@@ -50,7 +52,7 @@ struct SoloOracleEngine {
         return .altered
     }
 
-    func generateMeaningWords() -> MeaningWords {
+    public func generateMeaningWords() -> MeaningWords {
         let listA = wordListProvider.listA
         let listB = wordListProvider.listB
         let first = listA[Int.random(in: 0..<listA.count)]
@@ -58,13 +60,13 @@ struct SoloOracleEngine {
         return MeaningWords(first: first, second: second)
     }
 
-    func generateRandomEvent() -> RandomEvent {
+    public func generateRandomEvent() -> RandomEvent {
         let focus = focusOptions[Int.random(in: 0..<focusOptions.count)]
         let words = generateMeaningWords()
         return RandomEvent(focus: focus, meaningWords: words)
     }
 
-    func updateChaosFactor(current: Int, pcsInControl: Bool) -> Int {
+    public func updateChaosFactor(current: Int, pcsInControl: Bool) -> Int {
         if pcsInControl {
             return max(1, current - 1)
         }

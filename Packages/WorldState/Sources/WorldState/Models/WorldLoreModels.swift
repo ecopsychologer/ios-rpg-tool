@@ -2,19 +2,19 @@ import Foundation
 import SwiftData
 
 @Model
-final class WorldLoreEntry {
-    var id: UUID
-    var title: String
-    var summary: String
-    var tags: [String]
-    var origin: String
-    var createdAt: Date
-    var updatedAt: Date
-    var relatedLocationId: UUID?
-    var relatedNpcId: UUID?
-    var relatedSceneId: UUID?
+public final class WorldLoreEntry {
+    public var id: UUID
+    public var title: String
+    public var summary: String
+    public var tags: [String]
+    public var origin: String
+    public var createdAt: Date
+    public var updatedAt: Date
+    public var relatedLocationId: UUID?
+    public var relatedNpcId: UUID?
+    public var relatedSceneId: UUID?
 
-    init(
+    public init(
         title: String,
         summary: String,
         tags: [String] = [],
