@@ -15,6 +15,8 @@ struct SettingsView: View {
     @Query(sort: \Campaign.createdAt, order: .reverse) private var campaigns: [Campaign]
     @AppStorage("exaAPIKey") private var exaAPIKey: String = ""
     @AppStorage("soloShowLocationDebug") private var showLocationDebug = false
+    @AppStorage("soloAutoRollEnabled") private var autoRollEnabled = false
+    @AppStorage("soloGMRunsCompanions") private var gmRunsCompanionsEnabled = false
     @State private var tempAPIKey: String = ""
     @State private var showingAlert = false
     @State private var alertMessage = ""
@@ -152,6 +154,20 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Solo RPG Tools")
                     .font(.headline)
+
+                Toggle("Auto-roll checks", isOn: $autoRollEnabled)
+                    .font(.callout)
+
+                Text("When enabled, you can say “auto” to let the GM roll for you.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                Toggle("GM runs companions", isOn: $gmRunsCompanionsEnabled)
+                    .font(.callout)
+
+                Text("When enabled, the GM may narrate companion actions without prompting.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
 
                 Toggle("Show generated location details", isOn: $showLocationDebug)
                     .font(.callout)

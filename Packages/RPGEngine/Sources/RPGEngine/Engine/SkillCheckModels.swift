@@ -1,18 +1,18 @@
 import Foundation
 import FoundationModels
 
-public enum CheckType: String, CaseIterable {
+public enum CheckType: String, CaseIterable, Sendable {
     case skillCheck = "skill_check"
     case contestedCheck = "contested_check"
 }
 
-public enum AdvantageState: String, CaseIterable {
+public enum AdvantageState: String, CaseIterable, Sendable {
     case advantage
     case disadvantage
     case normal
 }
 
-public enum FateLikelihood: String, CaseIterable {
+public enum FateLikelihood: String, CaseIterable, Sendable {
     case impossible
     case unlikely
     case fiftyFifty = "50_50"
@@ -119,7 +119,7 @@ public struct SkillCheckHeuristics {
     ]
 }
 
-public struct CheckRequest {
+public struct CheckRequest: Sendable {
     public let checkType: CheckType
     public let skillName: String
     public let abilityOverride: String?
@@ -259,6 +259,9 @@ public struct CheckRollDraft {
 
     @Guide(description: "The modifier applied to the roll if provided")
     public let modifier: Int?
+
+    @Guide(description: "True if the player asks the system to auto-roll")
+    public let autoRoll: Bool
 
     @Guide(description: "True if the player declines to attempt the check")
     public let declines: Bool

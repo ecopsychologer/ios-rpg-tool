@@ -138,7 +138,7 @@ public final class CharacterChange {
 }
 
 public struct CharacterSheetDefinitions {
-    public static let sectionOrder = [
+    public static let sectionOrder: [String] = [
         "Identity",
         "Progression",
         "Abilities",

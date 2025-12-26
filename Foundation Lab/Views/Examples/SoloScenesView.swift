@@ -77,6 +77,8 @@ struct SoloScenesView: View {
     @State private var engine = SoloCampaignEngine()
     @State private var locationEngine = SoloLocationEngine()
     @AppStorage("soloAlteredMode") private var alteredModeRaw = AlteredMode.guided.rawValue
+    @AppStorage("soloAutoRollEnabled") private var autoRollEnabled = false
+    @AppStorage("soloGMRunsCompanions") private var gmRunsCompanionsEnabled = false
     @State private var phase: ScenePhase = .setup
     @State private var sceneInput = ""
     @State private var currentScene: SceneRecord?
@@ -117,6 +119,7 @@ struct SoloScenesView: View {
     @State private var canonizationDrafts: [CanonizationDraftState] = []
     @State private var pendingCanonizationId: UUID?
     @State private var pendingLocationFeatures: [PendingLocationFeature] = []
+    @State private var agencyLogs: [AgencyLogEntry] = []
 
     private var alteredMode: AlteredMode {
         AlteredMode(rawValue: alteredModeRaw) ?? .guided
@@ -1074,6 +1077,7 @@ struct SoloScenesView: View {
                 Keep it punchy and actionable. Avoid lore dumps.
                 Do not mention mechanics, rolls, or chaos factors.
                 Do not ask the player to invent threats or obstacles; discover those through play.
+                Do not narrate the player's actions as if they already happened.
                 If clarification is needed, ask only about immediate positioning or intent.
                 End with a clear "What do you do?" prompt.
 
@@ -1193,6 +1197,42 @@ struct SoloScenesView: View {
                         return
                     }
 
+                    if rollDraft.content.autoRoll {
+                        if !autoRollEnabled {
+                            let gmText = "Auto-roll is disabled. Please roll and tell me the result, or enable auto-roll in Settings."
+                            interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
+                            sceneInput = ""
+                            return
+                        }
+
+                        let roll = Int.random(in: 1...20)
+                        let modifier = rollDraft.content.modifier ?? 0
+                        checkDrafts[index].roll = roll
+                        checkDrafts[index].modifier = modifier
+
+                        let result = engine.evaluateCheck(request: checkDrafts[index].request, roll: roll, modifier: modifier)
+                        checkDrafts[index].total = result.total
+                        checkDrafts[index].outcome = result.outcome
+                        appendRollHighlight(for: checkDrafts[index], outcome: result.outcome, total: result.total)
+                        applyTrapOutcomeIfNeeded(for: checkDrafts[index], outcome: result.outcome)
+                        logAgency(stage: "resolution", message: "Auto-roll check \(checkDrafts[index].request.skillName) => \(result.outcome) total \(result.total)")
+
+                        let consequence = try await generateCheckConsequence(
+                            session: session,
+                            context: context,
+                            check: checkDrafts[index],
+                            result: result
+                        )
+
+                        checkDrafts[index].consequence = consequence
+                        let outcomeText = result.outcome.replacingOccurrences(of: "_", with: " ")
+                        let gmText = "Auto-roll: \(roll) + \(modifier) = \(result.total). \(outcomeText.capitalized). \(consequence)"
+                        interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
+                        pendingCheckID = nil
+                        sceneInput = ""
+                        return
+                    }
+
                     guard let roll = rollDraft.content.roll else {
                         let gmText = "I need the roll result (and modifier if any) to resolve that."
                         interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
@@ -1209,6 +1249,7 @@ struct SoloScenesView: View {
                     checkDrafts[index].outcome = result.outcome
                     appendRollHighlight(for: checkDrafts[index], outcome: result.outcome, total: result.total)
                     applyTrapOutcomeIfNeeded(for: checkDrafts[index], outcome: result.outcome)
+                    logAgency(stage: "resolution", message: "Check \(checkDrafts[index].request.skillName) => \(result.outcome) total \(result.total)")
 
                     let consequence = try await generateCheckConsequence(
                         session: session,
@@ -1302,19 +1343,34 @@ struct SoloScenesView: View {
                     context = engine.buildNarrationContext(campaign: campaign, scene: scene)
                 }
 
-                if shouldForceSkillCheck(for: trimmed), !trimmed.contains("?") {
-                    if try await resolveSkillCheckProposal(session: session, context: context, playerText: trimmed) {
-                        return
-                    }
+                let intentCategoryDraft = try await session.respond(
+                    to: Prompt(makeIntentCategoryPrompt(playerText: trimmed, context: context)),
+                    generating: IntentCategoryDraft.self
+                )
+                logAgency(stage: "intent_category", message: "\(intentCategoryDraft.content.category): \(intentCategoryDraft.content.reason)")
+
+                guard let intentCategory = IntentCategory.from(name: intentCategoryDraft.content.category) else {
+                    let gmText = try await generateNormalGMResponse(session: session, context: context, playerText: trimmed, isMeta: false)
+                    interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
+                    sceneInput = ""
+                    return
                 }
 
-                let intent = try await session.respond(
-                    to: Prompt(makeIntentPrompt(playerText: trimmed, context: context)),
-                    generating: InteractionIntentDraft.self
-                )
+                if intentCategory == .gmCommand {
+                    let gmText = try await generateNormalGMResponse(session: session, context: context, playerText: trimmed, isMeta: true)
+                    interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
+                    sceneInput = ""
+                    return
+                }
 
-                let intentValue = intent.content.intent.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-                if intentValue == "fate_question" {
+                if intentCategory == .unclear {
+                    let gmText = "I’m not sure what you want to do. Are you asking a question, attempting an action, or speaking in character?"
+                    interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
+                    sceneInput = ""
+                    return
+                }
+
+                if intentCategory == .playerQuestion {
                     let fateDraft = try await session.respond(
                         to: Prompt(makeFatePrompt(playerText: trimmed, context: context)),
                         generating: FateQuestionDraft.self
@@ -1341,6 +1397,7 @@ struct SoloScenesView: View {
                         chaosFactor: campaign.chaosFactor,
                         roll: roll
                     )
+                    logAgency(stage: "resolution", message: "Fate \(likelihood.rawValue) => \(fateRecord.outcome) roll \(fateRecord.roll)")
 
                     let gmNarration = try await generateFateNarration(
                         session: session,
@@ -1364,8 +1421,28 @@ struct SoloScenesView: View {
                     return
                 }
 
-                if intentValue == "skill_check" {
-                    if try await resolveSkillCheckProposal(session: session, context: context, playerText: trimmed) {
+                if intentCategory == .playerIntent {
+                    let intentDraft = try await session.respond(
+                        to: Prompt(makePlayerIntentPrompt(playerText: trimmed, context: context)),
+                        generating: PlayerIntentDraft.self
+                    )
+                    logAgency(stage: "intent_extract", message: intentDraft.content.summary)
+
+                    if needsClarification(intentDraft.content) {
+                        let gmText = "I want to make sure I understand. What exactly are you trying to do?"
+                        interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
+                        sceneInput = ""
+                        return
+                    }
+
+                    let requestedMode = PlayerRequestedMode.from(name: intentDraft.content.requestedMode) ?? .askBeforeRolling
+                    if try await resolveSkillCheckProposal(
+                        session: session,
+                        context: context,
+                        playerText: trimmed,
+                        intentSummary: intentDraft.content.summary,
+                        requestedMode: requestedMode
+                    ) {
                         return
                     }
                 }
@@ -1438,8 +1515,22 @@ struct SoloScenesView: View {
         if let partialDC = request.partialSuccessDC, let partialText = request.partialSuccessOutcome, !partialText.isEmpty {
             line += " On a partial (DC \(partialDC)), \(partialText)"
         }
-        line += " Want to attempt it?"
+        if autoRollEnabled {
+            line += " Roll it, or say \"auto\" if you want me to roll."
+        } else {
+            line += " Want to attempt it?"
+        }
         return line
+    }
+
+    private func needsClarification(_ intent: PlayerIntentDraft) -> Bool {
+        let verb = intent.verb.trimmingCharacters(in: .whitespacesAndNewlines)
+        let summary = intent.summary.trimmingCharacters(in: .whitespacesAndNewlines)
+        return verb.isEmpty || summary.isEmpty
+    }
+
+    private func logAgency(stage: String, message: String) {
+        agencyLogs.append(AgencyLogEntry(stage: stage, message: message))
     }
 
     private func isMetaMessage(_ text: String) -> Bool {
@@ -1689,19 +1780,44 @@ struct SoloScenesView: View {
         return facts.joined(separator: " · ")
     }
 
-    private func makeIntentPrompt(playerText: String, context: NarrationContextPacket) -> String {
+    private func makeIntentCategoryPrompt(playerText: String, context: NarrationContextPacket) -> String {
         """
-        Classify the player's message into one of: fate_question, skill_check, normal.
-        Use fate_question only for yes/no questions about the world.
-        Use skill_check for action attempts where failure would matter (searching, sneaking, climbing, forcing, persuading, checking for traps).
-        Otherwise use normal.
+        Classify the player's message into one of:
+        - player_intent (an action the player wants to attempt)
+        - player_question (a question about the world)
+        - roleplay_dialogue (in-character dialogue only)
+        - gm_command (meta request to the GM)
+        - unclear (ambiguous)
+
+        Never assume the player took an action. If intent is unclear, choose unclear.
 
         Scene #\(context.sceneNumber)
         Scene Type: \(context.sceneType.rawValue)
         Player: \(playerText)
 
-        Return an InteractionIntentDraft.
+        Return an IntentCategoryDraft.
         """
+    }
+
+    private func makePlayerIntentPrompt(playerText: String, context: NarrationContextPacket) -> String {
+        var prompt = """
+        Extract the player's intent without assuming any action occurred.
+        Provide a short summary of what they are attempting.
+        Only include party members if the player explicitly mentions them.
+        If they ask for auto-resolution, set requestedMode to auto_resolve.
+        Otherwise use ask_before_rolling.
+
+        Scene #\(context.sceneNumber)
+        Scene Type: \(context.sceneType.rawValue)
+        Player: \(playerText)
+        """
+
+        if gmRunsCompanionsEnabled {
+            prompt += "\nGM runs companions is ENABLED, but still require explicit player intent."
+        }
+
+        prompt += "\nReturn a PlayerIntentDraft."
+        return prompt
     }
 
     private func makeMovementIntentPrompt(playerText: String, context: NarrationContextPacket) -> String {
@@ -1887,7 +2003,9 @@ struct SoloScenesView: View {
     private func resolveSkillCheckProposal(
         session: LanguageModelSession,
         context: NarrationContextPacket,
-        playerText: String
+        playerText: String,
+        intentSummary: String? = nil,
+        requestedMode: PlayerRequestedMode = .askBeforeRolling
     ) async throws -> Bool {
         let checkDraft = try await session.respond(
             to: Prompt(makeCheckProposalPrompt(playerText: playerText, context: context)),
@@ -1909,13 +2027,15 @@ struct SoloScenesView: View {
                 )
                 checkDrafts.append(draft)
                 pendingCheckID = draft.id
-                let gmText = gmLineForCheck(forcedRequest)
+                let preface = intentSummary.map { "Got it: \($0). " } ?? ""
+                let gmText = preface + gmLineForCheck(forcedRequest)
                 interactionDrafts.append(InteractionDraft(playerText: playerText, gmText: gmText, turnSignal: "gm_response"))
                 sceneInput = ""
                 return true
             }
             let outcome = checkDraft.content.autoOutcome?.isEmpty == false ? checkDraft.content.autoOutcome! : "success"
-            let gmText = "No roll needed. Automatic outcome: \(outcome)."
+            let preface = intentSummary.map { "Got it: \($0). " } ?? ""
+            let gmText = preface + "No roll needed. Automatic outcome: \(outcome). Want to proceed?"
             interactionDrafts.append(InteractionDraft(playerText: playerText, gmText: gmText, turnSignal: "gm_response"))
             sceneInput = ""
             return true
@@ -1927,6 +2047,7 @@ struct SoloScenesView: View {
             sceneInput = ""
             return true
         }
+        logAgency(stage: "adjudication_request", message: "\(request.skillName) dc=\(request.dc ?? request.opponentDC ?? 0) reason=\(request.reason)")
 
         let draft = SkillCheckDraft(
             playerAction: playerText,
@@ -1942,7 +2063,34 @@ struct SoloScenesView: View {
         checkDrafts.append(draft)
         pendingCheckID = draft.id
 
-        let gmText = gmLineForCheck(request)
+        if autoRollEnabled, requestedMode == .autoResolve {
+            let roll = Int.random(in: 1...20)
+            let modifier = 0
+            checkDrafts[checkDrafts.count - 1].roll = roll
+            checkDrafts[checkDrafts.count - 1].modifier = modifier
+            let result = engine.evaluateCheck(request: request, roll: roll, modifier: modifier)
+            checkDrafts[checkDrafts.count - 1].total = result.total
+            checkDrafts[checkDrafts.count - 1].outcome = result.outcome
+            appendRollHighlight(for: checkDrafts[checkDrafts.count - 1], outcome: result.outcome, total: result.total)
+            logAgency(stage: "resolution", message: "Auto-roll check \(request.skillName) => \(result.outcome) total \(result.total)")
+            let consequence = try await generateCheckConsequence(
+                session: session,
+                context: context,
+                check: checkDrafts[checkDrafts.count - 1],
+                result: result
+            )
+            checkDrafts[checkDrafts.count - 1].consequence = consequence
+            let outcomeText = result.outcome.replacingOccurrences(of: "_", with: " ")
+            let preface = intentSummary.map { "Got it: \($0). " } ?? ""
+            let gmText = preface + "Auto-roll: \(roll) + \(modifier) = \(result.total). \(outcomeText.capitalized). \(consequence)"
+            interactionDrafts.append(InteractionDraft(playerText: playerText, gmText: gmText, turnSignal: "gm_response"))
+            pendingCheckID = nil
+            sceneInput = ""
+            return true
+        }
+
+        let preface = intentSummary.map { "Got it: \($0). " } ?? ""
+        let gmText = preface + gmLineForCheck(request)
         interactionDrafts.append(InteractionDraft(playerText: playerText, gmText: gmText, turnSignal: "gm_response"))
         sceneInput = ""
         return true
@@ -1952,6 +2100,8 @@ struct SoloScenesView: View {
         """
         The player is responding to a pending skill check.
         Extract the d20 roll and modifier if present. If they decline, set declines to true.
+        If they explicitly ask for an auto-roll (\"auto\"), set autoRoll to true.
+        Otherwise set autoRoll to false.
         If no roll is provided, leave roll as null.
 
         Check: \(check.request.skillName) DC \(check.request.dc ?? check.request.opponentDC ?? 10)
@@ -1972,6 +2122,18 @@ struct SoloScenesView: View {
         Do not roll dice or change state. Ask clarifying questions when needed.
         Do not mention mechanics, chaos factor, or internal rolls.
         Do not ask the player to invent threats or obstacles; discover them through play.
+        Never narrate player actions or decisions as if they already happened.
+        Use conditional phrasing or ask the player to choose.
+        """
+
+        if gmRunsCompanionsEnabled {
+            prompt += "\nGM runs companions is enabled. You may narrate companion actions, but avoid taking major decisions without prompting."
+        } else {
+            prompt += "\nDo not move the party or companions unless the player explicitly says so."
+        }
+
+        prompt += """
+
         If the player pushes beyond the current scene scope, suggest ending the scene and offer:
         - Use a relevant sense from here to perceive what lies beyond, or
         - Move that way and start a new scene.
@@ -2023,6 +2185,8 @@ struct SoloScenesView: View {
             prompt += "\nCurrent Exits: \(context.currentExits.joined(separator: " · "))"
         }
 
+        prompt += "\nGM runs companions: \(gmRunsCompanionsEnabled ? "enabled" : "disabled")"
+
         if !context.recentPlaces.isEmpty {
             prompt += "\nRecent Places: \(context.recentPlaces.joined(separator: ", "))"
         }
@@ -2036,7 +2200,17 @@ struct SoloScenesView: View {
         }
 
         let response = try await session.respond(to: Prompt(prompt))
-        return response.content.trimmingCharacters(in: .whitespacesAndNewlines)
+        let content = response.content.trimmingCharacters(in: .whitespacesAndNewlines)
+        if violatesAgencyBoundary(content) {
+            logAgency(stage: "agency_violation", message: "Rewriting narration to avoid assumed player action.")
+            return try await rewriteForAgency(
+                session: session,
+                context: context,
+                playerText: playerText,
+                draft: content
+            )
+        }
+        return content
     }
 
     private func generateFateNarration(
@@ -2048,6 +2222,53 @@ struct SoloScenesView: View {
         Answer the fate question with the given outcome in 1-2 sentences.
         Question: \(question)
         Outcome: \(outcome.uppercased())
+        """
+        let response = try await session.respond(to: Prompt(prompt))
+        return response.content.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func violatesAgencyBoundary(_ text: String) -> Bool {
+        let lower = " " + text.lowercased()
+        let allowedVerbs = [
+            "see", "hear", "notice", "spot", "feel", "smell", "sense", "recall", "realize"
+        ]
+        let bannedVerbs = [
+            "decide", "charge", "attack", "cast", "open", "search", "inspect", "climb",
+            "move", "enter", "leave", "take", "grab", "draw", "say", "says", "speak",
+            "speaks", "tell", "tells", "go", "goes", "went", "use", "uses", "try", "tries",
+            "attempt", "attempts", "pick", "picks", "persuade", "persuades", "sneak",
+            "sneaks", "steal", "steals", "look", "looks", "run", "runs", "rush", "rushes"
+        ]
+        let conditionalPrefixes = [
+            "if you", "would you", "could you", "do you", "can you", "should you",
+            "when you", "as you", "you could", "you can", "you might", "you may"
+        ]
+
+        for verb in bannedVerbs {
+            let token = "you \(verb)"
+            guard lower.contains(token) else { continue }
+            if allowedVerbs.contains(verb) { continue }
+            if conditionalPrefixes.contains(where: { lower.contains("\($0) \(verb)") }) { continue }
+            return true
+        }
+        return false
+    }
+
+    private func rewriteForAgency(
+        session: LanguageModelSession,
+        context: NarrationContextPacket,
+        playerText: String,
+        draft: String
+    ) async throws -> String {
+        let prompt = """
+        Rewrite the GM response to avoid assuming any player action occurred.
+        Use conditional phrasing or ask the player to choose.
+        Keep it to 1-3 short paragraphs, end with a short question.
+
+        Player: \(playerText)
+        Draft response: \(draft)
+
+        Return only the rewritten response.
         """
         let response = try await session.respond(to: Prompt(prompt))
         return response.content.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -2325,10 +2546,11 @@ struct SoloScenesView: View {
 
                 var prompt = """
                 Draft the next expected scene for a solo RPG.
-                Keep it 1-3 sentences, concrete, and easy to play.
+                Keep it 1-2 sentences, concrete, and easy to play.
                 Continue directly from the previous scene's outcome; do not repeat resolved obstacles.
                 Do not introduce new NPCs, enemies, or locations here. Those happen during scene play.
                 Advance time or position based on the last action.
+                Do not ask what the player does next.
                 Return only the scene prompt text.
                 """
 
@@ -2360,7 +2582,7 @@ struct SoloScenesView: View {
                         prompt += "\nRecent Rolls: \(rollsList)"
                     }
                 } else {
-                    prompt += "\nThere is no previous scene. Ask the player what they want to do next."
+                    prompt += "\nThere is no previous scene. Provide a short neutral setup snippet."
                 }
 
                 if !campaign.characters.isEmpty {

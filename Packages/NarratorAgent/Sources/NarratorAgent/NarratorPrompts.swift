@@ -4,19 +4,41 @@ import RPGEngine
 public struct NarratorPrompts {
     public init() {}
 
-    public func makeIntentPrompt(playerText: String, context: NarrationContextPacket) -> String {
+    public func makeIntentCategoryPrompt(playerText: String, context: NarrationContextPacket) -> String {
         """
-        Classify the player's message into one of: fate_question, skill_check, normal.
-        Use fate_question only for yes/no questions about the world.
-        Use skill_check for action attempts where failure would matter (searching, sneaking, climbing, forcing, persuading, checking for traps).
-        Otherwise use normal.
+        Classify the player's message into one of:
+        - player_intent (an action the player wants to attempt)
+        - player_question (a question about the world)
+        - roleplay_dialogue (in-character dialogue only)
+        - gm_command (meta request to the GM)
+        - unclear (ambiguous)
+
+        Never assume the player took an action.
 
         Scene #\(context.sceneNumber)
         Scene Type: \(context.sceneType.rawValue)
         Player: \(playerText)
 
-        Return an InteractionIntentDraft.
+        Return an IntentCategoryDraft.
         """
+    }
+
+    public func makePlayerIntentPrompt(playerText: String, context: NarrationContextPacket, gmRunsCompanionsEnabled: Bool) -> String {
+        var prompt = """
+        Extract the player's intent without assuming any action occurred.
+        Provide a short summary of what they are attempting.
+        Only include party members if the player explicitly mentions them.
+        If they ask for auto-resolution, set requestedMode to auto_resolve.
+        Otherwise use ask_before_rolling.
+
+        Scene #\(context.sceneNumber)
+        Scene Type: \(context.sceneType.rawValue)
+        Player: \(playerText)
+        """
+
+        prompt += "\nGM runs companions: \(gmRunsCompanionsEnabled ? "enabled" : "disabled")"
+        prompt += "\nReturn a PlayerIntentDraft."
+        return prompt
     }
 
     public func makeMovementIntentPrompt(playerText: String, context: NarrationContextPacket) -> String {
