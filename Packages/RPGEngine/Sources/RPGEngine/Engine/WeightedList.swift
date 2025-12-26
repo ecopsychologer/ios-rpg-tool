@@ -1,10 +1,15 @@
 import Foundation
 
 public struct WeightedList: Sendable {
-    struct Entry: Identifiable, Sendable, Equatable {
-        let id = UUID()
-        let name: String
-        let weight: Int
+    public struct Entry: Identifiable, Sendable, Equatable {
+        public let id = UUID()
+        public let name: String
+        public let weight: Int
+
+        public init(name: String, weight: Int) {
+            self.name = name
+            self.weight = weight
+        }
     }
 
     private struct StoredEntry: Sendable {

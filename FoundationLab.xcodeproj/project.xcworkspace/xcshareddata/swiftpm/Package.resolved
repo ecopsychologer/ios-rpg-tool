@@ -1,5 +1,5 @@
 {
-  "originHash" : "7fe9db32ce163f1e889469b40ff9d643d828527a0f5ba5f81c0517c28b6705c1",
+  "originHash" : "28bef75a1ce6dbaebcde27ceefcbc1fd3ab59fb89f0a56f76d9663443ee7af6f",
   "pins" : [
     {
       "identity" : "foundationmodelstools",
@@ -7,7 +7,7 @@
       "location" : "https://github.com/rudrankriyam/FoundationModelsTools.git",
       "state" : {
         "branch" : "main",
-        "revision" : "32a3da95f680c36b59ac93135d2206b3b44e6c7c"
+        "revision" : "0bcc3d9210b6a99c6a137ea3dff300697c7b845b"
       }
     },
     {
@@ -25,7 +25,7 @@
       "location" : "https://github.com/rryam/LiquidGlasKit.git",
       "state" : {
         "branch" : "main",
-        "revision" : "06769388536d78d262ff80d4cebeb3fbbd69afdc"
+        "revision" : "32e62d22860674832008678882e868a483bc7fef"
       }
     }
   ],

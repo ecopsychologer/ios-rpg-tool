@@ -4,6 +4,12 @@ public struct ContentPack: Codable {
     public let id: String
     public let version: String
     public let tables: [TableDefinition]
+
+    public init(id: String, version: String, tables: [TableDefinition]) {
+        self.id = id
+        self.version = version
+        self.tables = tables
+    }
 }
 
 public struct TableDefinition: Codable {
@@ -12,12 +18,26 @@ public struct TableDefinition: Codable {
     public let scope: String
     public let diceSpec: String
     public let entries: [TableEntry]
+
+    public init(id: String, name: String, scope: String, diceSpec: String, entries: [TableEntry]) {
+        self.id = id
+        self.name = name
+        self.scope = scope
+        self.diceSpec = diceSpec
+        self.entries = entries
+    }
 }
 
 public struct TableEntry: Codable {
     public let min: Int
     public let max: Int
     public let actions: [OutcomeAction]
+
+    public init(min: Int, max: Int, actions: [OutcomeAction]) {
+        self.min = min
+        self.max = max
+        self.actions = actions
+    }
 }
 
 public struct OutcomeAction: Codable {
@@ -42,6 +62,52 @@ public struct OutcomeAction: Codable {
     public let thenActions: [OutcomeAction]?
     public let elseActions: [OutcomeAction]?
     public let message: String?
+
+    public init(
+        type: String,
+        nodeType: String?,
+        edgeType: String?,
+        summary: String?,
+        tags: [String]?,
+        category: String?,
+        trigger: String?,
+        detectionSkill: String?,
+        detectionDC: Int?,
+        disarmSkill: String?,
+        disarmDC: Int?,
+        saveSkill: String?,
+        saveDC: Int?,
+        effect: String?,
+        tableId: String?,
+        diceSpec: String?,
+        threshold: Int?,
+        modifier: Int?,
+        thenActions: [OutcomeAction]?,
+        elseActions: [OutcomeAction]?,
+        message: String?
+    ) {
+        self.type = type
+        self.nodeType = nodeType
+        self.edgeType = edgeType
+        self.summary = summary
+        self.tags = tags
+        self.category = category
+        self.trigger = trigger
+        self.detectionSkill = detectionSkill
+        self.detectionDC = detectionDC
+        self.disarmSkill = disarmSkill
+        self.disarmDC = disarmDC
+        self.saveSkill = saveSkill
+        self.saveDC = saveDC
+        self.effect = effect
+        self.tableId = tableId
+        self.diceSpec = diceSpec
+        self.threshold = threshold
+        self.modifier = modifier
+        self.thenActions = thenActions
+        self.elseActions = elseActions
+        self.message = message
+    }
 }
 
 public struct RollContext {
@@ -52,6 +118,24 @@ public struct RollContext {
     public let tags: [String]
     public let dangerModifier: Int
     public let depth: Int
+
+    public init(
+        campaignId: UUID,
+        sceneId: UUID?,
+        locationId: UUID?,
+        nodeId: UUID?,
+        tags: [String],
+        dangerModifier: Int,
+        depth: Int
+    ) {
+        self.campaignId = campaignId
+        self.sceneId = sceneId
+        self.locationId = locationId
+        self.nodeId = nodeId
+        self.tags = tags
+        self.dangerModifier = dangerModifier
+        self.depth = depth
+    }
 }
 
 public struct TableRollResult {

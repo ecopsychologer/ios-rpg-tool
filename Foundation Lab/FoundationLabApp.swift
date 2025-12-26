@@ -9,6 +9,7 @@ import SwiftUI
 import AppIntents
 import FoundationModels
 import SwiftData
+import WorldState
 
 @main
 struct FoundationLabApp: App {

@@ -1,9 +1,9 @@
-// swift-tools-version: 5.10
+// swift-tools-version: 6.0
 import PackageDescription
 
 let package = Package(
     name: "TableEngine",
-    platforms: [.iOS(.v26)],
+    platforms: [.iOS("26.0")],
     products: [
         .library(name: "TableEngine", targets: ["TableEngine"])
     ],

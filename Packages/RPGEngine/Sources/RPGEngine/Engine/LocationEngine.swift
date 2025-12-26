@@ -6,6 +6,8 @@ public struct SoloLocationEngine {
     private var tableEngine: TableEngine?
     private let packStore = ContentPackStore()
 
+    public init() {}
+
     public mutating func generateDungeonStart(campaign: Campaign) -> LocationEntity? {
         do {
             try ensureTableEngine()

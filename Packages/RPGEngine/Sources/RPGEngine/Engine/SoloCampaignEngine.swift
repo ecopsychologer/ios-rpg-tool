@@ -40,6 +40,46 @@ public struct BookkeepingInput {
     public let locationId: UUID?
     public let generatedEntityIds: [UUID]
     public let canonizations: [CanonizationRecord]
+
+    public init(
+        summary: String,
+        newCharacters: [String],
+        newThreads: [String],
+        featuredCharacters: [String],
+        featuredThreads: [String],
+        removedCharacters: [String],
+        removedThreads: [String],
+        pcsInControl: Bool,
+        concluded: Bool,
+        interactions: [SceneInteraction],
+        skillChecks: [SkillCheckRecord],
+        fateQuestions: [FateQuestionRecord],
+        places: [String],
+        curiosities: [String],
+        rollHighlights: [String],
+        locationId: UUID?,
+        generatedEntityIds: [UUID],
+        canonizations: [CanonizationRecord]
+    ) {
+        self.summary = summary
+        self.newCharacters = newCharacters
+        self.newThreads = newThreads
+        self.featuredCharacters = featuredCharacters
+        self.featuredThreads = featuredThreads
+        self.removedCharacters = removedCharacters
+        self.removedThreads = removedThreads
+        self.pcsInControl = pcsInControl
+        self.concluded = concluded
+        self.interactions = interactions
+        self.skillChecks = skillChecks
+        self.fateQuestions = fateQuestions
+        self.places = places
+        self.curiosities = curiosities
+        self.rollHighlights = rollHighlights
+        self.locationId = locationId
+        self.generatedEntityIds = generatedEntityIds
+        self.canonizations = canonizations
+    }
 }
 
 public struct SoloCampaignEngine {
@@ -395,9 +435,9 @@ public struct SoloCampaignEngine {
 }
 
 public protocol ListEntryProtocol: AnyObject {
-    public var name: String { get set }
-    public var key: String { get set }
-    public var weight: Int { get set }
+    var name: String { get set }
+    var key: String { get set }
+    var weight: Int { get set }
 }
 
 extension CharacterEntry: ListEntryProtocol {}

@@ -21,19 +21,19 @@ public enum FateLikelihood: String, CaseIterable {
     case nearlyCertain
 }
 
-public struct SkillDefinition: Hashable {
+public struct SkillDefinition: Hashable, Sendable {
     public let name: String
     public let defaultAbility: String
 }
 
 public protocol Ruleset {
-    public var id: String { get }
-    public var displayName: String { get }
-    public var abilities: [String] { get }
-    public var skills: [SkillDefinition] { get }
-    public var dcBands: [Int] { get }
-    public var contestedPairs: [(String, String)] { get }
-    public func defaultAbility(for skill: String) -> String?
+    var id: String { get }
+    var displayName: String { get }
+    var abilities: [String] { get }
+    var skills: [SkillDefinition] { get }
+    var dcBands: [Int] { get }
+    var contestedPairs: [(String, String)] { get }
+    func defaultAbility(for skill: String) -> String?
 }
 
 extension Ruleset {
@@ -46,7 +46,7 @@ extension Ruleset {
     }
 }
 
-public struct SrdRuleset: Ruleset {
+public struct SrdRuleset: Ruleset, Sendable {
     public let id = "srd_5e"
     public let displayName = "SRD 5E"
 
@@ -92,7 +92,7 @@ public struct SrdRuleset: Ruleset {
 }
 
 public struct RulesetCatalog {
-    static let srd = SrdRuleset()
+    public static let srd = SrdRuleset()
 }
 
 public struct SkillCheckHeuristics {
@@ -131,6 +131,32 @@ public struct CheckRequest {
     public let partialSuccessDC: Int?
     public let partialSuccessOutcome: String?
     public let reason: String
+
+    public init(
+        checkType: CheckType,
+        skillName: String,
+        abilityOverride: String?,
+        dc: Int?,
+        opponentSkill: String?,
+        opponentDC: Int?,
+        advantageState: AdvantageState,
+        stakes: String,
+        partialSuccessDC: Int?,
+        partialSuccessOutcome: String?,
+        reason: String
+    ) {
+        self.checkType = checkType
+        self.skillName = skillName
+        self.abilityOverride = abilityOverride
+        self.dc = dc
+        self.opponentSkill = opponentSkill
+        self.opponentDC = opponentDC
+        self.advantageState = advantageState
+        self.stakes = stakes
+        self.partialSuccessDC = partialSuccessDC
+        self.partialSuccessOutcome = partialSuccessOutcome
+        self.reason = reason
+    }
 }
 
 public struct CheckResult {

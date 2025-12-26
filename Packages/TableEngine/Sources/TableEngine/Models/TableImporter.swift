@@ -31,6 +31,8 @@ public struct ImportedTableEntry: Identifiable {
 }
 
 public struct TableImporter {
+    public init() {}
+
     public func importMarkdown(_ text: String, defaultName: String = "Imported Table") -> [ImportedTable] {
         let lines = text.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
         var tables: [ImportedTable] = []

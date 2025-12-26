@@ -7,11 +7,25 @@ public struct NpcGenerationOptions {
     public var species: String?
     public var roleTag: String?
     public var importance: NPCImportance
+
+    public init(
+        name: String? = nil,
+        species: String? = nil,
+        roleTag: String? = nil,
+        importance: NPCImportance
+    ) {
+        self.name = name
+        self.species = species
+        self.roleTag = roleTag
+        self.importance = importance
+    }
 }
 
 public struct SoloNpcEngine {
     private var tableEngine: TableEngine?
     private let packStore = ContentPackStore()
+
+    public init() {}
 
     public mutating func generateNPC(campaign: Campaign, options: NpcGenerationOptions) -> NPCEntry? {
         do {

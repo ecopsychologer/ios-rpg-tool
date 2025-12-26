@@ -3,6 +3,8 @@ import Foundation
 public struct ContentPackStore {
     public let fileName = "solo_default_tables.json"
 
+    public init() {}
+
     public func loadDefaultPack() throws -> ContentPack {
         let url = try ensureDefaultPackExists()
         let data = try Data(contentsOf: url)

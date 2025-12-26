@@ -14,7 +14,7 @@
 		6B78B66A2EFE12CC007D1D33 /* TableEngine in Frameworks */ = {isa = PBXBuildFile; productRef = 0B2000022F00000100000002 /* TableEngine */; };
 		6B78B66B2EFE12CC007D1D33 /* RPGEngine in Frameworks */ = {isa = PBXBuildFile; productRef = 0B2000032F00000100000003 /* RPGEngine */; };
 		6B78B66C2EFE12CC007D1D33 /* NarratorAgent in Frameworks */ = {isa = PBXBuildFile; productRef = 0B2000042F00000100000004 /* NarratorAgent */; };
-		FA43F9412E13A16E00F24BCC /* HighlightSwift in Frameworks */ = {isa = PBXBuildFile; productRef = FA43F9402E13A16E00F24BCC /* HighlightSwift */; };
+		6BE5E77C2EFE580600976AAB /* HighlightSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 6BE5E77B2EFE580600976AAB /* HighlightSwift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -53,9 +53,9 @@
 			files = (
 				6B78B66C2EFE12CC007D1D33 /* NarratorAgent in Frameworks */,
 				6B78B66B2EFE12CC007D1D33 /* RPGEngine in Frameworks */,
+				6BE5E77C2EFE580600976AAB /* HighlightSwift in Frameworks */,
 				6B78B66A2EFE12CC007D1D33 /* TableEngine in Frameworks */,
 				6B78B6692EFE12CC007D1D33 /* WorldState in Frameworks */,
-				FA43F9412E13A16E00F24BCC /* HighlightSwift in Frameworks */,
 				0A979E842E1E5921008CFA37 /* FoundationModelsTools in Frameworks */,
 				0A21D7F12E518858004E8806 /* LiquidGlasKit in Frameworks */,
 			);
@@ -117,13 +117,13 @@
 			);
 			name = "Solo RPG Tool";
 			packageProductDependencies = (
-				FA43F9402E13A16E00F24BCC /* HighlightSwift */,
 				0A979E832E1E5921008CFA37 /* FoundationModelsTools */,
 				0A21D7F02E518858004E8806 /* LiquidGlasKit */,
 				0B2000012F00000100000001 /* WorldState */,
 				0B2000022F00000100000002 /* TableEngine */,
 				0B2000032F00000100000003 /* RPGEngine */,
 				0B2000042F00000100000004 /* NarratorAgent */,
+				6BE5E77B2EFE580600976AAB /* HighlightSwift */,
 			);
 			productName = SoloRPGTool;
 			productReference = 0AAE4FFF2DF76E6600838F13 /* Solo RPG Tool.app */;
@@ -154,13 +154,13 @@
 			mainGroup = 0AAE4FF62DF76E6600838F13;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				0AC6037E2E1D5288002106F9 /* XCRemoteSwiftPackageReference "HighlightSwift" */,
 				0A979E822E1E5921008CFA37 /* XCRemoteSwiftPackageReference "FoundationModelsTools" */,
 				0A21D7EF2E518858004E8806 /* XCRemoteSwiftPackageReference "LiquidGlasKit" */,
 				0B1000012F00000100000001 /* XCLocalSwiftPackageReference "Packages/WorldState" */,
 				0B1000022F00000100000002 /* XCLocalSwiftPackageReference "Packages/TableEngine" */,
 				0B1000032F00000100000003 /* XCLocalSwiftPackageReference "Packages/RPGEngine" */,
 				0B1000042F00000100000004 /* XCLocalSwiftPackageReference "Packages/NarratorAgent" */,
+				6BE5E77A2EFE580600976AAB /* XCRemoteSwiftPackageReference "HighlightSwift" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 0AAE50002DF76E6600838F13 /* Products */;
@@ -544,20 +544,12 @@
 				kind = branch;
 			};
 		};
-		0AC6037E2E1D5288002106F9 /* XCRemoteSwiftPackageReference "HighlightSwift" */ = {
+		6BE5E77A2EFE580600976AAB /* XCRemoteSwiftPackageReference "HighlightSwift" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/appstefan/HighlightSwift.git";
 			requirement = {
 				kind = upToNextMajorVersion;
 				minimumVersion = 1.0.9;
-			};
-		};
-		FA43F93F2E13A16E00F24BCC /* XCRemoteSwiftPackageReference "HighlightSwift" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/appstefan/HighlightSwift";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 1.0.6;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
@@ -593,9 +585,9 @@
 			package = 0B1000042F00000100000004 /* XCLocalSwiftPackageReference "Packages/NarratorAgent" */;
 			productName = NarratorAgent;
 		};
-		FA43F9402E13A16E00F24BCC /* HighlightSwift */ = {
+		6BE5E77B2EFE580600976AAB /* HighlightSwift */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = FA43F93F2E13A16E00F24BCC /* XCRemoteSwiftPackageReference "HighlightSwift" */;
+			package = 6BE5E77A2EFE580600976AAB /* XCRemoteSwiftPackageReference "HighlightSwift" */;
 			productName = HighlightSwift;
 		};
 /* End XCSwiftPackageProductDependency section */

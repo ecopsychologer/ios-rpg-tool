@@ -77,3 +77,4 @@ __pycache__/
 .Python
 /dnd-5e-srd
 /info
+.github/copilot-instructions.md

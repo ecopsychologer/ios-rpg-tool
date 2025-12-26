@@ -44,7 +44,7 @@ Use `@Generable` structs with `@Guide` properties for type-safe AI responses:
 struct BookRecommendation {
     @Guide(description: "The title of the book")
     let title: String
-    
+
     @Guide(description: "The author's name")
     let author: String
 }
@@ -56,13 +56,13 @@ Tools follow this pattern in `Foundation Lab/Tools/` or `Foundation Lab/Health/T
 struct WeatherTool: Tool {
     let name = "fetchWeather"
     let description = "Get current weather conditions"
-    
+
     @Generable
     struct Arguments {
         @Guide(description: "City name or location")
         var location: String
     }
-    
+
     func call(arguments: Arguments) async throws -> some PromptRepresentable {
         // Implementation returns GeneratedContent
     }
@@ -83,6 +83,21 @@ struct WeatherTool: Tool {
 - SwiftData models stored in `modelContainer` (see `FoundationLabApp`)
 - Key entities: `HealthMetric`, `HealthInsight`, `Campaign`, `SceneEntry`, etc.
 - Automatic schema migration handled by SwiftData
+
+### Token Counting Extensions
+- Use `Transcript+TokenCounting` extension for accurate token estimation
+- `estimatedTokenCount` property available on `Transcript.Entry` and `Transcript.Segment`
+- Advanced estimation handles tool calls, structured content, and text segments
+
+### Voice System Architecture
+- State machine pattern in `SpeechRecognitionStateMachine` for voice interactions
+- Permission management through `PermissionManager`
+- Real-time transcription with partial text updates
+
+### RPG Engine Integration
+- Mythic GM Emulator implemented in `SoloCampaignEngine`
+- Scene generation with chaos factor and random events
+- World state management through SwiftData entities
 
 ## Integration Points & Dependencies
 
@@ -126,6 +141,8 @@ App supports 10 languages with automatic language detection. Language-specific e
 - Function body: 60 lines (warning), 100 (error)
 - File length: 600 lines (warning), 800 (error)
 - Type nesting: 3 levels (warning), 5 (error)
+- Identifier length: 2-40 chars (warning), 1-50 (error)
+- Type name length: 50 chars (warning), 60 (error)
 
 ### Naming Conventions
 - Use descriptive names following Swift API Design Guidelines
