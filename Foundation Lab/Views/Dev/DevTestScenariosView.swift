@@ -305,7 +305,7 @@ final class DevTestRunner: ObservableObject {
                 partialSuccessOutcome: "You succeed but at a cost.",
                 reason: "Dev test override"
             )
-            var draft = SkillCheckDraft(playerAction: "Dev test \(skill) check", request: request, roll: roll, modifier: 0, total: roll, outcome: outcome, consequence: consequence, sourceTrapId: nil, sourceKind: nil)
+            let draft = SkillCheckDraft(playerAction: "Dev test \(skill) check", request: request, roll: roll, modifier: 0, total: roll, outcome: outcome, consequence: consequence, sourceTrapId: nil, sourceKind: nil)
             coordinator.checkDrafts.append(draft)
             if roll == 20 || roll == 1 {
                 let existing = coordinator.rollHighlightsInput

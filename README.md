@@ -1,40 +1,5 @@
 # Foundation Models Framework Example
 
-<div align="center">
-  <table>
-    <tr>
-      <td align="center" style="padding: 15px;">
-        <img src="images/FMF_Examples.png" alt="FMF examples - One-shot prompt interface showing a haiku generation example with prompt input, reset/run buttons, suggestions, and resulting haiku about destiny" width="500" style="border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);"/>
-        <br/>
-        <strong>FMF Examples</strong>
-      </td>
-      <td align="center" style="padding: 15px;">
-        <img src="images/FMF_Tools.png" alt="FMF tools - Tools page showing various utility options including Weather, Web Search, Contacts, Calendar, Reminders, Location, Health, Music, and Web Metadata tools" width="500" style="border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);"/>
-        <br/>
-        <strong>FMF Tools</strong>
-      </td>
-    </tr>
-    <tr>
-      <td align="center" style="padding: 15px;">
-        <img src="images/FMF_Chat.png" alt="FMF chat - Chat interface displaying a conversation about the meaning of life, with user messages on the right and AI responses on the left, including a detailed philosophical answer" width="500" style="border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);"/>
-        <br/>
-        <strong>FMF Chat</strong>
-      </td>
-      <td align="center" style="padding: 15px;">
-        <img src="images/FMF_Languages.png" alt="FMF languages - Languages page showing various language options and language selection interface for the Foundation Models framework" width="500" style="border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);"/>
-        <br/>
-        <strong>FMF Languages</strong>
-      </td>
-    </tr>
-  </table>
-</div>
-
-## Exploring Foundation Models
-
-This project includes playground examples organized by chapters to help you learn everything about Apple's Foundation Models framework.
-
-It is part of the [Exploring Foundation Models](https://academy.rudrank.com/product/foundation-models) book.
-
 ## Requirements
 
 - iOS 26.0+ or macOS 26.0+ (Xcode 26.0+)
@@ -130,7 +95,7 @@ This repo includes a solo roleplaying system built on top of the on-device model
 
 ### Expansion Progress
 Current stage: persistent locations, scene chat loop, skill checks, and content pack tables are live. Movement intent parsing is active (with exit label matching). NPCs, world lore, and character sheets are implemented as separate modules. Markdown table import (paste or file) is now available in Tables (log-only actions by default). Location navigation now exposes exits for deterministic traversal and reuse, and narrator context includes current exits.
-Dev tooling: optional DEV_FIXTURES build flag adds a developer test runner with scripted scenarios and a quick smoke test. A local-only supplemental rules data loader can merge 5eTools data at build time when enabled (not included in release builds).
+Dev tooling: optional DEV_FIXTURES build flag adds a developer test runner with scripted scenarios and a quick smoke test. A local-only supplemental rules data loader can merge extra data at build time when enabled (not included in release builds).
 
 Work-in-progress task list (engine expansion):
 - **Architecture**: define module boundaries (engine, narrator, world state, tables) and plan a Swift package split without breaking current UI.
@@ -140,6 +105,7 @@ Work-in-progress task list (engine expansion):
 - **Persistence**: versioned migrations and safe backups for campaign data.
 - **Narrator**: stricter tool-based contract (engine decides outcomes, narrator only interprets).
 - **Scene control**: end-of-scene detection and next-scene drafting based on last action.
+- **UI**: add a lightweight pending-check reminder chip in the scene view (non-blocking).
 - **Skill checks**: contested checks, passive checks, and check-to-oracle modifiers.
 - **Encounters**: encounter clocks and repeatable encounter state.
 - **Campaign tools**: import/export, duplicate campaigns, and per-campaign rulesets.

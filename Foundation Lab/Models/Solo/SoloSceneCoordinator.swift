@@ -153,7 +153,7 @@ final class SoloSceneCoordinator: ObservableObject {
                         }
 
                         let roll = Int.random(in: 1...20)
-                        let modifier = fallback.modifier ?? 0
+                        let modifier = fallback.modifier ?? computedSkillBonus(for: checkDrafts[index], campaign: campaign) ?? 0
                         checkDrafts[index].roll = roll
                         checkDrafts[index].modifier = modifier
 
@@ -180,7 +180,7 @@ final class SoloSceneCoordinator: ObservableObject {
                     }
 
                     if let roll = fallback.roll {
-                        let modifier = fallback.modifier ?? 0
+                        let modifier = fallback.modifier ?? (wantsAutoBonus(trimmed) ? computedSkillBonus(for: checkDrafts[index], campaign: campaign) : nil) ?? 0
                         checkDrafts[index].roll = roll
                         checkDrafts[index].modifier = modifier
 
@@ -207,6 +207,40 @@ final class SoloSceneCoordinator: ObservableObject {
                     }
                 }
 
+                if isBonusInquiry(trimmed) {
+                    var gmText = bonusInquiryResponse(for: checkDrafts[index], campaign: campaign)
+                    gmText += "\nPending check: \(pendingCheckReminder(for: checkDrafts[index].request))"
+                    interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
+                    return gmText
+                }
+
+                if isLikelyQuestion(trimmed) {
+                    let tableRoll = try await resolveTableRollIfNeeded(
+                        session: session,
+                        context: context,
+                        playerText: trimmed,
+                        campaign: campaign
+                    )
+                    let srdLookup = try await resolveSrdLookupIfNeeded(
+                        session: session,
+                        context: context,
+                        playerText: trimmed
+                    )
+                    var gmText = try await generateNormalGMResponse(
+                        session: session,
+                        context: context,
+                        playerText: trimmed,
+                        isMeta: false,
+                        playerInputKind: .playerQuestion,
+                        tableRoll: tableRoll,
+                        srdLookup: srdLookup,
+                        campaign: campaign
+                    )
+                    gmText += "\nPending check: \(pendingCheckReminder(for: checkDrafts[index].request))"
+                    interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
+                    return gmText
+                }
+
                 let rollDraft = try await session.respond(
                     to: Prompt(makeRollParsingPrompt(playerText: trimmed, check: checkDrafts[index])),
                     generating: CheckRollDraft.self
@@ -227,7 +261,7 @@ final class SoloSceneCoordinator: ObservableObject {
                     }
 
                     let roll = Int.random(in: 1...20)
-                    let modifier = rollDraft.content.modifier ?? 0
+                    let modifier = rollDraft.content.modifier ?? computedSkillBonus(for: checkDrafts[index], campaign: campaign) ?? 0
                     checkDrafts[index].roll = roll
                     checkDrafts[index].modifier = modifier
 
@@ -259,7 +293,11 @@ final class SoloSceneCoordinator: ObservableObject {
                     return gmText
                 }
 
-                let modifier = rollDraft.content.modifier ?? 0
+                let modifier = rollDraft.content.modifier
+                    ?? explicitNoModifier(from: trimmed)
+                    ?? (wantsAutoBonus(trimmed) ? computedSkillBonus(for: checkDrafts[index], campaign: campaign) : nil)
+                    ?? 0
+
                 checkDrafts[index].roll = roll
                 checkDrafts[index].modifier = modifier
 
@@ -380,6 +418,19 @@ final class SoloSceneCoordinator: ObservableObject {
             )
             if didAdvance {
                 context = engine.buildNarrationContext(campaign: campaign, scene: scene)
+            }
+
+            if shouldForceSkillCheck(for: trimmed) {
+                if try await resolveSkillCheckProposal(
+                    session: session,
+                    context: context,
+                    playerText: trimmed,
+                    intentSummary: nil,
+                    requestedMode: .askBeforeRolling,
+                    campaign: campaign
+                ) {
+                    return interactionDrafts.last?.gmText
+                }
             }
 
             let intentCategoryDraft = try await session.respond(
@@ -521,7 +572,8 @@ final class SoloSceneCoordinator: ObservableObject {
                     context: context,
                     playerText: trimmed,
                     intentSummary: intentDraft.content.summary,
-                    requestedMode: requestedMode
+                    requestedMode: requestedMode,
+                    campaign: campaign
                 ) {
                     return interactionDrafts.last?.gmText
                 }
@@ -651,12 +703,135 @@ final class SoloSceneCoordinator: ObservableObject {
         if let partialDC = request.partialSuccessDC, let partialText = request.partialSuccessOutcome, !partialText.isEmpty {
             line += " On a partial (DC \(partialDC)), \(partialText)"
         }
+        line += " Include your modifier in the roll total, or say \"use my bonus\" if you want me to add it."
         if autoRollEnabled {
             line += " Roll it, or say \"auto\" if you want me to roll."
         } else {
             line += " Want to attempt it?"
         }
         return line
+    }
+
+    private func pendingCheckReminder(for request: CheckRequest) -> String {
+        let skillName = request.skillName
+        if let dc = request.dc {
+            return "\(skillName) check pending (DC \(dc)). Give me your roll when you're ready."
+        }
+        return "\(skillName) check pending. Give me your roll when you're ready."
+    }
+
+    private func modifierPromptText(for request: CheckRequest) -> String {
+        let skillName = request.skillName
+        return "Got the roll. What modifier should I add for \(skillName)? (Say \"flat\" if none.)"
+    }
+
+    private func wantsAutoBonus(_ text: String) -> Bool {
+        let lower = text.lowercased()
+        let phrases = ["use my bonus", "add my bonus", "use my modifier", "add my modifier", "apply my bonus", "with my bonus", "with my modifier"]
+        return phrases.contains(where: { lower.contains($0) })
+    }
+
+    private func isBonusInquiry(_ text: String) -> Bool {
+        let lower = text.lowercased()
+        return lower.contains("bonus") || lower.contains("modifier") || lower.contains("mod") || lower.contains("what do i add")
+    }
+
+    private func isLikelyQuestion(_ text: String) -> Bool {
+        let lower = text.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        if lower.contains("?") { return true }
+        return ["do i", "is there", "can i", "what", "where", "when", "how", "who"].contains { lower.hasPrefix($0) }
+    }
+
+    private func explicitNoModifier(from text: String) -> Int? {
+        let lower = text.lowercased()
+        if lower.contains("no modifier") || lower.contains("no mod") || lower.contains("flat") || lower.contains("zero mod") {
+            return 0
+        }
+        return nil
+    }
+
+    private func bonusInquiryResponse(for draft: SkillCheckDraft, campaign: Campaign) -> String {
+        guard let pc = campaign.playerCharacters.first else {
+            return "I don't have a character sheet on file yet. Tell me your modifier or update the character sheet."
+        }
+
+        let abilityName = draft.request.abilityOverride ?? engine.ruleset.defaultAbility(for: draft.request.skillName) ?? "Ability"
+        guard let abilityScore = abilityScore(for: abilityName, in: pc) else {
+            return "I don't have your \(abilityName) score yet. Tell me your modifier or update the character sheet."
+        }
+        let abilityMod = Int(floor(Double(abilityScore - 10) / 2.0))
+        let isProficient = isProficientInSkill(draft.request.skillName, character: pc)
+
+        if isProficient {
+            guard let level = characterLevel(for: pc) else {
+                return "I can see your \(abilityName) mod is \(abilityMod >= 0 ? "+\(abilityMod)" : "\(abilityMod)"), but I don't have your level/proficiency bonus. What's your total modifier?"
+            }
+            let prof = proficiencyBonus(for: level)
+            let total = abilityMod + prof
+            return "Your \(draft.request.skillName) bonus looks like \(total >= 0 ? "+\(total)" : "\(total)") (\(abilityName) mod \(abilityMod >= 0 ? "+\(abilityMod)" : "\(abilityMod)") + proficiency \(prof >= 0 ? "+\(prof)" : "\(prof)"))."
+        }
+
+        return "Your \(draft.request.skillName) bonus is \(abilityMod >= 0 ? "+\(abilityMod)" : "\(abilityMod)") based on \(abilityName). If that’s wrong, tell me your total modifier."
+    }
+
+    private func computedSkillBonus(for draft: SkillCheckDraft, campaign: Campaign) -> Int? {
+        guard let pc = campaign.playerCharacters.first else { return nil }
+        let abilityName = draft.request.abilityOverride ?? engine.ruleset.defaultAbility(for: draft.request.skillName) ?? "Ability"
+        guard let abilityScore = abilityScore(for: abilityName, in: pc) else { return nil }
+        let abilityMod = Int(floor(Double(abilityScore - 10) / 2.0))
+        if isProficientInSkill(draft.request.skillName, character: pc) {
+            guard let level = characterLevel(for: pc) else { return nil }
+            return abilityMod + proficiencyBonus(for: level)
+        }
+        return abilityMod
+    }
+
+    private func abilityScore(for ability: String, in character: PlayerCharacter) -> Int? {
+        let key = abilityKey(for: ability)
+        return fieldInt(character, key: key)
+    }
+
+    private func abilityKey(for ability: String) -> String {
+        let lower = ability.lowercased()
+        if lower.contains("strength") || lower == "str" { return "str" }
+        if lower.contains("dexterity") || lower == "dex" { return "dex" }
+        if lower.contains("constitution") || lower == "con" { return "con" }
+        if lower.contains("intelligence") || lower == "int" { return "int" }
+        if lower.contains("wisdom") || lower == "wis" { return "wis" }
+        if lower.contains("charisma") || lower == "cha" { return "cha" }
+        return lower
+    }
+
+    private func characterLevel(for character: PlayerCharacter) -> Int? {
+        fieldInt(character, key: "level")
+    }
+
+    private func fieldInt(_ character: PlayerCharacter, key: String) -> Int? {
+        character.fields.first(where: { $0.key == key })?.valueInt
+    }
+
+    private func fieldList(_ character: PlayerCharacter, key: String) -> [String] {
+        character.fields.first(where: { $0.key == key })?.valueStringList ?? []
+    }
+
+    private func isProficientInSkill(_ skill: String, character: PlayerCharacter) -> Bool {
+        let skills = fieldList(character, key: "skills")
+        return skills.contains(where: { $0.caseInsensitiveCompare(skill) == .orderedSame })
+    }
+
+    private func proficiencyBonus(for level: Int) -> Int {
+        switch level {
+        case ...4:
+            return 2
+        case 5...8:
+            return 3
+        case 9...12:
+            return 4
+        case 13...16:
+            return 5
+        default:
+            return 6
+        }
     }
 
     private func needsClarification(_ intent: PlayerIntentDraft) -> Bool {
@@ -1016,11 +1191,30 @@ final class SoloSceneCoordinator: ObservableObject {
 
     private func parseRollFallback(from text: String) -> RollParseFallback? {
         let lower = text.lowercased()
+        let hasRollSignal = lower.contains("roll") || lower.contains("rolled") || lower.contains("got") || lower.contains("nat") || lower.contains("natural")
+        if (lower.contains("bonus") || lower.contains("modifier")) && !hasRollSignal {
+            return nil
+        }
         if lower.contains("auto") {
             return RollParseFallback(roll: nil, modifier: nil, autoRoll: true, declines: false)
         }
         if lower.contains("skip") || lower.contains("decline") || lower.contains("pass") {
             return RollParseFallback(roll: nil, modifier: nil, autoRoll: false, declines: true)
+        }
+        if let modifier = explicitNoModifier(from: lower) {
+            let rollPattern = "(?i)(natural|nat)\\s*(\\d+)"
+            if let match = lower.range(of: rollPattern, options: .regularExpression) {
+                let slice = lower[match]
+                let digits = slice.split(whereSeparator: { !$0.isNumber })
+                if let value = digits.compactMap({ Int($0) }).first, (1...20).contains(value) {
+                    return RollParseFallback(roll: value, modifier: modifier, autoRoll: false, declines: false)
+                }
+            }
+
+            let numbers = lower.split { !$0.isNumber }.compactMap { Int($0) }.filter { (1...20).contains($0) }
+            if numbers.count == 1, let roll = numbers.first {
+                return RollParseFallback(roll: roll, modifier: modifier, autoRoll: false, declines: false)
+            }
         }
 
         let rollPattern = "(?i)(natural|nat)\\s*(\\d+)"
@@ -1030,6 +1224,10 @@ final class SoloSceneCoordinator: ObservableObject {
             if let value = digits.compactMap({ Int($0) }).first, (1...20).contains(value) {
                 return RollParseFallback(roll: value, modifier: nil, autoRoll: false, declines: false)
             }
+        }
+
+        if lower.contains("dc") && !(lower.contains("roll") || lower.contains("rolled") || lower.contains("got")) {
+            return nil
         }
 
         let numbers = lower.split { !$0.isNumber }.compactMap { Int($0) }.filter { (1...20).contains($0) }
@@ -1334,7 +1532,8 @@ final class SoloSceneCoordinator: ObservableObject {
         context: NarrationContextPacket,
         playerText: String,
         intentSummary: String? = nil,
-        requestedMode: PlayerRequestedMode = .askBeforeRolling
+        requestedMode: PlayerRequestedMode = .askBeforeRolling,
+        campaign: Campaign
     ) async throws -> Bool {
         let checkDraft = try await session.respond(
             to: Prompt(makeCheckProposalPrompt(playerText: playerText, context: context)),
@@ -1412,7 +1611,7 @@ final class SoloSceneCoordinator: ObservableObject {
 
         if autoRollEnabled, requestedMode == .autoResolve {
             let roll = Int.random(in: 1...20)
-            let modifier = 0
+            let modifier = computedSkillBonus(for: checkDrafts[checkDrafts.count - 1], campaign: campaign) ?? 0
             checkDrafts[checkDrafts.count - 1].roll = roll
             checkDrafts[checkDrafts.count - 1].modifier = modifier
             let result = engine.evaluateCheck(request: request, roll: roll, modifier: modifier)
@@ -1789,6 +1988,8 @@ final class SoloSceneCoordinator: ObservableObject {
         Keep the story moving and stay grounded.
         If the d20 roll is a natural 20, make it an extraordinary success.
         If the d20 roll is a natural 1, make it a significant failure.
+        Do not advance the player into a new location or scene unless they explicitly said so.
+        Do not describe the player taking actions they did not state.
 
         Scene #\(context.sceneNumber)
         Player action: \(check.playerAction)
