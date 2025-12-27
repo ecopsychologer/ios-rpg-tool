@@ -35,8 +35,8 @@ struct WorldLoreView: View {
         .textSelection(.enabled)
         .navigationTitle("World Lore")
         .onAppear { ensureCampaign() }
-        .onChange(of: campaign?.playerCharacters.count ?? 0) { _ in syncPartyMembers() }
-        .onChange(of: campaign?.npcs.count ?? 0) { _ in syncPartyMembers() }
+        .onChange(of: campaign?.playerCharacters.count ?? 0) { syncPartyMembers() }
+        .onChange(of: campaign?.npcs.count ?? 0) { syncPartyMembers() }
         .sheet(isPresented: $showAddSheet) {
             WorldLoreEditSheet(
                 title: "Add Lore",

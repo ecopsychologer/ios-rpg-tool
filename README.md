@@ -97,6 +97,7 @@ This repo includes a solo roleplaying system built on top of the on-device model
 ### Expansion Progress
 Current stage: persistent locations, scene chat loop, skill checks, and content pack tables are live. Movement intent parsing is active (with exit label matching). NPCs, world lore, and character sheets are implemented as separate modules. Markdown table import (paste or file) is now available in Tables (log-only actions by default). Location navigation now exposes exits for deterministic traversal and reuse, and narrator context includes current exits.
 Dev tooling: optional DEV_FIXTURES build flag adds a developer test runner with scripted scenarios and a quick smoke test. A local-only supplemental rules data loader can merge extra data at build time when enabled (not included in release builds).
+SRD integration: structured item and creature records are parsed for engine use (equipment/magic items and monsters/creatures) and surfaced in SRD detail views and inventory pickers.
 
 Work-in-progress task list (engine expansion):
 - **Architecture**: define module boundaries (engine, narrator, world state, tables) and plan a Swift package split without breaking current UI.
@@ -117,8 +118,8 @@ This is the mechanical task list for bringing the engine up to SRD parity. The n
 - **Character mechanics**: proficiency bonus by level, ability modifiers, saving throws, skill proficiency, class features, and level progression.
 - **Combat system**: initiative, turn order, action economy, attack resolution, damage types, conditions, death saves, and recovery.
 - **Spellcasting**: slots/points, prepared vs known, casting time, range/area, concentration, and component requirements.
-- **Equipment & inventory**: armor/shield AC, weapon properties, damage dice, encumbrance, and item tags.
-- **Creatures/monsters**: statblock parser (AC/HP/speed/abilities/actions/traits), CR/XP, resistances/immunities, and special actions.
+- **Equipment & inventory**: armor/shield AC, weapon properties, damage dice, encumbrance, and item tags. (Structured item records + inventory picker done.)
+- **Creatures/monsters**: CR/XP, resistances/immunities, and special actions. (Structured statblock parsing + SRD detail views done.)
 - **Rest & recovery**: short/long rest rules, resource recovery, and condition clearing.
 - **Exploration & travel**: movement pace, vision/light, stealth/surprise logic, and hazards.
 - **Encounter pacing**: difficulty estimation and activity clocks tied to party size/level.

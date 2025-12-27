@@ -173,7 +173,7 @@ struct SrdImportView: View {
 
                     DisclosureGroup("Equipment (\(filtered(index.equipment).count))") {
                         ForEach(filtered(index.equipment), id: \.self) { item in
-                            let details = index.equipmentDetails[item] ?? []
+                            let details = itemDetailLines(for: item, index: index)
                             NavigationLink {
                                 SrdDetailView(
                                     title: item,
@@ -205,7 +205,7 @@ struct SrdImportView: View {
 
                     DisclosureGroup("Magic Items (\(filtered(index.magicItems).count))") {
                         ForEach(filtered(index.magicItems), id: \.self) { item in
-                            let details = index.magicItemDetails[item] ?? []
+                            let details = itemDetailLines(for: item, index: index)
                             let rarity = index.magicItemRarities[item]
                             NavigationLink {
                                 SrdDetailView(
@@ -230,7 +230,7 @@ struct SrdImportView: View {
 
                     DisclosureGroup("Creatures (\(filtered(index.creatures).count))") {
                         ForEach(filtered(index.creatures), id: \.self) { item in
-                            let details = index.creatureDetails[item] ?? []
+                            let details = creatureDetailLines(for: item, index: index)
                             NavigationLink {
                                 SrdDetailView(
                                     title: item,
@@ -266,6 +266,90 @@ struct SrdImportView: View {
         .navigationTitle("SRD Library")
         .searchable(text: $filterText, prompt: "Filter SRD content")
         .onAppear { loadIndex(forceBundled: false) }
+    }
+
+    private func itemDetailLines(for name: String, index: SrdContentIndex) -> [String] {
+        if let record = index.itemRecords.first(where: { $0.name.caseInsensitiveCompare(name) == .orderedSame }) {
+            var lines: [String] = []
+            lines.append("**Category:** \(record.category)")
+            if let sub = record.subcategory, !sub.isEmpty {
+                lines.append("**Subcategory:** \(sub)")
+            }
+            if let type = record.itemType, !type.isEmpty {
+                lines.append("**Type:** \(type)")
+            }
+            if let rarity = record.rarity, !rarity.isEmpty {
+                lines.append("**Rarity:** \(rarity.capitalized)")
+            }
+            if record.requiresAttunement {
+                lines.append("**Requires Attunement:** Yes")
+            }
+            if let attune = record.attunementRequirement, !attune.isEmpty {
+                lines.append("**Attunement:** \(attune)")
+            }
+            if let cost = record.cost, !cost.isEmpty {
+                lines.append("**Cost:** \(cost)")
+            }
+            if let weight = record.weight, !weight.isEmpty {
+                lines.append("**Weight:** \(weight)")
+            }
+            if !record.properties.isEmpty {
+                lines.append("**Properties:** \(record.properties.joined(separator: ", "))")
+            }
+            lines.append(contentsOf: record.description)
+            return lines
+        }
+        if let details = index.equipmentDetails[name] {
+            return details
+        }
+        if let details = index.magicItemDetails[name] {
+            return details
+        }
+        return []
+    }
+
+    private func creatureDetailLines(for name: String, index: SrdContentIndex) -> [String] {
+        if let record = index.creatureRecords.first(where: { $0.name.caseInsensitiveCompare(name) == .orderedSame }) {
+            var lines: [String] = []
+            if let size = record.size, let type = record.creatureType {
+                let alignment = record.alignment ?? ""
+                lines.append("*\(size) \(type)\(alignment.isEmpty ? "" : ", \(alignment)")*")
+            }
+            if let armorClass = record.armorClass { lines.append("**Armor Class** \(armorClass)") }
+            if let hitPoints = record.hitPoints { lines.append("**Hit Points** \(hitPoints)") }
+            if let speed = record.speed { lines.append("**Speed** \(speed)") }
+            if !record.abilityScores.isEmpty {
+                let scoreLine = record.abilityScores.map { "\($0.key) \($0.value)" }.joined(separator: " | ")
+                lines.append(scoreLine)
+            }
+            if let vulnerabilities = record.damageVulnerabilities { lines.append("**Damage Vulnerabilities** \(vulnerabilities)") }
+            if let resistances = record.damageResistances { lines.append("**Damage Resistances** \(resistances)") }
+            if let immunities = record.damageImmunities { lines.append("**Damage Immunities** \(immunities)") }
+            if let conditions = record.conditionImmunities { lines.append("**Condition Immunities** \(conditions)") }
+            if let saves = record.savingThrows { lines.append("**Saving Throws** \(saves)") }
+            if let skills = record.skills { lines.append("**Skills** \(skills)") }
+            if let senses = record.senses { lines.append("**Senses** \(senses)") }
+            if let languages = record.languages { lines.append("**Languages** \(languages)") }
+            if let challenge = record.challenge { lines.append("**Challenge** \(challenge)") }
+            if !record.traits.isEmpty {
+                lines.append("**Traits**")
+                lines.append(contentsOf: record.traits)
+            }
+            if !record.actions.isEmpty {
+                lines.append("**Actions**")
+                lines.append(contentsOf: record.actions)
+            }
+            if !record.reactions.isEmpty {
+                lines.append("**Reactions**")
+                lines.append(contentsOf: record.reactions)
+            }
+            if !record.legendaryActions.isEmpty {
+                lines.append("**Legendary Actions**")
+                lines.append(contentsOf: record.legendaryActions)
+            }
+            return lines
+        }
+        return index.creatureDetails[name] ?? []
     }
 
     private func loadIndex(forceBundled: Bool) {

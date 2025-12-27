@@ -107,6 +107,7 @@ struct CharacterSheetView: View {
 }
 
 private struct CharacterDetailView: View {
+    @Environment(\.modelContext) private var modelContext
     @Bindable var character: PlayerCharacter
     @State private var srdIndex: SrdContentIndex?
 
@@ -121,7 +122,11 @@ private struct CharacterDetailView: View {
                 if !fields.isEmpty {
                     DisclosureGroup(section) {
                         ForEach(fields) { field in
-                            CharacterFieldRow(field: field, srdOptions: srdOptions(for: field))
+                            CharacterFieldRow(
+                                field: field,
+                                srdOptions: srdOptions(for: field),
+                                onInventorySelection: field.key == "inventory" ? handleInventorySelection : nil
+                            )
                         }
                     }
                 }
@@ -271,9 +276,17 @@ private struct CharacterDetailView: View {
                 mode: .append
             )
         case "inventory":
-            let combined = index.equipment + index.magicItems
-            var details = index.equipmentDetails
-            index.magicItemDetails.forEach { details[$0.key] = $0.value }
+            let combined: [String]
+            let details: [String: [String]]
+            if index.itemRecords.isEmpty {
+                combined = Array(Set(index.equipment + index.magicItems)).sorted()
+                var merged = index.equipmentDetails
+                index.magicItemDetails.forEach { merged[$0.key] = $0.value }
+                details = merged
+            } else {
+                combined = Array(Set(index.itemRecords.map { $0.name })).sorted()
+                details = itemDetailMap(from: index)
+            }
             return SrdFieldOptions(
                 title: "Inventory",
                 items: combined,
@@ -300,11 +313,87 @@ private struct CharacterDetailView: View {
         }
         return index.classes.first(where: { $0.lowercased().contains(trimmed.lowercased()) })
     }
+
+    private func handleInventorySelection(_ selection: String) {
+        guard let index = srdIndex else { return }
+        let trimmed = selection.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+
+        let ownerId: UUID? = character.id
+        let name = trimmed
+        let predicate = #Predicate<ItemEntry> { entry in
+            entry.ownerId == ownerId && entry.name == name
+        }
+        if let existing = try? modelContext.fetch(FetchDescriptor<ItemEntry>(predicate: predicate)),
+           !existing.isEmpty {
+            return
+        }
+
+        let record = index.itemRecords.first(where: { $0.name.caseInsensitiveCompare(trimmed) == .orderedSame })
+        let entry = ItemEntry(
+            name: trimmed,
+            category: record?.category ?? "Item",
+            subcategory: record?.subcategory,
+            itemType: record?.itemType,
+            rarity: record?.rarity,
+            requiresAttunement: record?.requiresAttunement ?? false,
+            attunementRequirement: record?.attunementRequirement,
+            cost: record?.cost,
+            weight: record?.weight,
+            properties: record?.properties ?? [],
+            detailLines: record?.description ?? [],
+            source: record?.source ?? "srd",
+            ownerId: character.id,
+            ownerKind: "player"
+        )
+        modelContext.insert(entry)
+        try? modelContext.save()
+    }
+
+    private func itemDetailMap(from index: SrdContentIndex) -> [String: [String]] {
+        var details: [String: [String]] = [:]
+        for record in index.itemRecords {
+            details[record.name] = itemDetailLines(for: record)
+        }
+        return details
+    }
+
+    private func itemDetailLines(for record: SrdItemRecord) -> [String] {
+        var lines: [String] = []
+        lines.append("**Category:** \(record.category)")
+        if let sub = record.subcategory, !sub.isEmpty {
+            lines.append("**Subcategory:** \(sub)")
+        }
+        if let type = record.itemType, !type.isEmpty {
+            lines.append("**Type:** \(type)")
+        }
+        if let rarity = record.rarity, !rarity.isEmpty {
+            lines.append("**Rarity:** \(rarity.capitalized)")
+        }
+        if record.requiresAttunement {
+            lines.append("**Requires Attunement:** Yes")
+        }
+        if let attune = record.attunementRequirement, !attune.isEmpty {
+            lines.append("**Attunement:** \(attune)")
+        }
+        if let cost = record.cost, !cost.isEmpty {
+            lines.append("**Cost:** \(cost)")
+        }
+        if let weight = record.weight, !weight.isEmpty {
+            lines.append("**Weight:** \(weight)")
+        }
+        if !record.properties.isEmpty {
+            lines.append("**Properties:** \(record.properties.joined(separator: ", "))")
+        }
+        lines.append(contentsOf: record.description)
+        return lines
+    }
 }
 
 private struct CharacterFieldRow: View {
     @Bindable var field: CharacterField
     let srdOptions: SrdFieldOptions?
+    let onInventorySelection: ((String) -> Void)?
     @State private var showPicker = false
 
     var body: some View {
@@ -408,6 +497,9 @@ private struct CharacterFieldRow: View {
                 list.append(selection)
             }
             field.valueStringList = list
+            if field.key == "inventory" {
+                onInventorySelection?(selection)
+            }
         default:
             field.valueString = selection
         }

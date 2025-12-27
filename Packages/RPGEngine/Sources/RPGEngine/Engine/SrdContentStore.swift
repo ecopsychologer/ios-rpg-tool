@@ -25,6 +25,8 @@ public struct SrdContentIndex: Sendable {
     public let conditionDetails: [String: [String]]
     public let spellsByClass: [String: [String]]
     public let magicItemRarities: [String: String]
+    public let itemRecords: [SrdItemRecord]
+    public let creatureRecords: [SrdCreatureRecord]
     public let sections: [String]
     public let sectionDetails: [String: [String]]
     public let source: String
@@ -54,6 +56,8 @@ public struct SrdContentIndex: Sendable {
         conditionDetails: [String: [String]],
         spellsByClass: [String: [String]],
         magicItemRarities: [String: String],
+        itemRecords: [SrdItemRecord],
+        creatureRecords: [SrdCreatureRecord],
         sections: [String],
         sectionDetails: [String: [String]],
         source: String
@@ -82,6 +86,8 @@ public struct SrdContentIndex: Sendable {
         self.conditionDetails = conditionDetails
         self.spellsByClass = spellsByClass
         self.magicItemRarities = magicItemRarities
+        self.itemRecords = itemRecords
+        self.creatureRecords = creatureRecords
         self.sections = sections
         self.sectionDetails = sectionDetails
         self.source = source
@@ -128,6 +134,8 @@ public struct SrdContentStore {
         let (magicItems, magicItemDetails, magicItemRarities) = parseMagicItems(from: json)
         let (creatures, creatureDetails) = parseCreatures()
         let (conditions, conditionDetails) = parseConditions(from: json)
+        let itemRecords = parseItemRecords(from: json, source: source)
+        let creatureRecords = parseCreatureRecords(from: json, source: source)
         let sections = json.keys.sorted()
         let sectionDetails = parseSectionDetails(from: json)
 
@@ -156,6 +164,8 @@ public struct SrdContentStore {
             conditionDetails: conditionDetails,
             spellsByClass: spellsByClass,
             magicItemRarities: magicItemRarities,
+            itemRecords: itemRecords,
+            creatureRecords: creatureRecords,
             sections: sections,
             sectionDetails: sectionDetails,
             source: source
@@ -569,6 +579,329 @@ public struct SrdContentStore {
         return (names, details)
     }
 
+    private func parseItemRecords(from json: [String: Any], source: String) -> [SrdItemRecord] {
+        var records: [SrdItemRecord] = []
+        records.append(contentsOf: parseEquipmentRecords(from: json, source: source))
+        records.append(contentsOf: parseMagicItemRecords(from: json, source: source))
+        return records
+    }
+
+    private func parseEquipmentRecords(from json: [String: Any], source: String) -> [SrdItemRecord] {
+        guard let equipment = json["Equipment"] as? [String: Any] else { return [] }
+        var results: [SrdItemRecord] = []
+
+        func walk(node: Any, path: [String]) {
+            if let dict = node as? [String: Any], isEquipmentTable(dict) {
+                let records = equipmentRecords(from: dict, path: path, source: source)
+                results.append(contentsOf: records)
+                return
+            }
+            if let dict = node as? [String: Any] {
+                for (key, value) in dict {
+                    walk(node: value, path: path + [key])
+                }
+            } else if let list = node as? [Any] {
+                for item in list {
+                    walk(node: item, path: path)
+                }
+            }
+        }
+
+        walk(node: equipment, path: [])
+        return results
+    }
+
+    private func isEquipmentTable(_ dict: [String: Any]) -> Bool {
+        let arrays = dict.values.compactMap { $0 as? [Any] }
+        guard !arrays.isEmpty else { return false }
+        let counts = Set(arrays.map { $0.count })
+        return counts.count == 1 && (counts.first ?? 0) > 0
+    }
+
+    private func equipmentRecords(from dict: [String: Any], path: [String], source: String) -> [SrdItemRecord] {
+        let nameColumns = ["Armor", "Weapon", "Item", "Gear", "Tool", "Mount", "Vehicle", "Service", "Trade Good", "Product", "Ammunition"]
+        guard let nameKey = nameColumns.first(where: { dict[$0] != nil }),
+              let names = dict[nameKey] as? [Any] else { return [] }
+
+        let category = path.first(where: { !$0.isEmpty }) ?? "Equipment"
+        let subcategory = path.last(where: { $0 != category && !$0.isEmpty })
+
+        func stringColumn(_ key: String, index: Int) -> String? {
+            guard let values = dict[key] as? [Any], index < values.count else { return nil }
+            return values[index] as? String
+        }
+
+        let count = names.count
+        var records: [SrdItemRecord] = []
+        records.reserveCapacity(count)
+
+        for index in 0..<count {
+            guard let rawName = names[index] as? String else { continue }
+            let name = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !name.isEmpty else { continue }
+
+            let cost = stringColumn("Cost", index: index) ?? stringColumn("Price", index: index)
+            let weight = stringColumn("Weight", index: index)
+            var properties: [String] = []
+            if let props = stringColumn("Properties", index: index) {
+                properties.append(contentsOf: props.split(separator: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) })
+            }
+
+            let extraKeys = dict.keys.filter { key in
+                ![nameKey, "Cost", "Price", "Weight", "Properties"].contains(key)
+            }
+            for key in extraKeys {
+                if let value = stringColumn(key, index: index), !value.isEmpty {
+                    properties.append("\(key): \(value)")
+                }
+            }
+
+            let record = SrdItemRecord(
+                name: name,
+                category: category,
+                subcategory: subcategory,
+                itemType: nil,
+                rarity: nil,
+                requiresAttunement: false,
+                attunementRequirement: nil,
+                cost: cost,
+                weight: weight,
+                properties: properties,
+                description: [],
+                source: source
+            )
+            records.append(record)
+        }
+
+        return records
+    }
+
+    private func parseMagicItemRecords(from json: [String: Any], source: String) -> [SrdItemRecord] {
+        guard let magic = json["Magic Items"] as? [String: Any] else { return [] }
+        var results: [SrdItemRecord] = []
+
+        func walk(node: Any, path: [String]) {
+            guard let dict = node as? [String: Any] else { return }
+            if let content = dict["content"] as? [Any],
+               let name = path.last,
+               let record = magicItemRecord(name: name, content: content, source: source) {
+                results.append(record)
+            }
+            for (key, value) in dict where key != "content" {
+                walk(node: value, path: path + [key])
+            }
+        }
+
+        walk(node: magic, path: [])
+        return results
+    }
+
+    private func magicItemRecord(name: String, content: [Any], source: String) -> SrdItemRecord? {
+        let lines = content.compactMap { $0 as? String }
+        guard let typeLine = lines.first(where: { $0.contains("*") && $0.lowercased().contains("item") }) else { return nil }
+
+        let cleaned = typeLine.replacingOccurrences(of: "*", with: "")
+        let requiresAttunement = cleaned.lowercased().contains("attunement")
+        let rarity = extractRarity(from: cleaned)
+        let itemType = cleaned.components(separatedBy: ",").first?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let attunementRequirement = requiresAttunement ? cleaned : nil
+        let description = lines.filter { $0 != typeLine }
+
+        return SrdItemRecord(
+            name: name,
+            category: "Magic Item",
+            subcategory: nil,
+            itemType: itemType,
+            rarity: rarity,
+            requiresAttunement: requiresAttunement,
+            attunementRequirement: attunementRequirement,
+            cost: nil,
+            weight: nil,
+            properties: [],
+            description: description,
+            source: source
+        )
+    }
+
+    private func parseCreatureRecords(from json: [String: Any], source: String) -> [SrdCreatureRecord] {
+        guard let monsters = json["Monsters"] as? [String: Any] else { return [] }
+        var records: [SrdCreatureRecord] = []
+
+        for (section, value) in monsters where section.hasPrefix("Monsters (") {
+            guard let entries = value as? [String: Any] else { continue }
+            for (name, entry) in entries {
+                guard name != "content",
+                      let dict = entry as? [String: Any],
+                      let content = dict["content"] as? [Any] else { continue }
+                if let record = creatureRecord(name: name, content: content, source: source) {
+                    records.append(record)
+                }
+            }
+        }
+
+        return records
+    }
+
+    private func creatureRecord(name: String, content: [Any], source: String) -> SrdCreatureRecord? {
+        let lines = content.compactMap { $0 as? String }
+        guard !lines.isEmpty else { return nil }
+
+        let headerLine = lines.first(where: { $0.contains("*") }) ?? ""
+        let headerClean = headerLine.replacingOccurrences(of: "*", with: "")
+        let headerParts = headerClean.split(separator: ",", maxSplits: 1).map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        let sizeTypePart = headerParts.first ?? ""
+        let alignment = headerParts.count > 1 ? headerParts[1] : nil
+        let sizeTypeParts = sizeTypePart.split(separator: " ", maxSplits: 1)
+        let size = sizeTypeParts.first.map(String.init)
+        let creatureType = sizeTypeParts.count > 1 ? String(sizeTypeParts[1]) : nil
+
+        var armorClass: String?
+        var hitPoints: String?
+        var speed: String?
+        var savingThrows: String?
+        var skills: String?
+        var senses: String?
+        var languages: String?
+        var challenge: String?
+        var damageVulnerabilities: String?
+        var damageResistances: String?
+        var damageImmunities: String?
+        var conditionImmunities: String?
+        var abilityScores: [String: String] = [:]
+        var traits: [String] = []
+        var actions: [String] = []
+        var reactions: [String] = []
+        var legendary: [String] = []
+
+        var section = "traits"
+
+        for item in content {
+            if let line = item as? String {
+                if line.contains("***Actions***") || line.contains("**Actions**") {
+                    section = "actions"
+                    continue
+                }
+                if line.contains("***Reactions***") || line.contains("**Reactions**") {
+                    section = "reactions"
+                    continue
+                }
+                if line.contains("Legendary Actions") {
+                    section = "legendary"
+                    continue
+                }
+
+                if let value = extractValue(from: line, prefix: "**Armor Class**") {
+                    armorClass = value
+                    continue
+                }
+                if let value = extractValue(from: line, prefix: "**Hit Points**") {
+                    hitPoints = value
+                    continue
+                }
+                if let value = extractValue(from: line, prefix: "**Speed**") {
+                    speed = value
+                    continue
+                }
+                if let value = extractValue(from: line, prefix: "**Saving Throws**") {
+                    savingThrows = value
+                    continue
+                }
+                if let value = extractValue(from: line, prefix: "**Skills**") {
+                    skills = value
+                    continue
+                }
+                if let value = extractValue(from: line, prefix: "**Senses**") {
+                    senses = value
+                    continue
+                }
+                if let value = extractValue(from: line, prefix: "**Damage Vulnerabilities**") {
+                    damageVulnerabilities = value
+                    continue
+                }
+                if let value = extractValue(from: line, prefix: "**Damage Resistances**") {
+                    damageResistances = value
+                    continue
+                }
+                if let value = extractValue(from: line, prefix: "**Damage Immunities**") {
+                    damageImmunities = value
+                    continue
+                }
+                if let value = extractValue(from: line, prefix: "**Condition Immunities**") {
+                    conditionImmunities = value
+                    continue
+                }
+                if let value = extractValue(from: line, prefix: "**Languages**") {
+                    languages = value
+                    continue
+                }
+                if let value = extractValue(from: line, prefix: "**Challenge**") {
+                    challenge = value
+                    continue
+                }
+
+                if line.hasPrefix("***") || line.hasPrefix("**") {
+                    switch section {
+                    case "actions":
+                        actions.append(line)
+                    case "reactions":
+                        reactions.append(line)
+                    case "legendary":
+                        legendary.append(line)
+                    default:
+                        traits.append(line)
+                    }
+                }
+            } else if let dict = item as? [String: Any] {
+                if let table = dict["table"] as? [String: Any] {
+                    abilityScores.merge(parseAbilityTable(table)) { current, _ in current }
+                } else if dict.keys.contains("STR") {
+                    abilityScores.merge(parseAbilityTable(dict)) { current, _ in current }
+                }
+            }
+        }
+
+        return SrdCreatureRecord(
+            name: name,
+            size: size,
+            creatureType: creatureType,
+            alignment: alignment,
+            armorClass: armorClass,
+            hitPoints: hitPoints,
+            speed: speed,
+            savingThrows: savingThrows,
+            skills: skills,
+            senses: senses,
+            languages: languages,
+            challenge: challenge,
+            damageVulnerabilities: damageVulnerabilities,
+            damageResistances: damageResistances,
+            damageImmunities: damageImmunities,
+            conditionImmunities: conditionImmunities,
+            abilityScores: abilityScores,
+            traits: traits,
+            actions: actions,
+            reactions: reactions,
+            legendaryActions: legendary,
+            source: source
+        )
+    }
+
+    private func parseAbilityTable(_ table: [String: Any]) -> [String: String] {
+        let abilities = ["STR", "DEX", "CON", "INT", "WIS", "CHA"]
+        var results: [String: String] = [:]
+        for ability in abilities {
+            if let values = table[ability] as? [Any], let first = values.first as? String {
+                results[ability] = first
+            }
+        }
+        return results
+    }
+
+    private func extractValue(from line: String, prefix: String) -> String? {
+        guard line.hasPrefix(prefix) else { return nil }
+        return line.replacingOccurrences(of: prefix, with: "").trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     private func parseSectionDetails(from root: [String: Any]) -> [String: [String]] {
         var details: [String: [String]] = [:]
         for (key, value) in root where key.lowercased() != "content" {
@@ -806,6 +1139,8 @@ extension SrdContentStore {
             conditionDetails: base.conditionDetails,
             spellsByClass: base.spellsByClass,
             magicItemRarities: magicItemRarities,
+            itemRecords: base.itemRecords,
+            creatureRecords: base.creatureRecords,
             sections: base.sections,
             sectionDetails: base.sectionDetails,
             source: sourceSuffix
