@@ -376,6 +376,30 @@ public struct SceneWrapUpDraft {
 
     @Guide(description: "Rolls or checks that mattered in the scene")
     public let rollHighlights: [String]
+
+    public init(
+        summary: String,
+        newCharacters: [String],
+        newThreads: [String],
+        featuredCharacters: [String],
+        featuredThreads: [String],
+        removedCharacters: [String],
+        removedThreads: [String],
+        places: [String],
+        curiosities: [String],
+        rollHighlights: [String]
+    ) {
+        self.summary = summary
+        self.newCharacters = newCharacters
+        self.newThreads = newThreads
+        self.featuredCharacters = featuredCharacters
+        self.featuredThreads = featuredThreads
+        self.removedCharacters = removedCharacters
+        self.removedThreads = removedThreads
+        self.places = places
+        self.curiosities = curiosities
+        self.rollHighlights = rollHighlights
+    }
 }
 
 public struct RulesetHelpers {

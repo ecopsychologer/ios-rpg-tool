@@ -28,6 +28,7 @@ struct SettingsView: View {
     @FocusState private var isAPIFieldFocused: Bool
     @State private var showCampaignSheet = false
     @State private var showClearAllAlert = false
+    @State private var campaignToDelete: Campaign?
 
     var body: some View {
         ScrollView {
@@ -125,7 +126,7 @@ struct SettingsView: View {
                                     .buttonStyle(.bordered)
                                 }
                                 Button(role: .destructive) {
-                                    deleteCampaign(campaign)
+                                    campaignToDelete = campaign
                                 } label: {
                                     Image(systemName: "trash")
                                         .font(.caption)
@@ -206,6 +207,11 @@ struct SettingsView: View {
                     showDevSmokeTest = true
                 }
                 .buttonStyle(.borderedProminent)
+
+                NavigationLink("View Dev Logs") {
+                    DevLogsView()
+                }
+                .buttonStyle(.bordered)
             }
             .padding()
             .glassCard()
@@ -248,6 +254,25 @@ struct SettingsView: View {
             .padding()
             .glassCard()
             .padding([.horizontal, .top])
+        }
+        .alert("Delete Campaign?", isPresented: Binding(get: {
+            campaignToDelete != nil
+        }, set: { isPresented in
+            if !isPresented {
+                campaignToDelete = nil
+            }
+        })) {
+            Button("Delete", role: .destructive) {
+                if let campaign = campaignToDelete {
+                    deleteCampaign(campaign)
+                }
+                campaignToDelete = nil
+            }
+            Button("Cancel", role: .cancel) {
+                campaignToDelete = nil
+            }
+        } message: {
+            Text("This will permanently delete \"\(campaignToDelete?.title ?? "Campaign")\" and its data.")
         }
 #if os(macOS)
         .padding()

@@ -316,6 +316,7 @@ private struct SrdDetailView: View {
             .padding(.vertical)
             .padding(.horizontal, Spacing.medium)
         }
+        .textSelection(.enabled)
         .navigationTitle(title)
         .navigationBarBackButtonHidden(true)
         .toolbar {
