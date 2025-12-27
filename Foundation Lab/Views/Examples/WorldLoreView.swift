@@ -248,6 +248,7 @@ struct WorldLoreView: View {
                 Draft a concise lore entry for a solo RPG setting.
                 Keep it grounded, 1-3 sentences, and avoid contradictions.
                 Include short tags for filtering.
+                Do not ask questions or request confirmation.
 
                 Prompt: \(promptText)
                 """
@@ -293,7 +294,8 @@ struct WorldLoreView: View {
                 let session = LanguageModelSession(model: model)
                 let partyNames = campaign.party?.members?.map { $0.name }.joined(separator: ", ") ?? "None"
                 let prompt = """
-                Summarize the campaign setup in 2-3 sentences and ask the player to confirm.
+                Summarize the campaign setup in 2-3 sentences for a static summary field.
+                Do not ask questions or request confirmation.
                 World vibe: \(campaign.worldVibe)
                 Party members: \(partyNames)
                 """

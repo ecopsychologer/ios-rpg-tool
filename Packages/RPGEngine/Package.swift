@@ -18,7 +18,10 @@ let package = Package(
                 "WorldState",
                 "TableEngine"
             ],
-            path: "Sources"
+            path: "Sources",
+            resources: [
+                .process("Resources")
+            ]
         )
     ]
 )

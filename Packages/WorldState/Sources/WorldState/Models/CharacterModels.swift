@@ -169,6 +169,7 @@ public struct CharacterSheetDefinitions {
         fields.append(field(section: "Progression", key: "level", label: "Level", type: "int"))
         fields.append(field(section: "Progression", key: "background", label: "Background", type: "string"))
         fields.append(field(section: "Progression", key: "alignment", label: "Ethos", type: "string"))
+        fields.append(field(section: "Progression", key: "feats", label: "Feats", type: "list"))
 
         fields.append(field(section: "Abilities", key: "str", label: "Strength", type: "int"))
         fields.append(field(section: "Abilities", key: "dex", label: "Dexterity", type: "int"))
@@ -191,6 +192,7 @@ public struct CharacterSheetDefinitions {
         fields.append(field(section: "Resources", key: "currency", label: "Currency", type: "string"))
         fields.append(field(section: "Resources", key: "consumables", label: "Consumables", type: "list"))
         fields.append(field(section: "Resources", key: "resources", label: "Tracked Resources", type: "list"))
+        fields.append(field(section: "Resources", key: "spells_known", label: "Spells Known", type: "list"))
 
         fields.append(field(section: "Backstory", key: "facts", label: "Backstory Facts", type: "list"))
         fields.append(field(section: "Backstory", key: "bonds", label: "Bonds", type: "list"))

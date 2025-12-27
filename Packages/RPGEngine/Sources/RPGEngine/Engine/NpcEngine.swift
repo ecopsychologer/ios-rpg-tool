@@ -172,40 +172,8 @@ public struct SoloNpcEngine {
     }
 
     private func loadSrdSpecies() -> [String] {
-        if let imported = loadSpeciesFromImportedSRD(), !imported.isEmpty {
-            return imported
-        }
-        if let local = loadSpeciesFromLocalSRD(), !local.isEmpty {
-            return local
-        }
-        return []
-    }
-
-    private func loadSpeciesFromImportedSRD() -> [String]? {
-        let fileManager = FileManager.default
-        guard let directory = try? fileManager.url(
-            for: .applicationSupportDirectory,
-            in: .userDomainMask,
-            appropriateFor: nil,
-            create: true
-        ) else { return nil }
-        let url = directory.appendingPathComponent("srd_import")
-        guard fileManager.fileExists(atPath: url.path) else { return nil }
-        return parseSpecies(from: url)
-    }
-
-    private func loadSpeciesFromLocalSRD() -> [String]? {
-        let url = URL(fileURLWithPath: "dnd-5e-srd/json/01 races.json")
-        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
-        return parseSpecies(from: url)
-    }
-
-    private func parseSpecies(from url: URL) -> [String]? {
-        guard let data = try? Data(contentsOf: url) else { return nil }
-        guard let json = try? JSONSerialization.jsonObject(with: data) else { return nil }
-        guard let dict = json as? [String: Any], let races = dict["Races"] as? [String: Any] else { return nil }
-        let names = races.keys.filter { $0.lowercased() != "racial traits" }
-        return names.sorted()
+        guard let index = SrdContentStore().loadIndex(), !index.species.isEmpty else { return [] }
+        return index.species
     }
 
     private mutating func ensureTableEngine() throws {

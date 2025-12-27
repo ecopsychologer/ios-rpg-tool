@@ -41,7 +41,7 @@ enum ExampleType: String, CaseIterable, Identifiable {
         case .characterSheet:
             return "Character Sheet"
         case .srdImport:
-            return "SRD Import"
+            return "SRD Library"
         case .campaignData:
             return "Campaign Data"
         case .tables:
@@ -80,7 +80,7 @@ enum ExampleType: String, CaseIterable, Identifiable {
         case .characterSheet:
             return "Living character sheet with statuses"
         case .srdImport:
-            return "Download SRD reference data"
+            return "Browse bundled SRD reference data"
         case .campaignData:
             return "Browse saved campaign structures"
         case .tables:

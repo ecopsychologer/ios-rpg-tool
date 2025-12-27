@@ -10,7 +10,10 @@ let package = Package(
     targets: [
         .target(
             name: "TableEngine",
-            path: "Sources"
+            path: "Sources",
+            resources: [
+                .process("Resources")
+            ]
         )
     ]
 )

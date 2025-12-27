@@ -9,6 +9,7 @@ import SwiftUI
 import SwiftData
 import LiquidGlasKit
 import WorldState
+import RPGEngine
 
 struct SettingsView: View {
     @Environment(\.modelContext) private var modelContext
@@ -337,15 +338,26 @@ struct SettingsView: View {
 private struct CampaignCreateSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var title = ""
-    @State private var ruleset = ""
+    @State private var selectedRulesetId = RulesetCatalog.srd.id
+    @State private var customRulesetName = ""
 
     let onCreate: (String, String) -> Void
+    private let rulesets = RulesetCatalog.descriptors
+    private let customId = "__custom"
 
     var body: some View {
         NavigationStack {
             Form {
                 TextField("Campaign name", text: $title)
-                TextField("Ruleset (optional)", text: $ruleset)
+                Picker("Ruleset", selection: $selectedRulesetId) {
+                    ForEach(rulesets) { ruleset in
+                        Text(ruleset.displayName).tag(ruleset.id)
+                    }
+                    Text("Custom").tag(customId)
+                }
+                if selectedRulesetId == customId {
+                    TextField("Ruleset (optional)", text: $customRulesetName)
+                }
             }
             .navigationTitle("New Campaign")
             .toolbar {
@@ -354,7 +366,13 @@ private struct CampaignCreateSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Create") {
-                        onCreate(title, ruleset)
+                        let rulesetName: String
+                        if selectedRulesetId == customId {
+                            rulesetName = customRulesetName
+                        } else {
+                            rulesetName = rulesets.first(where: { $0.id == selectedRulesetId })?.displayName ?? selectedRulesetId
+                        }
+                        onCreate(title, rulesetName)
                         dismiss()
                     }
                 }

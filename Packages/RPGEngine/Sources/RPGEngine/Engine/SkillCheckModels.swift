@@ -47,52 +47,130 @@ extension Ruleset {
 }
 
 public struct SrdRuleset: Ruleset, Sendable {
-    public let id = "srd_5e"
-    public let displayName = "SRD 5E"
+    public let id: String
+    public let displayName: String
+    public let abilities: [String]
+    public let skills: [SkillDefinition]
+    public let species: [String]
+    public let classes: [String]
+    public let feats: [String]
+    public let equipment: [String]
+    public let spells: [String]
+    public let dcBands: [Int]
+    public let contestedPairs: [(String, String)]
 
-    public let abilities = [
-        "Strength",
-        "Dexterity",
-        "Constitution",
-        "Intelligence",
-        "Wisdom",
-        "Charisma"
-    ]
+    public init(index: SrdContentIndex? = nil) {
+        id = "srd_5e"
+        displayName = "SRD 5E"
 
-    public let skills: [SkillDefinition] = [
-        SkillDefinition(name: "Athletics", defaultAbility: "Strength"),
-        SkillDefinition(name: "Acrobatics", defaultAbility: "Dexterity"),
-        SkillDefinition(name: "Sleight of Hand", defaultAbility: "Dexterity"),
-        SkillDefinition(name: "Stealth", defaultAbility: "Dexterity"),
-        SkillDefinition(name: "Arcana", defaultAbility: "Intelligence"),
-        SkillDefinition(name: "History", defaultAbility: "Intelligence"),
-        SkillDefinition(name: "Investigation", defaultAbility: "Intelligence"),
-        SkillDefinition(name: "Nature", defaultAbility: "Intelligence"),
-        SkillDefinition(name: "Religion", defaultAbility: "Intelligence"),
-        SkillDefinition(name: "Animal Handling", defaultAbility: "Wisdom"),
-        SkillDefinition(name: "Insight", defaultAbility: "Wisdom"),
-        SkillDefinition(name: "Medicine", defaultAbility: "Wisdom"),
-        SkillDefinition(name: "Perception", defaultAbility: "Wisdom"),
-        SkillDefinition(name: "Survival", defaultAbility: "Wisdom"),
-        SkillDefinition(name: "Deception", defaultAbility: "Charisma"),
-        SkillDefinition(name: "Intimidation", defaultAbility: "Charisma"),
-        SkillDefinition(name: "Performance", defaultAbility: "Charisma"),
-        SkillDefinition(name: "Persuasion", defaultAbility: "Charisma")
-    ]
+        let defaultAbilities = [
+            "Strength",
+            "Dexterity",
+            "Constitution",
+            "Intelligence",
+            "Wisdom",
+            "Charisma"
+        ]
+        let defaultSkills: [SkillDefinition] = [
+            SkillDefinition(name: "Athletics", defaultAbility: "Strength"),
+            SkillDefinition(name: "Acrobatics", defaultAbility: "Dexterity"),
+            SkillDefinition(name: "Sleight of Hand", defaultAbility: "Dexterity"),
+            SkillDefinition(name: "Stealth", defaultAbility: "Dexterity"),
+            SkillDefinition(name: "Arcana", defaultAbility: "Intelligence"),
+            SkillDefinition(name: "History", defaultAbility: "Intelligence"),
+            SkillDefinition(name: "Investigation", defaultAbility: "Intelligence"),
+            SkillDefinition(name: "Nature", defaultAbility: "Intelligence"),
+            SkillDefinition(name: "Religion", defaultAbility: "Intelligence"),
+            SkillDefinition(name: "Animal Handling", defaultAbility: "Wisdom"),
+            SkillDefinition(name: "Insight", defaultAbility: "Wisdom"),
+            SkillDefinition(name: "Medicine", defaultAbility: "Wisdom"),
+            SkillDefinition(name: "Perception", defaultAbility: "Wisdom"),
+            SkillDefinition(name: "Survival", defaultAbility: "Wisdom"),
+            SkillDefinition(name: "Deception", defaultAbility: "Charisma"),
+            SkillDefinition(name: "Intimidation", defaultAbility: "Charisma"),
+            SkillDefinition(name: "Performance", defaultAbility: "Charisma"),
+            SkillDefinition(name: "Persuasion", defaultAbility: "Charisma")
+        ]
 
-    public let dcBands = [5, 10, 15, 20, 25, 30]
+        if let abilities = index?.abilities, !abilities.isEmpty {
+            self.abilities = abilities
+        } else {
+            self.abilities = defaultAbilities
+        }
 
-    public let contestedPairs: [(String, String)] = [
-        ("Stealth", "Perception"),
-        ("Deception", "Insight"),
-        ("Persuasion", "Insight"),
-        ("Athletics", "Athletics"),
-        ("Acrobatics", "Acrobatics")
-    ]
+        if let skills = index?.skills, !skills.isEmpty {
+            self.skills = skills
+        } else {
+            self.skills = defaultSkills
+        }
+
+        species = index?.species ?? []
+        classes = index?.classes ?? []
+        feats = index?.feats ?? []
+        equipment = index?.equipment ?? []
+        spells = index?.spells ?? []
+        dcBands = [5, 10, 15, 20, 25, 30]
+        contestedPairs = [
+            ("Stealth", "Perception"),
+            ("Deception", "Insight"),
+            ("Persuasion", "Insight"),
+            ("Athletics", "Athletics"),
+            ("Acrobatics", "Acrobatics")
+        ]
+    }
+}
+
+public struct RulesetDescriptor: Identifiable, Hashable, Sendable {
+    public let id: String
+    public let displayName: String
+    public let summary: String
+
+    public init(id: String, displayName: String, summary: String) {
+        self.id = id
+        self.displayName = displayName
+        self.summary = summary
+    }
 }
 
 public struct RulesetCatalog {
     public static let srd = SrdRuleset()
+    public static let srdDescriptor = RulesetDescriptor(
+        id: srd.id,
+        displayName: srd.displayName,
+        summary: "Open SRD ruleset with standard abilities and skills."
+    )
+    public static let descriptors: [RulesetDescriptor] = [srdDescriptor]
+
+    public static func srdRuleset() -> SrdRuleset {
+        if let index = SrdContentStore().loadIndex() {
+            return SrdRuleset(index: index)
+        }
+        return srd
+    }
+
+    public static func ruleset(for nameOrId: String?) -> any Ruleset {
+        guard let nameOrId = nameOrId?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !nameOrId.isEmpty else {
+            return srd
+        }
+        if nameOrId.caseInsensitiveCompare(srd.id) == .orderedSame ||
+            nameOrId.caseInsensitiveCompare(srd.displayName) == .orderedSame {
+            return srdRuleset()
+        }
+        return srdRuleset()
+    }
+
+    public static func descriptor(for nameOrId: String?) -> RulesetDescriptor? {
+        guard let nameOrId = nameOrId?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !nameOrId.isEmpty else {
+            return srdDescriptor
+        }
+        if srdDescriptor.id.caseInsensitiveCompare(nameOrId) == .orderedSame ||
+            srdDescriptor.displayName.caseInsensitiveCompare(nameOrId) == .orderedSame {
+            return srdDescriptor
+        }
+        return nil
+    }
 }
 
 public struct SkillCheckHeuristics {

@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import WorldState
+import RPGEngine
 
 struct CharacterSheetView: View {
     @Environment(\.modelContext) private var modelContext
@@ -64,7 +65,7 @@ struct CharacterSheetView: View {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(character.displayName.isEmpty ? "Unnamed Character" : character.displayName)
                                     .font(.headline)
-                                Text(character.rulesetId.uppercased())
+                                Text(RulesetCatalog.descriptor(for: character.rulesetId)?.displayName ?? character.rulesetId.uppercased())
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                             }
@@ -106,6 +107,7 @@ struct CharacterSheetView: View {
 
 private struct CharacterDetailView: View {
     @Bindable var character: PlayerCharacter
+    @State private var srdIndex: SrdContentIndex?
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.large) {
@@ -118,14 +120,17 @@ private struct CharacterDetailView: View {
                 if !fields.isEmpty {
                     DisclosureGroup(section) {
                         ForEach(fields) { field in
-                            CharacterFieldRow(field: field)
+                            CharacterFieldRow(field: field, srdOptions: srdOptions(for: field))
                         }
                     }
                 }
             }
         }
         .padding(.horizontal, Spacing.medium)
-        .onAppear { ensureDefaultFields() }
+        .onAppear {
+            ensureDefaultFields()
+            loadSrdIndex()
+        }
     }
 
     private var sectionNames: [String] {
@@ -185,10 +190,86 @@ private struct CharacterDetailView: View {
             character.fields = CharacterSheetDefinitions.defaultFields()
         }
     }
+
+    private func loadSrdIndex() {
+        let rulesetId = character.rulesetId.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard rulesetId == RulesetCatalog.srd.id.lowercased() || rulesetId == RulesetCatalog.srd.displayName.lowercased() else {
+            return
+        }
+        if srdIndex == nil {
+            srdIndex = SrdContentStore().loadIndex()
+        }
+    }
+
+    private func srdOptions(for field: CharacterField) -> SrdFieldOptions? {
+        guard let index = srdIndex else { return nil }
+        switch field.key {
+        case "species":
+            return SrdFieldOptions(
+                title: "Species",
+                items: index.species,
+                detailMap: [:],
+                mode: .replace
+            )
+        case "class":
+            return SrdFieldOptions(
+                title: "Class",
+                items: index.classes,
+                detailMap: index.classDetails,
+                mode: .replace
+            )
+        case "skills":
+            let names = index.skills.map { $0.name }
+            let details = Dictionary(uniqueKeysWithValues: index.skills.map {
+                ($0.name, ["Default ability: \($0.defaultAbility)"])
+            })
+            return SrdFieldOptions(
+                title: "Skills",
+                items: names,
+                detailMap: details,
+                mode: .append
+            )
+        case "saves":
+            return SrdFieldOptions(
+                title: "Saves",
+                items: index.abilities,
+                detailMap: [:],
+                mode: .append
+            )
+        case "feats":
+            return SrdFieldOptions(
+                title: "Feats",
+                items: index.feats,
+                detailMap: index.featDetails,
+                mode: .append
+            )
+        case "spells_known":
+            return SrdFieldOptions(
+                title: "Spells",
+                items: index.spells,
+                detailMap: index.spellDetails,
+                mode: .append
+            )
+        case "inventory":
+            let combined = index.equipment + index.magicItems
+            var details = index.equipmentDetails
+            index.magicItemDetails.forEach { details[$0.key] = $0.value }
+            return SrdFieldOptions(
+                title: "Inventory",
+                items: combined,
+                detailMap: details,
+                mode: .append
+            )
+        default:
+            return nil
+        }
+    }
 }
 
 private struct CharacterFieldRow: View {
     @Bindable var field: CharacterField
+    let srdOptions: SrdFieldOptions?
+    @State private var showPicker = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -196,6 +277,12 @@ private struct CharacterFieldRow: View {
                 .font(.caption)
                 .foregroundColor(.secondary)
             fieldInput
+            if srdOptions != nil {
+                Button("Pick from SRD") {
+                    showPicker = true
+                }
+                .buttonStyle(.bordered)
+            }
             Picker("Status", selection: $field.status) {
                 ForEach(SheetFieldStatus.allCases) { status in
                     Text(status.rawValue.capitalized).tag(status.rawValue)
@@ -204,6 +291,19 @@ private struct CharacterFieldRow: View {
             .pickerStyle(.segmented)
         }
         .padding(.vertical, 4)
+        .sheet(isPresented: $showPicker) {
+            if let srdOptions {
+                SrdPickerView(
+                    title: srdOptions.title,
+                    items: srdOptions.items,
+                    detailMap: srdOptions.detailMap,
+                    onSelect: { selection in
+                        applySelection(selection, mode: srdOptions.mode)
+                        showPicker = false
+                    }
+                )
+            }
+        }
     }
 
     @ViewBuilder
@@ -244,20 +344,146 @@ private struct CharacterFieldRow: View {
     private func parseCommaList(_ input: String) -> [String] {
         input.split(separator: ",").map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
     }
+
+    private func applySelection(_ selection: String, mode: SrdFieldMode) {
+        switch field.valueType {
+        case "list":
+            var list = field.valueStringList ?? []
+            if mode == .replace {
+                list = [selection]
+            } else if !list.contains(selection) {
+                list.append(selection)
+            }
+            field.valueStringList = list
+        default:
+            field.valueString = selection
+        }
+        field.updatedAt = Date()
+    }
+}
+
+private enum SrdFieldMode {
+    case replace
+    case append
+}
+
+private struct SrdFieldOptions {
+    let title: String
+    let items: [String]
+    let detailMap: [String: [String]]
+    let mode: SrdFieldMode
+}
+
+private struct SrdPickerView: View {
+    @Environment(\.dismiss) private var dismiss
+    let title: String
+    let items: [String]
+    let detailMap: [String: [String]]
+    let onSelect: (String) -> Void
+
+    @State private var filterText = ""
+    @State private var detailSelection: SrdDetailSelection?
+
+    var body: some View {
+        NavigationStack {
+            List(filteredItems, id: \.self) { item in
+                HStack {
+                    Button(item) {
+                        onSelect(item)
+                        dismiss()
+                    }
+                    .buttonStyle(.plain)
+                    Spacer(minLength: 0)
+                    if let details = detailMap[item], !details.isEmpty {
+                        Button {
+                            detailSelection = SrdDetailSelection(title: item, lines: details)
+                        } label: {
+                            Image(systemName: "info.circle")
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            .navigationTitle(title)
+            .searchable(text: $filterText, prompt: "Filter")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close") { dismiss() }
+                }
+            }
+            .sheet(item: $detailSelection) { selection in
+                SrdDetailView(title: selection.title, subtitle: nil, lines: selection.lines)
+            }
+        }
+    }
+
+    private var filteredItems: [String] {
+        let query = filterText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return items }
+        return items.filter { $0.range(of: query, options: .caseInsensitive) != nil }
+    }
+}
+
+private struct SrdDetailSelection: Identifiable {
+    let id = UUID()
+    let title: String
+    let lines: [String]
+}
+
+private struct SrdDetailView: View {
+    let title: String
+    let subtitle: String?
+    let lines: [String]
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: Spacing.medium) {
+                if let subtitle, !subtitle.isEmpty {
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                if lines.isEmpty {
+                    Text("No additional detail found in the SRD.")
+                        .font(.callout)
+                        .foregroundColor(.secondary)
+                } else {
+                    ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
+                        Text(line)
+                            .textSelection(.enabled)
+                    }
+                }
+            }
+            .padding(.vertical)
+            .padding(.horizontal, Spacing.medium)
+        }
+        .navigationTitle(title)
+    }
 }
 
 private struct CharacterCreateSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
-    @State private var rulesetId = "srd_5e"
+    @State private var selectedRulesetId = RulesetCatalog.srd.id
+    @State private var customRulesetId = ""
 
     let onCreate: (PlayerCharacter) -> Void
+    private let rulesets = RulesetCatalog.descriptors
+    private let customId = "__custom"
 
     var body: some View {
         NavigationStack {
             Form {
                 TextField("Display Name (optional)", text: $name)
-                TextField("Ruleset ID", text: $rulesetId)
+                Picker("Ruleset", selection: $selectedRulesetId) {
+                    ForEach(rulesets) { ruleset in
+                        Text(ruleset.displayName).tag(ruleset.id)
+                    }
+                    Text("Custom").tag(customId)
+                }
+                if selectedRulesetId == customId {
+                    TextField("Ruleset ID", text: $customRulesetId)
+                }
             }
             .navigationTitle("Add Character")
             .toolbar {
@@ -266,6 +492,12 @@ private struct CharacterCreateSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Create") {
+                        let rulesetId: String
+                        if selectedRulesetId == customId {
+                            rulesetId = customRulesetId.trimmingCharacters(in: .whitespacesAndNewlines)
+                        } else {
+                            rulesetId = selectedRulesetId
+                        }
                         let character = PlayerCharacter(displayName: name, rulesetId: rulesetId)
                         onCreate(character)
                         dismiss()

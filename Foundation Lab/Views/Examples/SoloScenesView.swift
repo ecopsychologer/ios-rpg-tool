@@ -120,6 +120,7 @@ struct SoloScenesView: View {
     @State private var pendingCanonizationId: UUID?
     @State private var pendingLocationFeatures: [PendingLocationFeature] = []
     @State private var agencyLogs: [AgencyLogEntry] = []
+    @State private var lastPlayerIntentSummary: String?
 
     private var alteredMode: AlteredMode {
         AlteredMode(rawValue: alteredModeRaw) ?? .guided
@@ -1038,6 +1039,7 @@ struct SoloScenesView: View {
         canonizationDrafts = []
         pendingCanonizationId = nil
         pendingLocationFeatures = []
+        lastPlayerIntentSummary = nil
     }
 
     private func resetAdventure() {
@@ -1309,7 +1311,13 @@ struct SoloScenesView: View {
                 }
 
                 if isMetaMessage(trimmed) {
-                    let gmText = try await generateNormalGMResponse(session: session, context: context, playerText: trimmed, isMeta: true)
+                    let gmText = try await generateNormalGMResponse(
+                        session: session,
+                        context: context,
+                        playerText: trimmed,
+                        isMeta: true,
+                        playerInputKind: .gmCommand
+                    )
                     interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
                     sceneInput = ""
                     return
@@ -1350,14 +1358,26 @@ struct SoloScenesView: View {
                 logAgency(stage: "intent_category", message: "\(intentCategoryDraft.content.category): \(intentCategoryDraft.content.reason)")
 
                 guard let intentCategory = IntentCategory.from(name: intentCategoryDraft.content.category) else {
-                    let gmText = try await generateNormalGMResponse(session: session, context: context, playerText: trimmed, isMeta: false)
+                    let gmText = try await generateNormalGMResponse(
+                        session: session,
+                        context: context,
+                        playerText: trimmed,
+                        isMeta: false,
+                        playerInputKind: .unclear
+                    )
                     interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
                     sceneInput = ""
                     return
                 }
 
                 if intentCategory == .gmCommand {
-                    let gmText = try await generateNormalGMResponse(session: session, context: context, playerText: trimmed, isMeta: true)
+                    let gmText = try await generateNormalGMResponse(
+                        session: session,
+                        context: context,
+                        playerText: trimmed,
+                        isMeta: true,
+                        playerInputKind: .gmCommand
+                    )
                     interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
                     sceneInput = ""
                     return
@@ -1377,7 +1397,13 @@ struct SoloScenesView: View {
                     )
 
                     if fateDraft.content.isFateQuestion == false {
-                        let gmText = try await generateNormalGMResponse(session: session, context: context, playerText: trimmed, isMeta: false)
+                        let gmText = try await generateNormalGMResponse(
+                            session: session,
+                            context: context,
+                            playerText: trimmed,
+                            isMeta: false,
+                            playerInputKind: .playerQuestion
+                        )
                         interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
                         sceneInput = ""
                         return
@@ -1427,6 +1453,7 @@ struct SoloScenesView: View {
                         generating: PlayerIntentDraft.self
                     )
                     logAgency(stage: "intent_extract", message: intentDraft.content.summary)
+                    lastPlayerIntentSummary = intentDraft.content.summary
 
                     if needsClarification(intentDraft.content) {
                         let gmText = "I want to make sure I understand. What exactly are you trying to do?"
@@ -1447,7 +1474,26 @@ struct SoloScenesView: View {
                     }
                 }
 
-                let gmText = try await generateNormalGMResponse(session: session, context: context, playerText: trimmed, isMeta: false)
+                if intentCategory == .roleplayDialogue {
+                    let gmText = try await generateNormalGMResponse(
+                        session: session,
+                        context: context,
+                        playerText: trimmed,
+                        isMeta: false,
+                        playerInputKind: .roleplayDialogue
+                    )
+                    interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
+                    sceneInput = ""
+                    return
+                }
+
+                let gmText = try await generateNormalGMResponse(
+                    session: session,
+                    context: context,
+                    playerText: trimmed,
+                    isMeta: false,
+                    playerInputKind: intentCategory
+                )
                 await captureLocationFeatures(from: gmText, session: session, campaign: campaign)
 
                 if shouldSkipCanonization(for: trimmed) {
@@ -1790,6 +1836,8 @@ struct SoloScenesView: View {
         - unclear (ambiguous)
 
         Never assume the player took an action. If intent is unclear, choose unclear.
+        If the player uses quotes or speaks as their character, prefer roleplay_dialogue.
+        If the player addresses GM/DM directly, prefer gm_command.
 
         Scene #\(context.sceneNumber)
         Scene Type: \(context.sceneType.rawValue)
@@ -1806,6 +1854,7 @@ struct SoloScenesView: View {
         Only include party members if the player explicitly mentions them.
         If they ask for auto-resolution, set requestedMode to auto_resolve.
         Otherwise use ask_before_rolling.
+        Do not infer NPC actions or dialogue from the player's text.
 
         Scene #\(context.sceneNumber)
         Scene Type: \(context.sceneType.rawValue)
@@ -2115,7 +2164,8 @@ struct SoloScenesView: View {
         session: LanguageModelSession,
         context: NarrationContextPacket,
         playerText: String,
-        isMeta: Bool
+        isMeta: Bool,
+        playerInputKind: IntentCategory? = nil
     ) async throws -> String {
         var prompt = """
         You are the game master in a solo RPG. Respond conversationally.
@@ -2131,6 +2181,20 @@ struct SoloScenesView: View {
         } else {
             prompt += "\nDo not move the party or companions unless the player explicitly says so."
         }
+
+        if let playerInputKind {
+            prompt += "\nPlayer input type: \(playerInputKind.rawValue)"
+        }
+
+        if let lastPlayerIntentSummary, !lastPlayerIntentSummary.isEmpty {
+            prompt += "\nPlayer intent echo: \(lastPlayerIntentSummary)"
+        }
+
+        if playerInputKind == .roleplayDialogue {
+            prompt += "\nTreat the player's message as their character's dialogue. Do not attribute it to NPCs."
+        }
+
+        prompt += "\nContext Card:\n\(buildContextCard(context: context))"
 
         prompt += """
 
@@ -2199,8 +2263,16 @@ struct SoloScenesView: View {
             prompt += "\nRecent Rolls: \(context.recentRollHighlights.joined(separator: ", "))"
         }
 
-        let response = try await session.respond(to: Prompt(prompt))
-        let content = response.content.trimmingCharacters(in: .whitespacesAndNewlines)
+        prompt += """
+        
+        Build 1-4 segments. Use speaker=gm for narration and prompts.
+        Use speaker=npc only if an NPC is explicitly present in the context.
+        Never use speaker=player. Dialogue should only appear in dialogue segments.
+        """
+        prompt += "\nReturn a NarrationPlanDraft."
+
+        let response = try await session.respond(to: Prompt(prompt), generating: NarrationPlanDraft.self)
+        let content = renderNarrationPlan(response.content)
         if violatesAgencyBoundary(content) {
             logAgency(stage: "agency_violation", message: "Rewriting narration to avoid assumed player action.")
             return try await rewriteForAgency(
@@ -2272,6 +2344,86 @@ struct SoloScenesView: View {
         """
         let response = try await session.respond(to: Prompt(prompt))
         return response.content.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func renderNarrationPlan(_ plan: NarrationPlanDraft) -> String {
+        var parts: [String] = []
+        if !plan.segments.isEmpty {
+            for segment in plan.segments {
+                let text = segment.text.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !text.isEmpty else { continue }
+                if segment.channel.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "dialogue" {
+                    if text.hasPrefix("\"") || text.hasPrefix("“") {
+                        parts.append(text)
+                    } else {
+                        parts.append("\"\(text)\"")
+                    }
+                } else {
+                    parts.append(text)
+                }
+            }
+            return parts.joined(separator: "\n")
+        }
+
+        let narration = plan.narrationText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !narration.isEmpty {
+            parts.append(narration)
+        }
+
+        let questions = plan.questionsToPlayer
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        if !questions.isEmpty {
+            parts.append(questions.joined(separator: " "))
+        }
+
+        let options = plan.options
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        if !options.isEmpty {
+            parts.append("Options: " + options.joined(separator: " • "))
+        }
+
+        if let ruleSummary = plan.ruleSummary?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !ruleSummary.isEmpty {
+            parts.append(ruleSummary)
+        }
+
+        return parts.joined(separator: "\n")
+    }
+
+    private func buildContextCard(context: NarrationContextPacket) -> String {
+        var lines: [String] = []
+        lines.append("Scene: \(context.expectedScene)")
+
+        if let location = context.currentLocation {
+            lines.append("Location: \(location)")
+        }
+        if let node = context.currentNode {
+            lines.append("Node: \(node)")
+        }
+
+        if !context.activeCharacters.isEmpty {
+            let names = context.activeCharacters.prefix(4).map { $0.name }
+            lines.append("Active Entities: \(names.joined(separator: ", "))")
+        }
+
+        if !context.recentPlaces.isEmpty {
+            lines.append("Known Places: \(context.recentPlaces.prefix(5).joined(separator: ", "))")
+        }
+        if !context.recentCuriosities.isEmpty {
+            lines.append("Known Facts: \(context.recentCuriosities.prefix(5).joined(separator: ", "))")
+        }
+
+        if !context.currentExits.isEmpty {
+            lines.append("Exits: \(context.currentExits.joined(separator: " · "))")
+        }
+
+        if let lastPlayerIntentSummary, !lastPlayerIntentSummary.isEmpty {
+            lines.append("Player Intent: \(lastPlayerIntentSummary)")
+        }
+
+        return lines.joined(separator: "\n")
     }
 
     private func generateCheckConsequence(
@@ -2613,6 +2765,7 @@ struct SoloScenesView: View {
     private func ensureCampaign() {
         if let existing = activeCampaigns.first {
             campaign = existing
+            engine.ruleset = RulesetCatalog.ruleset(for: existing.rulesetName)
         } else {
             let newCampaign = Campaign()
             newCampaign.rulesetName = engine.ruleset.displayName

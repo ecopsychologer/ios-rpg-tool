@@ -21,10 +21,71 @@ public struct ContentPackStore {
         )
         let url = directory.appendingPathComponent(fileName)
         if !fileManager.fileExists(atPath: url.path) {
-            let data = Data(defaultPackJSON.utf8)
+            let pack = try buildDefaultPack()
+            let data = try JSONEncoder().encode(pack)
             try data.write(to: url, options: [.atomic])
         }
         return url
+    }
+
+    private func buildDefaultPack() throws -> ContentPack {
+        let baseData = Data(defaultPackJSON.utf8)
+        let basePack = try JSONDecoder().decode(ContentPack.self, from: baseData)
+        let supplemental = loadSupplementalTables()
+        if supplemental.isEmpty {
+            return basePack
+        }
+        let existingIds = Set(basePack.tables.map { $0.id })
+        let mergedTables = basePack.tables + supplemental.filter { !existingIds.contains($0.id) }
+        return ContentPack(id: basePack.id, version: basePack.version, tables: mergedTables)
+    }
+
+    private func loadSupplementalTables() -> [TableDefinition] {
+        guard let url = Bundle.module.url(forResource: "rpg_tables", withExtension: "json"),
+              let data = try? Data(contentsOf: url),
+              let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let tables = root["tables"] as? [[String: Any]] else {
+            return []
+        }
+
+        var definitions: [TableDefinition] = []
+        for table in tables {
+            guard let name = table["name"] as? String,
+                  let dice = table["dice"] as? String,
+                  let entries = table["entries"] as? [[String: Any]] else { continue }
+            var tableEntries: [TableEntry] = []
+            for entry in entries {
+                guard let range = entry["range"] as? [Int], range.count == 2,
+                      let result = entry["result"] as? String else { continue }
+                let action = OutcomeAction(
+                    type: "log",
+                    nodeType: nil,
+                    edgeType: nil,
+                    summary: nil,
+                    tags: nil,
+                    category: nil,
+                    trigger: nil,
+                    detectionSkill: nil,
+                    detectionDC: nil,
+                    disarmSkill: nil,
+                    disarmDC: nil,
+                    saveSkill: nil,
+                    saveDC: nil,
+                    effect: nil,
+                    tableId: nil,
+                    diceSpec: nil,
+                    threshold: nil,
+                    modifier: nil,
+                    thenActions: nil,
+                    elseActions: nil,
+                    message: result
+                )
+                tableEntries.append(TableEntry(min: range[0], max: range[1], actions: [action]))
+            }
+            guard !tableEntries.isEmpty else { continue }
+            definitions.append(TableDefinition(id: name, name: name, scope: "general", diceSpec: dice, entries: tableEntries))
+        }
+        return definitions
     }
 
     private var defaultPackJSON: String {

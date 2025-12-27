@@ -86,7 +86,10 @@ public struct SoloCampaignEngine {
     public var resolver: SoloOracleEngine
     public var ruleset: any Ruleset
 
-    public init(resolver: SoloOracleEngine = SoloOracleEngine(), ruleset: any Ruleset = RulesetCatalog.srd) {
+    public init(
+        resolver: SoloOracleEngine = SoloOracleEngine(),
+        ruleset: any Ruleset = RulesetCatalog.ruleset(for: RulesetCatalog.srd.id)
+    ) {
         self.resolver = resolver
         self.ruleset = ruleset
     }

@@ -75,6 +75,5 @@ dist/
 __pycache__/
 *.pyc
 .Python
-/dnd-5e-srd
 /info
 .github/copilot-instructions.md

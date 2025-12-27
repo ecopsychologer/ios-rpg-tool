@@ -132,6 +132,35 @@ public struct ResolutionResult: Sendable {
     }
 }
 
+public enum SpeakerIdentity: String, CaseIterable, Codable, Sendable {
+    case gm
+    case npc
+    case monster
+    case system
+    case rules
+}
+
+public enum SpeechChannel: String, CaseIterable, Codable, Sendable {
+    case narration
+    case dialogue
+    case prompt
+    case options
+    case mechanics
+    case meta
+}
+
+public struct SpeechSegment: Sendable {
+    public let speaker: SpeakerIdentity
+    public let channel: SpeechChannel
+    public let text: String
+
+    public init(speaker: SpeakerIdentity, channel: SpeechChannel, text: String) {
+        self.speaker = speaker
+        self.channel = channel
+        self.text = text
+    }
+}
+
 public struct NarrationPlan: Sendable {
     public let narrationText: String
     public let questionsToPlayer: [String]
@@ -196,7 +225,22 @@ public struct PlayerIntentDraft {
 }
 
 @Generable
+public struct SpeechSegmentDraft {
+    @Guide(description: "Speaker identity: gm, npc, monster, system, rules")
+    public let speaker: String
+
+    @Guide(description: "Channel: narration, dialogue, prompt, options, mechanics, meta")
+    public let channel: String
+
+    @Guide(description: "Segment text")
+    public let text: String
+}
+
+@Generable
 public struct NarrationPlanDraft {
+    @Guide(description: "Optional structured segments with speaker + channel")
+    public let segments: [SpeechSegmentDraft]
+
     @Guide(description: "Narration text that does not assume player actions")
     public let narrationText: String
 
