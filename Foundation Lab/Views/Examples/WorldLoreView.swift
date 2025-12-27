@@ -2,8 +2,10 @@ import SwiftUI
 import SwiftData
 import FoundationModels
 import WorldState
+import RPGEngine
 
 struct WorldLoreView: View {
+    let coordinator: SoloSceneCoordinator
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Campaign.createdAt, order: .reverse) private var campaigns: [Campaign]
     @State private var campaign: Campaign?
@@ -15,6 +17,10 @@ struct WorldLoreView: View {
     @State private var setupSummary = ""
     @State private var isSummarizingSetup = false
     @State private var setupError: String?
+
+    @MainActor init(coordinator: SoloSceneCoordinator) {
+        self.coordinator = coordinator
+    }
 
     var body: some View {
         ScrollView {
@@ -234,6 +240,7 @@ struct WorldLoreView: View {
             ensureCampaign()
         }
         guard campaign != nil else { return }
+        coordinator.engine.ruleset = RulesetCatalog.ruleset(for: campaign?.rulesetName)
         let promptText = draftPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !promptText.isEmpty else { return }
         draftError = nil
@@ -284,6 +291,7 @@ struct WorldLoreView: View {
 
     private func summarizeSetup() {
         guard let campaign else { return }
+        coordinator.engine.ruleset = RulesetCatalog.ruleset(for: campaign.rulesetName)
         setupError = nil
         isSummarizingSetup = true
 

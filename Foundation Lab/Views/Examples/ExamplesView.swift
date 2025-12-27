@@ -10,6 +10,7 @@ import FoundationModels
 
 struct ExamplesView: View {
     @Binding var viewModel: ContentViewModel
+    let soloCoordinator: SoloSceneCoordinator
     @State private var showChatFullscreen = false
 
     var body: some View {
@@ -143,11 +144,11 @@ struct ExamplesView: View {
     private func exampleDestination(for exampleType: ExampleType) -> some View {
         switch exampleType {
         case .soloScenes:
-            SoloScenesView()
+            SoloScenesView(coordinator: soloCoordinator)
         case .npcs:
-            NPCsView()
+            NPCsView(coordinator: soloCoordinator)
         case .worldLore:
-            WorldLoreView()
+            WorldLoreView(coordinator: soloCoordinator)
         case .characterSheet:
             CharacterSheetView()
         case .srdImport:
@@ -181,5 +182,6 @@ struct ExamplesView: View {
 }
 
 #Preview {
-    ExamplesView(viewModel: .constant(ContentViewModel()))
+    @MainActor in
+    ExamplesView(viewModel: .constant(ContentViewModel()), soloCoordinator: SoloSceneCoordinator())
 }

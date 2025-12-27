@@ -18,66 +18,6 @@ struct SoloScenesView: View {
         case manual
     }
 
-    private struct InteractionDraft: Identifiable {
-        let id = UUID()
-        let playerText: String
-        let gmText: String
-        let turnSignal: String?
-    }
-
-    private struct SkillCheckDraft: Identifiable {
-        let id = UUID()
-        var playerAction: String
-        var request: CheckRequest
-        var roll: Int?
-        var modifier: Int?
-        var total: Int?
-        var outcome: String?
-        var consequence: String?
-        var sourceTrapId: UUID?
-        var sourceKind: String?
-    }
-
-    private struct FateQuestionDraftState: Identifiable {
-        let id = UUID()
-        let question: String
-        let likelihood: FateLikelihood
-        let chaosFactor: Int
-        let roll: Int
-        let target: Int
-        let outcome: String
-        let gmText: String
-    }
-
-    private struct CanonizationDraftState: Identifiable {
-        let id = UUID()
-        let assumption: String
-        let likelihood: FateLikelihood
-        let chaosFactor: Int
-        let roll: Int?
-        let target: Int?
-        let outcome: String?
-    }
-
-    private struct TableRollOutcome {
-        let tableId: String
-        let result: String
-        let reason: String
-    }
-
-    private struct SrdLookupOutcome {
-        let category: String
-        let name: String
-        let lines: [String]
-        let reason: String
-    }
-
-    private struct PendingLocationFeature: Identifiable {
-        let id = UUID()
-        let name: String
-        let summary: String
-    }
-
     private struct ExitDisplay: Identifiable {
         let id: UUID
         let label: String
@@ -88,8 +28,8 @@ struct SoloScenesView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(filter: #Predicate<Campaign> { $0.isActive }) private var activeCampaigns: [Campaign]
     @State private var campaign: Campaign?
-    @State private var engine = SoloCampaignEngine()
-    @State private var locationEngine = SoloLocationEngine()
+    // Engine and location engine are owned by the shared coordinator.
+    @StateObject private var coordinator = SoloSceneCoordinator()
     @AppStorage("soloAlteredMode") private var alteredModeRaw = AlteredMode.guided.rawValue
     @AppStorage("soloAutoRollEnabled") private var autoRollEnabled = false
     @AppStorage("soloGMRunsCompanions") private var gmRunsCompanionsEnabled = false
@@ -109,7 +49,6 @@ struct SoloScenesView: View {
     @State private var removeThreadsInput = ""
     @State private var placesInput = ""
     @State private var curiositiesInput = ""
-    @State private var rollHighlightsInput = ""
     @State private var pcsInControl = true
     @State private var adventureConcluded = false
     @State private var sceneSummaryInput = ""
@@ -123,21 +62,12 @@ struct SoloScenesView: View {
     @State private var narrationError: String?
     @State private var isNarrating = false
 
-    @State private var interactionDrafts: [InteractionDraft] = []
-    @State private var isResponding = false
-    @State private var gmResponseError: String?
-
-    @State private var checkDrafts: [SkillCheckDraft] = []
-    @State private var pendingCheckID: UUID?
-    @State private var fateQuestionDrafts: [FateQuestionDraftState] = []
-    @State private var canonizationDrafts: [CanonizationDraftState] = []
-    @State private var pendingCanonizationId: UUID?
-    @State private var pendingLocationFeatures: [PendingLocationFeature] = []
-    @State private var agencyLogs: [AgencyLogEntry] = []
-    @State private var lastPlayerIntentSummary: String?
-
     private var alteredMode: AlteredMode {
         AlteredMode(rawValue: alteredModeRaw) ?? .guided
+    }
+
+    @MainActor init(coordinator: SoloSceneCoordinator) {
+        _coordinator = StateObject(wrappedValue: coordinator)
     }
 
     var body: some View {
@@ -567,12 +497,12 @@ struct SoloScenesView: View {
                         }
                     }
 
-                    if !pendingLocationFeatures.isEmpty {
+                    if !coordinator.pendingLocationFeatures.isEmpty {
                         VStack(alignment: .leading, spacing: 6) {
                             Text("Pending Features:")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
-                            ForEach(pendingLocationFeatures) { feature in
+                            ForEach(coordinator.pendingLocationFeatures) { feature in
                                 Text("- \(feature.name): \(feature.summary)")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
@@ -585,7 +515,7 @@ struct SoloScenesView: View {
                                 .buttonStyle(.borderedProminent)
 
                                 Button("Dismiss") {
-                                    pendingLocationFeatures = []
+                                    coordinator.pendingLocationFeatures = []
                                 }
                                 .buttonStyle(.bordered)
                             }
@@ -614,12 +544,12 @@ struct SoloScenesView: View {
                 .fontWeight(.medium)
                 .foregroundColor(.secondary)
 
-            if interactionDrafts.isEmpty {
+            if coordinator.interactionDrafts.isEmpty {
                 Text("No interactions yet. Describe actions, ask questions, or set up the moment.")
                     .font(.callout)
                     .foregroundColor(.secondary)
             } else {
-                ForEach(interactionDrafts) { interaction in
+                ForEach(coordinator.interactionDrafts) { interaction in
                     VStack(alignment: .leading, spacing: 6) {
                         Text("You: \(interaction.playerText)")
                             .font(.callout)
@@ -636,7 +566,7 @@ struct SoloScenesView: View {
                 }
             }
 
-            if pendingCheckID != nil {
+            if coordinator.pendingCheckID != nil {
                 Text("Awaiting roll result for the last check.")
                     .font(.callout)
                     .foregroundColor(.secondary)
@@ -647,11 +577,11 @@ struct SoloScenesView: View {
 
             Button(action: { requestGMResponse(scene) }) {
                 HStack(spacing: Spacing.small) {
-                    if isResponding {
+                    if coordinator.isResponding {
                         ProgressView()
                             .scaleEffect(0.8)
                     }
-                    Text(isResponding ? "Waiting..." : "GM Respond")
+                    Text(coordinator.isResponding ? "Waiting..." : "GM Respond")
                         .font(.callout)
                         .fontWeight(.medium)
                 }
@@ -659,9 +589,9 @@ struct SoloScenesView: View {
                 .padding(.vertical, Spacing.small)
             }
             .buttonStyle(.glassProminent)
-            .disabled(isResponding || sceneInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            .disabled(coordinator.isResponding || sceneInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
 
-            if let error = gmResponseError {
+            if let error = coordinator.gmResponseError {
                 Text(error)
                     .font(.callout)
                     .foregroundColor(.secondary)
@@ -750,7 +680,7 @@ struct SoloScenesView: View {
                 .textFieldStyle(.roundedBorder)
             TextField("Curiosities or mysteries? (comma-separated)", text: $curiositiesInput)
                 .textFieldStyle(.roundedBorder)
-            TextField("Roll highlights? (comma-separated)", text: $rollHighlightsInput)
+            TextField("Roll highlights? (comma-separated)", text: $coordinator.rollHighlightsInput)
                 .textFieldStyle(.roundedBorder)
 
             Toggle("Were the PCs mostly in control during this scene?", isOn: $pcsInControl)
@@ -902,7 +832,7 @@ struct SoloScenesView: View {
 
     private func resolveScene() {
         guard let campaign else { return }
-        let record = engine.resolveScene(campaign: campaign, expectedScene: sceneInput.trimmingCharacters(in: .whitespacesAndNewlines))
+        let record = coordinator.engine.resolveScene(campaign: campaign, expectedScene: sceneInput.trimmingCharacters(in: .whitespacesAndNewlines))
         currentScene = record
         selectedMethod = nil
         selectedAdjustment = .raiseStakes
@@ -919,13 +849,13 @@ struct SoloScenesView: View {
 
     private func applyAlterationMethod(_ method: AlterationMethod?) {
         guard let method, let currentScene else { return }
-        let updated = engine.applyAlterationMethod(scene: currentScene, method: method, adjustment: selectedAdjustment)
+        let updated = coordinator.engine.applyAlterationMethod(scene: currentScene, method: method, adjustment: selectedAdjustment)
         self.currentScene = updated
     }
 
     private func applySceneAdjustment(_ adjustment: SceneAdjustment) {
         guard let method = selectedMethod, let currentScene else { return }
-        let updated = engine.applyAlterationMethod(scene: currentScene, method: method, adjustment: adjustment)
+        let updated = coordinator.engine.applyAlterationMethod(scene: currentScene, method: method, adjustment: adjustment)
         self.currentScene = updated
     }
 
@@ -939,8 +869,8 @@ struct SoloScenesView: View {
 
     private func applyBookkeeping() {
         guard let campaign, let currentScene else { return }
-        let interactionModels = interactionDrafts.map { SceneInteraction(playerText: $0.playerText, gmText: $0.gmText, turnSignal: $0.turnSignal) }
-        let checkModels = checkDrafts.map { draft in
+        let interactionModels = coordinator.interactionDrafts.map { SceneInteraction(playerText: $0.playerText, gmText: $0.gmText, turnSignal: $0.turnSignal) }
+        let checkModels = coordinator.checkDrafts.map { draft in
             let record = SkillCheckRecord(
                 playerAction: draft.playerAction,
                 checkType: draft.request.checkType.rawValue,
@@ -962,7 +892,7 @@ struct SoloScenesView: View {
             record.consequence = draft.consequence
             return record
         }
-        let fateModels = fateQuestionDrafts.map { draft in
+        let fateModels = coordinator.fateQuestionDrafts.map { draft in
             FateQuestionRecord(
                 question: draft.question,
                 likelihood: draft.likelihood.rawValue,
@@ -972,7 +902,7 @@ struct SoloScenesView: View {
                 outcome: draft.outcome
             )
         }
-        let canonModels = canonizationDrafts.compactMap { draft -> CanonizationRecord? in
+        let canonModels = coordinator.canonizationDrafts.compactMap { draft -> CanonizationRecord? in
             guard let roll = draft.roll, let target = draft.target, let outcome = draft.outcome else { return nil }
             return CanonizationRecord(
                 assumption: draft.assumption,
@@ -999,13 +929,13 @@ struct SoloScenesView: View {
             fateQuestions: fateModels,
             places: parseCommaList(placesInput),
             curiosities: parseCommaList(curiositiesInput),
-            rollHighlights: parseCommaList(rollHighlightsInput),
+            rollHighlights: parseCommaList(coordinator.rollHighlightsInput),
             locationId: campaign.activeLocationId,
             generatedEntityIds: [],
             canonizations: canonModels
         )
 
-        let savedEntry = engine.finalizeScene(campaign: campaign, scene: currentScene, bookkeeping: bookkeeping)
+        let savedEntry = coordinator.engine.finalizeScene(campaign: campaign, scene: currentScene, bookkeeping: bookkeeping)
         campaign.activeSceneId = savedEntry.id
 
         do {
@@ -1040,20 +970,12 @@ struct SoloScenesView: View {
         removeThreadsInput = ""
         placesInput = ""
         curiositiesInput = ""
-        rollHighlightsInput = ""
+        coordinator.rollHighlightsInput = ""
         pcsInControl = true
         adventureConcluded = false
         sceneSummaryInput = ""
         nextSceneError = nil
-        interactionDrafts = []
-        gmResponseError = nil
-        checkDrafts = []
-        pendingCheckID = nil
-        fateQuestionDrafts = []
-        canonizationDrafts = []
-        pendingCanonizationId = nil
-        pendingLocationFeatures = []
-        lastPlayerIntentSummary = nil
+        coordinator.resetConversation()
     }
 
     private func resetAdventure() {
@@ -1087,7 +1009,7 @@ struct SoloScenesView: View {
                 let model = SystemLanguageModel(useCase: .general)
                 let session = LanguageModelSession(model: model)
 
-                let context = engine.buildNarrationContext(campaign: campaign, scene: scene)
+                let context = coordinator.engine.buildNarrationContext(campaign: campaign, scene: scene)
                 var prompt = """
                 You are the game master. In 2-4 lines, narrate the scene opener using the details below.
                 Keep it punchy and actionable. Avoid lore dumps.
@@ -1145,9 +1067,9 @@ struct SoloScenesView: View {
                     }
                 }
 
-                if !interactionDrafts.isEmpty {
+                if !coordinator.interactionDrafts.isEmpty {
                     prompt += "\nRecent Interaction Highlights:"
-                    for interaction in interactionDrafts.suffix(3) {
+                    for interaction in coordinator.interactionDrafts.suffix(3) {
                         prompt += "\n- Player: \(interaction.playerText)"
                         if !interaction.gmText.isEmpty {
                             prompt += " / GM: \(interaction.gmText)"
@@ -1187,508 +1109,24 @@ struct SoloScenesView: View {
         let trimmed = sceneInput.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
 
-        gmResponseError = nil
-        isResponding = true
-
         Task {
-            defer { isResponding = false }
-
-            do {
-                let model = SystemLanguageModel(useCase: .general)
-                let session = LanguageModelSession(model: model)
-                var context = engine.buildNarrationContext(campaign: campaign, scene: scene)
-
-                if let pendingID = pendingCheckID,
-                   let index = checkDrafts.firstIndex(where: { $0.id == pendingID }) {
-                    if let fallback = parseRollFallback(from: trimmed) {
-                        if fallback.declines {
-                            let gmText = "Got it. We move on without attempting the check."
-                            interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
-                            pendingCheckID = nil
-                            sceneInput = ""
-                            return
-                        }
-
-                        if fallback.autoRoll {
-                            if !autoRollEnabled {
-                                let gmText = "Auto-roll is disabled. Please roll and tell me the result, or enable auto-roll in Settings."
-                                interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
-                                sceneInput = ""
-                                return
-                            }
-
-                            let roll = Int.random(in: 1...20)
-                            let modifier = fallback.modifier ?? 0
-                            checkDrafts[index].roll = roll
-                            checkDrafts[index].modifier = modifier
-
-                            let result = engine.evaluateCheck(request: checkDrafts[index].request, roll: roll, modifier: modifier)
-                            checkDrafts[index].total = result.total
-                            checkDrafts[index].outcome = result.outcome
-                            appendRollHighlight(for: checkDrafts[index], outcome: result.outcome, total: result.total)
-                            applyTrapOutcomeIfNeeded(for: checkDrafts[index], outcome: result.outcome)
-                            logAgency(stage: "resolution", message: "Auto-roll check \(checkDrafts[index].request.skillName) => \(result.outcome) total \(result.total)")
-
-                            let consequence = try await generateCheckConsequence(
-                                session: session,
-                                context: context,
-                                check: checkDrafts[index],
-                                result: result
-                            )
-
-                            checkDrafts[index].consequence = consequence
-                            let outcomeText = result.outcome.replacingOccurrences(of: "_", with: " ")
-                            let gmText = "Auto-roll: \(roll) + \(modifier) = \(result.total). \(outcomeText.capitalized). \(consequence)"
-                            interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
-                            pendingCheckID = nil
-                            sceneInput = ""
-                            return
-                        }
-
-                        if let roll = fallback.roll {
-                            let modifier = fallback.modifier ?? 0
-                            checkDrafts[index].roll = roll
-                            checkDrafts[index].modifier = modifier
-
-                            let result = engine.evaluateCheck(request: checkDrafts[index].request, roll: roll, modifier: modifier)
-                            checkDrafts[index].total = result.total
-                            checkDrafts[index].outcome = result.outcome
-                            appendRollHighlight(for: checkDrafts[index], outcome: result.outcome, total: result.total)
-                            applyTrapOutcomeIfNeeded(for: checkDrafts[index], outcome: result.outcome)
-                            logAgency(stage: "resolution", message: "Check \(checkDrafts[index].request.skillName) => \(result.outcome) total \(result.total)")
-
-                            let consequence = try await generateCheckConsequence(
-                                session: session,
-                                context: context,
-                                check: checkDrafts[index],
-                                result: result
-                            )
-
-                            checkDrafts[index].consequence = consequence
-                            let outcomeText = result.outcome.replacingOccurrences(of: "_", with: " ")
-                            let gmText = "Result: \(outcomeText) (Total \(result.total)). \(consequence)"
-                            interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
-                            pendingCheckID = nil
-                            sceneInput = ""
-                            return
-                        }
-                    }
-
-                    let rollDraft = try await session.respond(
-                        to: Prompt(makeRollParsingPrompt(playerText: trimmed, check: checkDrafts[index])),
-                        generating: CheckRollDraft.self
-                    )
-
-                    if rollDraft.content.declines {
-                        let gmText = "Got it. We move on without attempting the check."
-                        interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
-                        pendingCheckID = nil
-                        sceneInput = ""
-                        return
-                    }
-
-                    if rollDraft.content.autoRoll {
-                        if !autoRollEnabled {
-                            let gmText = "Auto-roll is disabled. Please roll and tell me the result, or enable auto-roll in Settings."
-                            interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
-                            sceneInput = ""
-                            return
-                        }
-
-                        let roll = Int.random(in: 1...20)
-                        let modifier = rollDraft.content.modifier ?? 0
-                        checkDrafts[index].roll = roll
-                        checkDrafts[index].modifier = modifier
-
-                        let result = engine.evaluateCheck(request: checkDrafts[index].request, roll: roll, modifier: modifier)
-                        checkDrafts[index].total = result.total
-                        checkDrafts[index].outcome = result.outcome
-                        appendRollHighlight(for: checkDrafts[index], outcome: result.outcome, total: result.total)
-                        applyTrapOutcomeIfNeeded(for: checkDrafts[index], outcome: result.outcome)
-                        logAgency(stage: "resolution", message: "Auto-roll check \(checkDrafts[index].request.skillName) => \(result.outcome) total \(result.total)")
-
-                        let consequence = try await generateCheckConsequence(
-                            session: session,
-                            context: context,
-                            check: checkDrafts[index],
-                            result: result
-                        )
-
-                        checkDrafts[index].consequence = consequence
-                        let outcomeText = result.outcome.replacingOccurrences(of: "_", with: " ")
-                        let gmText = "Auto-roll: \(roll) + \(modifier) = \(result.total). \(outcomeText.capitalized). \(consequence)"
-                        interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
-                        pendingCheckID = nil
-                        sceneInput = ""
-                        return
-                    }
-
-                    guard let roll = rollDraft.content.roll else {
-                        let gmText = "I need the roll result (and modifier if any) to resolve that."
-                        interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
-                        sceneInput = ""
-                        return
-                    }
-
-                    let modifier = rollDraft.content.modifier ?? 0
-                    checkDrafts[index].roll = roll
-                    checkDrafts[index].modifier = modifier
-
-                    let result = engine.evaluateCheck(request: checkDrafts[index].request, roll: roll, modifier: modifier)
-                    checkDrafts[index].total = result.total
-                    checkDrafts[index].outcome = result.outcome
-                    appendRollHighlight(for: checkDrafts[index], outcome: result.outcome, total: result.total)
-                    applyTrapOutcomeIfNeeded(for: checkDrafts[index], outcome: result.outcome)
-                    logAgency(stage: "resolution", message: "Check \(checkDrafts[index].request.skillName) => \(result.outcome) total \(result.total)")
-
-                    let consequence = try await generateCheckConsequence(
-                        session: session,
-                        context: context,
-                        check: checkDrafts[index],
-                        result: result
-                    )
-
-                    checkDrafts[index].consequence = consequence
-                    let outcomeText = result.outcome.replacingOccurrences(of: "_", with: " ")
-                    let gmText = "Result: \(outcomeText) (Total \(result.total)). \(consequence)"
-                    interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
-                    pendingCheckID = nil
-                    sceneInput = ""
-                    return
-                }
-
-                if let pendingId = pendingCanonizationId,
-                   let index = canonizationDrafts.firstIndex(where: { $0.id == pendingId }) {
-                    let lower = trimmed.lowercased()
-                    if isAffirmativeResponse(lower) {
-                        let likelihood = canonizationDrafts[index].likelihood
-                        let roll = engine.rollD100()
-                        let record = engine.resolveFateQuestion(
-                            question: canonizationDrafts[index].assumption,
-                            likelihood: likelihood,
-                            chaosFactor: campaign.chaosFactor,
-                            roll: roll
-                        )
-                        canonizationDrafts[index] = CanonizationDraftState(
-                            assumption: canonizationDrafts[index].assumption,
-                            likelihood: likelihood,
-                            chaosFactor: campaign.chaosFactor,
-                            roll: record.roll,
-                            target: record.target,
-                            outcome: record.outcome
-                        )
-                        pendingCanonizationId = nil
-                        let gmText = "Canon roll (\(likelihood.rawValue), CF \(campaign.chaosFactor)): \(record.roll) vs \(record.target) => \(record.outcome.uppercased())."
-                        interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
-                        sceneInput = ""
-                        return
-                    }
-
-                    if isNegativeResponse(lower) {
-                        pendingCanonizationId = nil
-                        let gmText = "Okay. We will leave that unconfirmed for now."
-                        interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
-                        sceneInput = ""
-                        return
-                    }
-
-                    let gmText = "Want to roll fate to canonize that assumption? (y/n)"
-                    interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
-                    sceneInput = ""
-                    return
-                }
-
-                if isMetaMessage(trimmed) {
-                    let tableRoll = try await resolveTableRollIfNeeded(
-                        session: session,
-                        context: context,
-                        playerText: trimmed,
-                        campaign: campaign
-                    )
-                    let srdLookup = try await resolveSrdLookupIfNeeded(
-                        session: session,
-                        context: context,
-                        playerText: trimmed
-                    )
-                    let gmText = try await generateNormalGMResponse(
-                        session: session,
-                        context: context,
-                        playerText: trimmed,
-                        isMeta: true,
-                        playerInputKind: .gmCommand,
-                        tableRoll: tableRoll,
-                        srdLookup: srdLookup
-                    )
-                    interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
-                    sceneInput = ""
-                    return
-                }
-
-                if let trapDraft = trapSearchDraftIfNeeded(playerText: trimmed, campaign: campaign) {
-                    checkDrafts.append(trapDraft)
-                    pendingCheckID = trapDraft.id
-                    let gmText = gmLineForCheck(trapDraft.request)
-                    interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
-                    sceneInput = ""
-                    return
-                }
-
-                if let trapTriggerDraft = trapTriggerDraftIfNeeded(playerText: trimmed, campaign: campaign) {
-                    checkDrafts.append(trapTriggerDraft)
-                    pendingCheckID = trapTriggerDraft.id
-                    let gmText = "Trap triggered: \(trapTriggerDraft.request.stakes) " + gmLineForCheck(trapTriggerDraft.request)
-                    interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
-                    sceneInput = ""
-                    return
-                }
-
-                let didAdvance = try await resolveMovementIntent(
-                    session: session,
-                    context: context,
-                    playerText: trimmed,
-                    campaign: campaign
-                )
-                if didAdvance {
-                    context = engine.buildNarrationContext(campaign: campaign, scene: scene)
-                }
-
-                let intentCategoryDraft = try await session.respond(
-                    to: Prompt(makeIntentCategoryPrompt(playerText: trimmed, context: context)),
-                    generating: IntentCategoryDraft.self
-                )
-                logAgency(stage: "intent_category", message: "\(intentCategoryDraft.content.category): \(intentCategoryDraft.content.reason)")
-
-                guard let intentCategory = IntentCategory.from(name: intentCategoryDraft.content.category) else {
-                    let gmText = try await generateNormalGMResponse(
-                        session: session,
-                        context: context,
-                        playerText: trimmed,
-                        isMeta: false,
-                        playerInputKind: .unclear
-                    )
-                    interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
-                    sceneInput = ""
-                    return
-                }
-
-                if intentCategory == .gmCommand {
-                    let tableRoll = try await resolveTableRollIfNeeded(
-                        session: session,
-                        context: context,
-                        playerText: trimmed,
-                        campaign: campaign
-                    )
-                    let srdLookup = try await resolveSrdLookupIfNeeded(
-                        session: session,
-                        context: context,
-                        playerText: trimmed
-                    )
-                    let gmText = try await generateNormalGMResponse(
-                        session: session,
-                        context: context,
-                        playerText: trimmed,
-                        isMeta: true,
-                        playerInputKind: .gmCommand,
-                        tableRoll: tableRoll,
-                        srdLookup: srdLookup
-                    )
-                    interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
-                    sceneInput = ""
-                    return
-                }
-
-                if intentCategory == .unclear {
-                    let gmText = "I’m not sure what you want to do. Are you asking a question, attempting an action, or speaking in character?"
-                    interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
-                    sceneInput = ""
-                    return
-                }
-
-                if intentCategory == .playerQuestion {
-                    let fateDraft = try await session.respond(
-                        to: Prompt(makeFatePrompt(playerText: trimmed, context: context)),
-                        generating: FateQuestionDraft.self
-                    )
-
-                    if fateDraft.content.isFateQuestion == false {
-                        let tableRoll = try await resolveTableRollIfNeeded(
-                            session: session,
-                            context: context,
-                            playerText: trimmed,
-                            campaign: campaign
-                        )
-                        let srdLookup = try await resolveSrdLookupIfNeeded(
-                            session: session,
-                            context: context,
-                            playerText: trimmed
-                        )
-                        let gmText = try await generateNormalGMResponse(
-                            session: session,
-                            context: context,
-                            playerText: trimmed,
-                            isMeta: false,
-                            playerInputKind: .playerQuestion,
-                            tableRoll: tableRoll,
-                            srdLookup: srdLookup
-                        )
-                        interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
-                        sceneInput = ""
-                        return
-                    }
-
-                    guard let likelihood = FateLikelihood.from(name: fateDraft.content.likelihood) else {
-                        let gmText = "I couldn't judge the odds. Want to rephrase the question?"
-                        interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
-                        sceneInput = ""
-                        return
-                    }
-
-                    let roll = engine.rollD100()
-                    let fateRecord = engine.resolveFateQuestion(
-                        question: trimmed,
-                        likelihood: likelihood,
-                        chaosFactor: campaign.chaosFactor,
-                        roll: roll
-                    )
-                    logAgency(stage: "resolution", message: "Fate \(likelihood.rawValue) => \(fateRecord.outcome) roll \(fateRecord.roll)")
-
-                    let gmNarration = try await generateFateNarration(
-                        session: session,
-                        question: trimmed,
-                        outcome: fateRecord.outcome
-                    )
-                    let gmText = "Fate Roll (\(likelihood.rawValue), CF \(campaign.chaosFactor)): \(fateRecord.roll) vs \(fateRecord.target) => \(fateRecord.outcome.uppercased()). \(gmNarration)"
-
-                    fateQuestionDrafts.append(FateQuestionDraftState(
-                        question: trimmed,
-                        likelihood: likelihood,
-                        chaosFactor: campaign.chaosFactor,
-                        roll: fateRecord.roll,
-                        target: fateRecord.target,
-                        outcome: fateRecord.outcome,
-                        gmText: gmText
-                    ))
-
-                    interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
-                    sceneInput = ""
-                    return
-                }
-
-                if intentCategory == .playerIntent {
-                    let intentDraft = try await session.respond(
-                        to: Prompt(makePlayerIntentPrompt(playerText: trimmed, context: context)),
-                        generating: PlayerIntentDraft.self
-                    )
-                    logAgency(stage: "intent_extract", message: intentDraft.content.summary)
-                    lastPlayerIntentSummary = intentDraft.content.summary
-
-                    if needsClarification(intentDraft.content) {
-                        let gmText = "I want to make sure I understand. What exactly are you trying to do?"
-                        interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
-                        sceneInput = ""
-                        return
-                    }
-
-                    let requestedMode = PlayerRequestedMode.from(name: intentDraft.content.requestedMode) ?? .askBeforeRolling
-                    if try await resolveSkillCheckProposal(
-                        session: session,
-                        context: context,
-                        playerText: trimmed,
-                        intentSummary: intentDraft.content.summary,
-                        requestedMode: requestedMode
-                    ) {
-                        return
-                    }
-                }
-
-                if intentCategory == .roleplayDialogue {
-                    let tableRoll = try await resolveTableRollIfNeeded(
-                        session: session,
-                        context: context,
-                        playerText: trimmed,
-                        campaign: campaign
-                    )
-                    let srdLookup = try await resolveSrdLookupIfNeeded(
-                        session: session,
-                        context: context,
-                        playerText: trimmed
-                    )
-                    let gmText = try await generateNormalGMResponse(
-                        session: session,
-                        context: context,
-                        playerText: trimmed,
-                        isMeta: false,
-                        playerInputKind: .roleplayDialogue,
-                        tableRoll: tableRoll,
-                        srdLookup: srdLookup
-                    )
-                    interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
-                    sceneInput = ""
-                    return
-                }
-
-                let tableRoll = try await resolveTableRollIfNeeded(
-                    session: session,
-                    context: context,
-                    playerText: trimmed,
-                    campaign: campaign
-                )
-                let srdLookup = try await resolveSrdLookupIfNeeded(
-                    session: session,
-                    context: context,
-                    playerText: trimmed
-                )
-                let gmText = try await generateNormalGMResponse(
-                    session: session,
-                    context: context,
-                    playerText: trimmed,
-                    isMeta: false,
-                    playerInputKind: intentCategory,
-                    tableRoll: tableRoll,
-                    srdLookup: srdLookup
-                )
-                await captureLocationFeatures(from: gmText, session: session, campaign: campaign)
-
-                if shouldSkipCanonization(for: trimmed) {
-                    interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
-                    sceneInput = ""
-                    return
-                }
-
-                let canonDraft = try await session.respond(
-                    to: Prompt(makeCanonizationPrompt(playerText: trimmed, context: context)),
-                    generating: CanonizationDraft.self
-                )
-
-                if canonDraft.content.shouldCanonize,
-                   let likelihood = FateLikelihood.from(name: canonDraft.content.likelihood) {
-                    let state = CanonizationDraftState(
-                        assumption: canonDraft.content.assumption,
-                        likelihood: likelihood,
-                        chaosFactor: campaign.chaosFactor,
-                        roll: nil,
-                        target: nil,
-                        outcome: nil
-                    )
-                    canonizationDrafts.append(state)
-                    pendingCanonizationId = state.id
-                    let combined = "\(gmText)\nCanonize: \(state.assumption). Roll fate to confirm? (y/n)"
-                    interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: combined, turnSignal: "gm_response"))
-                    sceneInput = ""
-                    return
-                }
-
-                interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
+            let gmText = await coordinator.requestGMResponse(
+                campaign: campaign,
+                scene: scene,
+                playerText: trimmed,
+                autoRollEnabled: autoRollEnabled,
+                gmRunsCompanionsEnabled: gmRunsCompanionsEnabled,
+                modelContext: modelContext
+            )
+            if gmText != nil {
                 sceneInput = ""
-            } catch {
-                gmResponseError = handleFoundationModelsError(error)
             }
         }
     }
 
     private func gmLineForCheck(_ request: CheckRequest) -> String {
         let skillName = request.skillName
-        let ability = request.abilityOverride ?? engine.ruleset.defaultAbility(for: skillName) ?? "Ability"
+        let ability = request.abilityOverride ?? coordinator.engine.ruleset.defaultAbility(for: skillName) ?? "Ability"
         let abilityLine = "\(ability) (\(skillName))"
         let advantageLine: String
         switch request.advantageState {
@@ -1729,7 +1167,7 @@ struct SoloScenesView: View {
     }
 
     private func logAgency(stage: String, message: String) {
-        agencyLogs.append(AgencyLogEntry(stage: stage, message: message))
+        coordinator.agencyLogs.append(AgencyLogEntry(stage: stage, message: message))
     }
 
     private func availableTableIds() -> [String] {
@@ -2001,22 +1439,22 @@ struct SoloScenesView: View {
         if let location = activeLocation(in: campaign),
            let node = activeNode(in: campaign, location: location),
            let edge = edgeForExitLabel(exitLabel, location: location, node: node) {
-            _ = locationEngine.advanceAlongEdge(campaign: campaign, edge: edge, reason: reason)
+            _ = coordinator.locationEngine.advanceAlongEdge(campaign: campaign, edge: edge, reason: reason)
         } else {
-            _ = locationEngine.advanceToNextNode(campaign: campaign, reason: reason)
+            _ = coordinator.locationEngine.advanceToNextNode(campaign: campaign, reason: reason)
         }
         try? modelContext.save()
         return true
     }
 
     private func normalizedSkillName(_ skill: String) -> String {
-        if let match = engine.ruleset.skillNames.first(where: { $0.caseInsensitiveCompare(skill) == .orderedSame }) {
+        if let match = coordinator.engine.ruleset.skillNames.first(where: { $0.caseInsensitiveCompare(skill) == .orderedSame }) {
             return match
         }
-        if let fallback = engine.ruleset.skillNames.first(where: { $0.caseInsensitiveCompare("Investigation") == .orderedSame }) {
+        if let fallback = coordinator.engine.ruleset.skillNames.first(where: { $0.caseInsensitiveCompare("Investigation") == .orderedSame }) {
             return fallback
         }
-        return engine.ruleset.skillNames.first ?? skill
+        return coordinator.engine.ruleset.skillNames.first ?? skill
     }
 
     private func shouldForceSkillCheck(for playerText: String) -> Bool {
@@ -2253,7 +1691,7 @@ struct SoloScenesView: View {
     }
 
     private func shouldForeshadowLine() -> Bool {
-        engine.rollD100() <= 15
+        coordinator.engine.rollD100() <= 15
     }
 
     private func shouldCaptureLocationFeatures(from text: String) -> Bool {
@@ -2293,7 +1731,7 @@ struct SoloScenesView: View {
                 generating: LocationFeatureDraft.self
             )
             let pendingNames = await MainActor.run {
-                pendingLocationFeatures.map { $0.name.lowercased() }
+                coordinator.pendingLocationFeatures.map { $0.name.lowercased() }
             }
             let existingFeatureNames = await MainActor.run {
                 (node.features ?? []).map { $0.name.lowercased() }
@@ -2308,7 +1746,7 @@ struct SoloScenesView: View {
             }
             guard !candidates.isEmpty else { return }
             await MainActor.run {
-                pendingLocationFeatures.append(contentsOf: candidates)
+                coordinator.pendingLocationFeatures.append(contentsOf: candidates)
             }
         } catch {
             return
@@ -2345,8 +1783,8 @@ struct SoloScenesView: View {
         Recent places: \(context.recentPlaces.joined(separator: ", "))
         Recent curiosities: \(context.recentCuriosities.joined(separator: ", "))
         Active location: \(activeLocationName(for: context))
-        Ruleset: \(engine.ruleset.displayName)
-        Available skills: \(engine.ruleset.skillNames.joined(separator: ", "))
+        Ruleset: \(coordinator.engine.ruleset.displayName)
+        Available skills: \(coordinator.engine.ruleset.skillNames.joined(separator: ", "))
         """
     }
 
@@ -2375,25 +1813,25 @@ struct SoloScenesView: View {
                     sourceTrapId: nil,
                     sourceKind: nil
                 )
-                checkDrafts.append(draft)
-                pendingCheckID = draft.id
+                coordinator.checkDrafts.append(draft)
+                coordinator.pendingCheckID = draft.id
                 let preface = intentSummary.map { "Got it: \($0). " } ?? ""
                 let gmText = preface + gmLineForCheck(forcedRequest)
-                interactionDrafts.append(InteractionDraft(playerText: playerText, gmText: gmText, turnSignal: "gm_response"))
+                coordinator.interactionDrafts.append(InteractionDraft(playerText: playerText, gmText: gmText, turnSignal: "gm_response"))
                 sceneInput = ""
                 return true
             }
             let outcome = checkDraft.content.autoOutcome?.isEmpty == false ? checkDraft.content.autoOutcome! : "success"
             let preface = intentSummary.map { "Got it: \($0). " } ?? ""
             let gmText = preface + "No roll needed. Automatic outcome: \(outcome). Want to proceed?"
-            interactionDrafts.append(InteractionDraft(playerText: playerText, gmText: gmText, turnSignal: "gm_response"))
+            coordinator.interactionDrafts.append(InteractionDraft(playerText: playerText, gmText: gmText, turnSignal: "gm_response"))
             sceneInput = ""
             return true
         }
 
-        guard let request = engine.finalizeCheckRequest(from: checkDraft.content) else {
+        guard let request = coordinator.engine.finalizeCheckRequest(from: checkDraft.content) else {
             let gmText = "I couldn't settle on a clear check. Want to rephrase?"
-            interactionDrafts.append(InteractionDraft(playerText: playerText, gmText: gmText, turnSignal: "gm_response"))
+            coordinator.interactionDrafts.append(InteractionDraft(playerText: playerText, gmText: gmText, turnSignal: "gm_response"))
             sceneInput = ""
             return true
         }
@@ -2411,11 +1849,11 @@ struct SoloScenesView: View {
                 sourceTrapId: nil,
                 sourceKind: nil
             )
-            checkDrafts.append(draft)
-            pendingCheckID = draft.id
+            coordinator.checkDrafts.append(draft)
+            coordinator.pendingCheckID = draft.id
             let preface = intentSummary.map { "Got it: \($0). " } ?? ""
             let gmText = preface + gmLineForCheck(forcedRequest)
-            interactionDrafts.append(InteractionDraft(playerText: playerText, gmText: gmText, turnSignal: "gm_response"))
+            coordinator.interactionDrafts.append(InteractionDraft(playerText: playerText, gmText: gmText, turnSignal: "gm_response"))
             sceneInput = ""
             return true
         }
@@ -2432,38 +1870,38 @@ struct SoloScenesView: View {
             sourceTrapId: nil,
             sourceKind: nil
         )
-        checkDrafts.append(draft)
-        pendingCheckID = draft.id
+        coordinator.checkDrafts.append(draft)
+        coordinator.pendingCheckID = draft.id
 
         if autoRollEnabled, requestedMode == .autoResolve {
             let roll = Int.random(in: 1...20)
             let modifier = 0
-            checkDrafts[checkDrafts.count - 1].roll = roll
-            checkDrafts[checkDrafts.count - 1].modifier = modifier
-            let result = engine.evaluateCheck(request: request, roll: roll, modifier: modifier)
-            checkDrafts[checkDrafts.count - 1].total = result.total
-            checkDrafts[checkDrafts.count - 1].outcome = result.outcome
-            appendRollHighlight(for: checkDrafts[checkDrafts.count - 1], outcome: result.outcome, total: result.total)
+            coordinator.checkDrafts[coordinator.checkDrafts.count - 1].roll = roll
+            coordinator.checkDrafts[coordinator.checkDrafts.count - 1].modifier = modifier
+            let result = coordinator.engine.evaluateCheck(request: request, roll: roll, modifier: modifier)
+            coordinator.checkDrafts[coordinator.checkDrafts.count - 1].total = result.total
+            coordinator.checkDrafts[coordinator.checkDrafts.count - 1].outcome = result.outcome
+            appendRollHighlight(for: coordinator.checkDrafts[coordinator.checkDrafts.count - 1], outcome: result.outcome, total: result.total)
             logAgency(stage: "resolution", message: "Auto-roll check \(request.skillName) => \(result.outcome) total \(result.total)")
             let consequence = try await generateCheckConsequence(
                 session: session,
                 context: context,
-                check: checkDrafts[checkDrafts.count - 1],
+                check: coordinator.checkDrafts[coordinator.checkDrafts.count - 1],
                 result: result
             )
-            checkDrafts[checkDrafts.count - 1].consequence = consequence
+            coordinator.checkDrafts[coordinator.checkDrafts.count - 1].consequence = consequence
             let outcomeText = result.outcome.replacingOccurrences(of: "_", with: " ")
             let preface = intentSummary.map { "Got it: \($0). " } ?? ""
             let gmText = preface + "Auto-roll: \(roll) + \(modifier) = \(result.total). \(outcomeText.capitalized). \(consequence)"
-            interactionDrafts.append(InteractionDraft(playerText: playerText, gmText: gmText, turnSignal: "gm_response"))
-            pendingCheckID = nil
+            coordinator.interactionDrafts.append(InteractionDraft(playerText: playerText, gmText: gmText, turnSignal: "gm_response"))
+            coordinator.pendingCheckID = nil
             sceneInput = ""
             return true
         }
 
         let preface = intentSummary.map { "Got it: \($0). " } ?? ""
         let gmText = preface + gmLineForCheck(request)
-        interactionDrafts.append(InteractionDraft(playerText: playerText, gmText: gmText, turnSignal: "gm_response"))
+        coordinator.interactionDrafts.append(InteractionDraft(playerText: playerText, gmText: gmText, turnSignal: "gm_response"))
         sceneInput = ""
         return true
     }
@@ -2546,8 +1984,8 @@ struct SoloScenesView: View {
             prompt += "\nPlayer input type: \(playerInputKind.rawValue)"
         }
 
-        if let lastPlayerIntentSummary, !lastPlayerIntentSummary.isEmpty {
-            prompt += "\nPlayer intent echo: \(lastPlayerIntentSummary)"
+        if let intentSummary = coordinator.lastPlayerIntentSummary, !intentSummary.isEmpty {
+            prompt += "\nPlayer intent echo: \(intentSummary)"
         }
 
         if playerInputKind == .roleplayDialogue {
@@ -2797,8 +2235,8 @@ struct SoloScenesView: View {
             lines.append("Exits: \(context.currentExits.joined(separator: " · "))")
         }
 
-        if let lastPlayerIntentSummary, !lastPlayerIntentSummary.isEmpty {
-            lines.append("Player Intent: \(lastPlayerIntentSummary)")
+        if let intentSummary = coordinator.lastPlayerIntentSummary, !intentSummary.isEmpty {
+            lines.append("Player Intent: \(intentSummary)")
         }
 
         return lines.joined(separator: "\n")
@@ -2857,11 +2295,11 @@ struct SoloScenesView: View {
             natMarker = ""
         }
         let highlight = "\(check.request.skillName) DC \(dc)\(totalText): \(cleanedOutcome).\(reasonText)\(natMarker)".trimmingCharacters(in: .whitespacesAndNewlines)
-        var existing = parseCommaList(rollHighlightsInput)
+        var existing = parseCommaList(coordinator.rollHighlightsInput)
         let normalized = existing.map { $0.lowercased() }
         if !normalized.contains(highlight.lowercased()) {
             existing.append(highlight)
-            rollHighlightsInput = existing.joined(separator: ", ")
+            coordinator.rollHighlightsInput = existing.joined(separator: ", ")
         }
     }
 
@@ -2874,11 +2312,11 @@ struct SoloScenesView: View {
             do {
                 let model = SystemLanguageModel(useCase: .general)
                 let session = LanguageModelSession(model: model)
-                let context = engine.buildNarrationContext(campaign: campaign, scene: currentScene)
+                let context = coordinator.engine.buildNarrationContext(campaign: campaign, scene: currentScene)
 
-                let interactionCount = interactionDrafts.count
-                let checkCount = checkDrafts.count
-                let fateCount = fateQuestionDrafts.count
+                let interactionCount = coordinator.interactionDrafts.count
+                let checkCount = coordinator.checkDrafts.count
+                let fateCount = coordinator.fateQuestionDrafts.count
                 let totalBeats = interactionCount + checkCount + fateCount
                 let lengthGuidance: String
                 if totalBeats <= 2 {
@@ -2901,9 +2339,9 @@ struct SoloScenesView: View {
                 Scene Type: \(context.sceneType.rawValue)
                 """
 
-                if !interactionDrafts.isEmpty {
+                if !coordinator.interactionDrafts.isEmpty {
                     prompt += "\nInteractions:"
-                    for interaction in interactionDrafts {
+                    for interaction in coordinator.interactionDrafts {
                         prompt += "\n- Player: \(interaction.playerText)"
                         if !interaction.gmText.isEmpty {
                             prompt += " / GM: \(interaction.gmText)"
@@ -2911,25 +2349,25 @@ struct SoloScenesView: View {
                     }
                 }
 
-                if !checkDrafts.isEmpty {
+                if !coordinator.checkDrafts.isEmpty {
                     prompt += "\nSkill Checks:"
-                    for check in checkDrafts {
+                    for check in coordinator.checkDrafts {
                         let reason = check.request.reason.isEmpty ? "n/a" : check.request.reason
                         let outcome = check.outcome ?? "unknown"
                         prompt += "\n- \(check.playerAction) (\(check.request.skillName)) outcome: \(outcome), reason: \(reason)"
                     }
                 }
 
-                if !fateQuestionDrafts.isEmpty {
+                if !coordinator.fateQuestionDrafts.isEmpty {
                     prompt += "\nFate Questions:"
-                    for fate in fateQuestionDrafts {
+                    for fate in coordinator.fateQuestionDrafts {
                         prompt += "\n- \(fate.question) => \(fate.outcome.uppercased())"
                     }
                 }
 
-                if !canonizationDrafts.isEmpty {
+                if !coordinator.canonizationDrafts.isEmpty {
                     prompt += "\nCanonizations:"
-                    for canon in canonizationDrafts {
+                    for canon in coordinator.canonizationDrafts {
                         let outcome = canon.outcome?.uppercased() ?? "PENDING"
                         prompt += "\n- \(canon.assumption) => \(outcome)"
                     }
@@ -2937,7 +2375,7 @@ struct SoloScenesView: View {
 
                 let response = try await session.respond(to: Prompt(prompt), generating: SceneWrapUpDraft.self)
                 let draft = response.content
-                let interactionText = interactionDrafts.map { "\($0.playerText) \($0.gmText)" }.joined(separator: " ").lowercased()
+                let interactionText = coordinator.interactionDrafts.map { "\($0.playerText) \($0.gmText)" }.joined(separator: " ").lowercased()
                 let knownCharacters = campaign.characters.map { $0.name }
                 let filteredNewCharacters = filterNames(draft.newCharacters, from: interactionText)
                 let filteredFeaturedCharacters = filterNames(draft.featuredCharacters, from: interactionText, allowList: knownCharacters)
@@ -2952,7 +2390,7 @@ struct SoloScenesView: View {
                 removeThreadsInput = draft.removedThreads.joined(separator: ", ")
                 placesInput = draft.places.joined(separator: ", ")
                 curiositiesInput = draft.curiosities.joined(separator: ", ")
-                rollHighlightsInput = draft.rollHighlights.joined(separator: ", ")
+                coordinator.rollHighlightsInput = draft.rollHighlights.joined(separator: ", ")
             } catch {
                 narrationError = handleFoundationModelsError(error)
             }
@@ -2972,9 +2410,9 @@ struct SoloScenesView: View {
 
     private func generateDungeonStart() {
         guard let campaign else { return }
-        let location = locationEngine.generateDungeonStart(campaign: campaign)
+        let location = coordinator.locationEngine.generateDungeonStart(campaign: campaign)
         if location == nil {
-            gmResponseError = "Could not generate a dungeon location."
+            coordinator.gmResponseError = "Could not generate a dungeon location."
             return
         }
         try? modelContext.save()
@@ -2992,7 +2430,7 @@ struct SoloScenesView: View {
 
     private func traverseEdge(_ edge: LocationEdge, reason: String) {
         guard let campaign else { return }
-        _ = locationEngine.advanceAlongEdge(campaign: campaign, edge: edge, reason: reason)
+        _ = coordinator.locationEngine.advanceAlongEdge(campaign: campaign, edge: edge, reason: reason)
         try? modelContext.save()
     }
 
@@ -3037,14 +2475,14 @@ struct SoloScenesView: View {
 
     private func applyPendingLocationFeatures() {
         guard let campaign, let location = activeLocation(in: campaign), let node = activeNode(in: campaign, location: location) else {
-            pendingLocationFeatures = []
+            coordinator.pendingLocationFeatures = []
             return
         }
 
         let existing = (node.features ?? []).map { $0.name.lowercased() }
         var newFeatures: [LocationFeature] = node.features ?? []
 
-        for feature in pendingLocationFeatures {
+        for feature in coordinator.pendingLocationFeatures {
             if existing.contains(feature.name.lowercased()) { continue }
             let item = LocationFeature(
                 name: feature.name,
@@ -3058,7 +2496,7 @@ struct SoloScenesView: View {
         }
 
         node.features = newFeatures
-        pendingLocationFeatures = []
+        coordinator.pendingLocationFeatures = []
         try? modelContext.save()
     }
 
@@ -3143,10 +2581,10 @@ struct SoloScenesView: View {
     private func ensureCampaign() {
         if let existing = activeCampaigns.first {
             campaign = existing
-            engine.ruleset = RulesetCatalog.ruleset(for: existing.rulesetName)
+            coordinator.engine.ruleset = RulesetCatalog.ruleset(for: existing.rulesetName)
         } else {
             let newCampaign = Campaign()
-            newCampaign.rulesetName = engine.ruleset.displayName
+            newCampaign.rulesetName = coordinator.engine.ruleset.displayName
             newCampaign.contentPackVersion = "solo_default@0.1"
             modelContext.insert(newCampaign)
             campaign = newCampaign
@@ -3256,7 +2694,8 @@ private struct SceneEditorSheet: View {
 }
 
 #Preview {
+    @MainActor in
     NavigationStack {
-        SoloScenesView()
+        SoloScenesView(coordinator: SoloSceneCoordinator())
     }
 }

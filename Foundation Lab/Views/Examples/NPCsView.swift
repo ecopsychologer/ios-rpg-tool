@@ -4,6 +4,7 @@ import WorldState
 import RPGEngine
 
 struct NPCsView: View {
+    let coordinator: SoloSceneCoordinator
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Campaign.createdAt, order: .reverse) private var campaigns: [Campaign]
     @State private var campaign: Campaign?
@@ -11,6 +12,10 @@ struct NPCsView: View {
     @State private var showAddSheet = false
     @State private var showGenerateSheet = false
     @State private var editingNpc: NPCEntry?
+
+    @MainActor init(coordinator: SoloSceneCoordinator) {
+        self.coordinator = coordinator
+    }
 
     var body: some View {
         ScrollView {
@@ -106,6 +111,7 @@ struct NPCsView: View {
     private func generateNpc(options: NpcGenerationOptions) {
         ensureCampaign()
         guard let campaign else { return }
+        coordinator.engine.ruleset = RulesetCatalog.ruleset(for: campaign.rulesetName)
         if let npc = npcEngine.generateNPC(campaign: campaign, options: options) {
             campaign.npcs.append(npc)
             try? modelContext.save()

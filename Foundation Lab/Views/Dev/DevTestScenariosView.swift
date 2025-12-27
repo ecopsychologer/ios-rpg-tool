@@ -201,17 +201,24 @@ final class DevTestRunner: ObservableObject {
     @Published var log: [String] = []
     @Published var isRunning = false
 
+    private let coordinator: SoloSceneCoordinator
+    private var pendingScene: SceneRecord?
+    private var devCampaignId: UUID?
+    // Legacy helpers retained for tooling paths not used by the smoke test.
     private var engine = SoloCampaignEngine()
     private var locationEngine = SoloLocationEngine()
     private let model = SystemLanguageModel(useCase: .general)
     private let prompts = NarratorPrompts()
     private var pendingCheck: DevSkillCheckDraft?
-    private var pendingScene: SceneRecord?
     private var pendingInteractions: [SceneInteraction] = []
     private var pendingSkillChecks: [DevSkillCheckDraft] = []
     private var pendingFateQuestions: [FateQuestionRecord] = []
     private var pendingRollHighlights: [String] = []
     private var pendingPlayerText: String?
+
+    init(coordinator: SoloSceneCoordinator) {
+        self.coordinator = coordinator
+    }
 
     @MainActor
     func run(_ scenario: DevTestScenario, modelContext: ModelContext) async {
@@ -220,6 +227,7 @@ final class DevTestRunner: ObservableObject {
         isRunning = true
         defer { isRunning = false }
 
+        coordinator.resetConversation()
         append("Running: \(scenario.title)")
         for action in scenario.actions {
             await execute(action, modelContext: modelContext)
@@ -241,57 +249,47 @@ final class DevTestRunner: ObservableObject {
             let campaign = createCampaign(named: name, modelContext: modelContext)
             append("Created campaign: \(campaign.title)")
         case .setPartySize(let count):
-            if let campaign = activeCampaign(in: modelContext) {
-                setPartySize(count, campaign: campaign)
-                append("Party size set to \(count)")
-            }
+            let campaign = ensureDevCampaign(modelContext)
+            setPartySize(count, campaign: campaign)
+            append("Party size set to \(count)")
         case .createCharacter(let name, let level, let abilities, let proficiencies):
-            if let campaign = activeCampaign(in: modelContext) {
-                let character = createCharacter(
-                    name: name,
-                    level: level,
-                    abilities: abilities,
-                    proficiencies: proficiencies
-                )
-                campaign.playerCharacters.append(character)
-                addPartyMember(name: name, level: level, campaign: campaign, isNpc: false, npcId: nil)
-                append("Added character: \(name)")
-            }
+            let campaign = ensureDevCampaign(modelContext)
+            let character = createCharacter(
+                name: name,
+                level: level,
+                abilities: abilities,
+                proficiencies: proficiencies
+            )
+            campaign.playerCharacters.append(character)
+            addPartyMember(name: name, level: level, campaign: campaign, isNpc: false, npcId: nil)
+            append("Added character: \(name)")
         case .createSidekick(let name, let level, let abilities):
-            if let campaign = activeCampaign(in: modelContext) {
-                let npc = NPCEntry(name: name, species: "Unknown", roleTag: "Sidekick", importance: NPCImportance.supporting.rawValue, origin: "dev")
-                npc.abilityScores = buildNpcAbilityScores(abilities)
-                npc.levelOrCR = level
-                campaign.npcs.append(npc)
-                addPartyMember(name: name, level: level, campaign: campaign, isNpc: true, npcId: npc.id)
-                append("Added sidekick: \(name)")
-            }
+            let campaign = ensureDevCampaign(modelContext)
+            let npc = NPCEntry(name: name, species: "Unknown", roleTag: "Sidekick", importance: NPCImportance.supporting.rawValue, origin: "dev")
+            npc.abilityScores = buildNpcAbilityScores(abilities)
+            npc.levelOrCR = level
+            campaign.npcs.append(npc)
+            addPartyMember(name: name, level: level, campaign: campaign, isNpc: true, npcId: npc.id)
+            append("Added sidekick: \(name)")
         case .setWorldLore(let title, let description):
-            if let campaign = activeCampaign(in: modelContext) {
-                let entry = WorldLoreEntry(title: title, summary: description, tags: [], origin: "dev")
-                campaign.worldLore.append(entry)
-                append("World lore: \(title)")
-            }
+            let campaign = ensureDevCampaign(modelContext)
+            let entry = WorldLoreEntry(title: title, summary: description, tags: [], origin: "dev")
+            campaign.worldLore.append(entry)
+            append("World lore: \(title)")
         case .startScene(let expected):
-            if let campaign = activeCampaign(in: modelContext) {
-                if campaign.activeLocationId == nil {
-                    _ = locationEngine.generateDungeonStart(campaign: campaign)
-                }
-                pendingScene = engine.resolveScene(campaign: campaign, expectedScene: expected)
-                pendingInteractions = []
-                pendingSkillChecks = []
-                pendingFateQuestions = []
-                pendingRollHighlights = []
-                pendingPlayerText = nil
-                append("Scene setup: \(expected)")
+            let campaign = ensureDevCampaign(modelContext)
+            coordinator.engine.ruleset = RulesetCatalog.ruleset(for: campaign.rulesetName)
+            if campaign.activeLocationId == nil {
+                _ = coordinator.locationEngine.generateDungeonStart(campaign: campaign)
             }
+            pendingScene = coordinator.engine.resolveScene(campaign: campaign, expectedScene: expected)
+            coordinator.resetConversation()
+            append("Scene setup: \(expected)")
         case .playerInput(let text):
             await handlePlayerInput(text, modelContext: modelContext)
         case .gmResponse(let text):
-            let playerText = pendingPlayerText ?? ""
-            let interaction = SceneInteraction(playerText: playerText, gmText: text)
-            pendingInteractions.append(interaction)
-            pendingPlayerText = nil
+            let playerText = coordinator.interactionDrafts.last?.playerText ?? ""
+            coordinator.interactionDrafts.append(InteractionDraft(playerText: playerText, gmText: text, turnSignal: "gm_response"))
             append("GM (scripted): \(text)")
         case .recordSkillCheck(let skill, let dc, let roll, let outcome, let consequence):
             let request = CheckRequest(
@@ -307,23 +305,25 @@ final class DevTestRunner: ObservableObject {
                 partialSuccessOutcome: "You succeed but at a cost.",
                 reason: "Dev test override"
             )
-            var draft = DevSkillCheckDraft(playerAction: "Dev test \(skill) check", request: request)
-            draft.roll = roll
-            draft.total = roll
-            draft.outcome = outcome
-            draft.consequence = consequence
-            pendingSkillChecks.append(draft)
+            var draft = SkillCheckDraft(playerAction: "Dev test \(skill) check", request: request, roll: roll, modifier: 0, total: roll, outcome: outcome, consequence: consequence, sourceTrapId: nil, sourceKind: nil)
+            coordinator.checkDrafts.append(draft)
             if roll == 20 || roll == 1 {
-                pendingRollHighlights.append("Natural \(roll)")
+                let existing = coordinator.rollHighlightsInput
+                let highlight = "Natural \(roll)"
+                coordinator.rollHighlightsInput = existing.isEmpty ? highlight : "\(existing), \(highlight)"
             }
             append("Roll: \(roll) (\(skill) DC \(dc)) → \(outcome)")
         case .endScene(let summary, let pcsInControl, let concluded):
-            if let campaign = activeCampaign(in: modelContext), let sceneRecord = pendingScene {
+            let campaign = ensureDevCampaign(modelContext)
+            if let sceneRecord = pendingScene {
                 let wrapUp = await draftSceneSummary(
                     campaign: campaign,
                     scene: sceneRecord,
                     summaryOverride: summary
                 )
+                let interactions = coordinator.interactionDrafts.map {
+                    SceneInteraction(playerText: $0.playerText, gmText: $0.gmText, turnSignal: $0.turnSignal)
+                }
                 let bookkeeping = BookkeepingInput(
                     summary: wrapUp.summary,
                     newCharacters: wrapUp.newCharacters,
@@ -334,94 +334,95 @@ final class DevTestRunner: ObservableObject {
                     removedThreads: wrapUp.removedThreads,
                     pcsInControl: pcsInControl,
                     concluded: concluded,
-                    interactions: pendingInteractions,
-                    skillChecks: buildSkillCheckRecords(from: pendingSkillChecks),
-                    fateQuestions: pendingFateQuestions,
+                    interactions: interactions,
+                    skillChecks: buildSkillCheckRecords(from: coordinator.checkDrafts),
+                    fateQuestions: coordinator.fateQuestionDrafts.map {
+                        FateQuestionRecord(
+                            question: $0.question,
+                            likelihood: $0.likelihood.rawValue,
+                            chaosFactor: $0.chaosFactor,
+                            roll: $0.roll,
+                            target: $0.target,
+                            outcome: $0.outcome
+                        )
+                    },
                     places: wrapUp.places,
                     curiosities: wrapUp.curiosities,
-                    rollHighlights: wrapUp.rollHighlights + pendingRollHighlights,
+                    rollHighlights: wrapUp.rollHighlights + parseCommaList(coordinator.rollHighlightsInput),
                     locationId: campaign.activeLocationId,
                     generatedEntityIds: [],
                     canonizations: []
                 )
-                _ = engine.finalizeScene(campaign: campaign, scene: sceneRecord, bookkeeping: bookkeeping)
+                _ = coordinator.engine.finalizeScene(campaign: campaign, scene: sceneRecord, bookkeeping: bookkeeping)
                 append("GM Summary Draft: \(wrapUp.summary)")
                 append("Scene summary saved.")
                 pendingScene = nil
-                pendingInteractions = []
-                pendingSkillChecks = []
-                pendingFateQuestions = []
-                pendingRollHighlights = []
-                pendingPlayerText = nil
+                coordinator.resetConversation()
             }
         case .runScene(let description, let input):
-            if let campaign = activeCampaign(in: modelContext) {
-                let sceneRecord = engine.resolveScene(campaign: campaign, expectedScene: description)
-                let interaction = SceneInteraction(playerText: input, gmText: "Dev test response")
-                let bookkeeping = BookkeepingInput(
-                    summary: input,
-                    newCharacters: [],
-                    newThreads: [],
-                    featuredCharacters: [],
-                    featuredThreads: [],
-                    removedCharacters: [],
-                    removedThreads: [],
-                    pcsInControl: true,
-                    concluded: false,
-                    interactions: [interaction],
-                    skillChecks: [],
-                    fateQuestions: [],
-                    places: [],
-                    curiosities: [],
-                    rollHighlights: [],
-                    locationId: campaign.activeLocationId,
-                    generatedEntityIds: [],
-                    canonizations: []
-                )
-                _ = engine.finalizeScene(campaign: campaign, scene: sceneRecord, bookkeeping: bookkeeping)
-                append("Scene resolved: \(description)")
-            }
+            let campaign = ensureDevCampaign(modelContext)
+            let sceneRecord = coordinator.engine.resolveScene(campaign: campaign, expectedScene: description)
+            let interaction = SceneInteraction(playerText: input, gmText: "Dev test response")
+            let bookkeeping = BookkeepingInput(
+                summary: input,
+                newCharacters: [],
+                newThreads: [],
+                featuredCharacters: [],
+                featuredThreads: [],
+                removedCharacters: [],
+                removedThreads: [],
+                pcsInControl: true,
+                concluded: false,
+                interactions: [interaction],
+                skillChecks: [],
+                fateQuestions: [],
+                places: [],
+                curiosities: [],
+                rollHighlights: [],
+                locationId: campaign.activeLocationId,
+                generatedEntityIds: [],
+                canonizations: []
+            )
+            _ = coordinator.engine.finalizeScene(campaign: campaign, scene: sceneRecord, bookkeeping: bookkeeping)
+            append("Scene resolved: \(description)")
         case .performSkillCheck(let skill, let difficulty):
-            if let campaign = activeCampaign(in: modelContext) {
-                let record = SkillCheckRecord(
-                    playerAction: "Dev test \(skill) check",
-                    checkType: CheckType.skillCheck.rawValue,
-                    skill: skill,
-                    abilityOverride: nil,
-                    dc: difficulty,
-                    opponentSkill: nil,
-                    opponentDC: nil,
-                    advantageState: AdvantageState.normal.rawValue,
-                    stakes: "Dev test stakes",
-                    partialSuccessDC: nil,
-                    partialSuccessOutcome: nil,
-                    reason: "Dev test"
-                )
-                if let last = campaign.scenes.last {
-                    var checks = last.skillChecks ?? []
-                    checks.append(record)
-                    last.skillChecks = checks
-                }
-                append("Skill check queued: \(skill) DC \(difficulty)")
+            let campaign = ensureDevCampaign(modelContext)
+            let record = SkillCheckRecord(
+                playerAction: "Dev test \(skill) check",
+                checkType: CheckType.skillCheck.rawValue,
+                skill: skill,
+                abilityOverride: nil,
+                dc: difficulty,
+                opponentSkill: nil,
+                opponentDC: nil,
+                advantageState: AdvantageState.normal.rawValue,
+                stakes: "Dev test stakes",
+                partialSuccessDC: nil,
+                partialSuccessOutcome: nil,
+                reason: "Dev test"
+            )
+            if let last = campaign.scenes.last {
+                var checks = last.skillChecks ?? []
+                checks.append(record)
+                last.skillChecks = checks
             }
+            append("Skill check queued: \(skill) DC \(difficulty)")
         case .moveToLocation(let label):
-            if let campaign = activeCampaign(in: modelContext) {
-                if campaign.locations?.isEmpty ?? true {
-                    _ = locationEngine.generateDungeonStart(campaign: campaign)
-                } else {
-                    let location = ensureLocation(named: label, campaign: campaign)
-                    campaign.activeLocationId = location.id
-                }
-                append("Moved to location: \(label)")
+            let campaign = ensureDevCampaign(modelContext)
+            if campaign.locations?.isEmpty ?? true {
+                _ = coordinator.locationEngine.generateDungeonStart(campaign: campaign)
+            } else {
+                let location = ensureLocation(named: label, campaign: campaign)
+                campaign.activeLocationId = location.id
             }
+            append("Moved to location: \(label)")
         case .advanceLocation(let reason):
-            if let campaign = activeCampaign(in: modelContext) {
-                if campaign.activeLocationId == nil {
-                    _ = locationEngine.generateDungeonStart(campaign: campaign)
-                }
-                let node = locationEngine.advanceToNextNode(campaign: campaign, reason: reason)
-                append("Advance location: \(node?.summary ?? "Unknown")")
+            let campaign = ensureDevCampaign(modelContext)
+            if campaign.activeLocationId == nil {
+                _ = coordinator.locationEngine.generateDungeonStart(campaign: campaign)
             }
+            let node = coordinator.locationEngine.advanceToNextNode(campaign: campaign, reason: reason)
+            append("Advance location: \(node?.summary ?? "Unknown")")
         case .importTables(let filename):
             append("Importing tables: \(filename)")
             if let text = loadTextAsset(named: filename, subdirectory: "DevAssets/fixtures") {
@@ -439,63 +440,26 @@ final class DevTestRunner: ObservableObject {
     @MainActor
     private func handlePlayerInput(_ text: String, modelContext: ModelContext) async {
         append("Player: \(text)")
-        pendingPlayerText = text
-        guard let campaign = activeCampaign(in: modelContext),
-              let sceneRecord = pendingScene else {
+        let campaign = ensureDevCampaign(modelContext)
+        guard let sceneRecord = pendingScene else {
             append("GM: No active scene. Start a scene first.")
             return
         }
-
-        let context = engine.buildNarrationContext(campaign: campaign, scene: sceneRecord)
-
-        if let pendingCheck {
-            await resolvePendingCheck(
-                pendingCheck,
-                playerText: text,
-                context: context
-            )
-            return
-        }
-
-        if isAcknowledgementMessage(text) {
-            let gmText = await generateGMResponse(
-                context: context,
-                playerText: text,
-                isMeta: false
-            )
-            appendGMResponse(gmText, playerText: text)
-            return
-        }
-
-        if await handleMovement(
-            playerText: text,
-            context: context,
+        let gmText = await coordinator.requestGMResponse(
             campaign: campaign,
+            scene: sceneRecord,
+            playerText: text,
+            autoRollEnabled: UserDefaults.standard.bool(forKey: "soloAutoRollEnabled"),
+            gmRunsCompanionsEnabled: UserDefaults.standard.bool(forKey: "soloGMRunsCompanions"),
             modelContext: modelContext
-        ) {
-            let updatedContext = engine.buildNarrationContext(campaign: campaign, scene: sceneRecord)
-            let gmText = await generateGMResponse(
-                context: updatedContext,
-                playerText: text,
-                isMeta: false
-            )
-            appendGMResponse(gmText, playerText: text)
-            return
-        }
-
-        if await proposeCheck(
-            playerText: text,
-            context: context
-        ) {
-            return
-        }
-
-        let gmText = await generateGMResponse(
-            context: context,
-            playerText: text,
-            isMeta: isMetaMessage(text)
         )
-        appendGMResponse(gmText, playerText: text)
+        if let gmText {
+            append("GM: \(gmText)")
+        } else if let error = coordinator.gmResponseError {
+            append("GM: \(error)")
+        } else {
+            append("GM: (no response)")
+        }
     }
 
     @MainActor
@@ -723,7 +687,7 @@ final class DevTestRunner: ObservableObject {
     ) async -> SceneWrapUpDraft {
         let session = makeSession()
 
-        let context = engine.buildNarrationContext(campaign: campaign, scene: scene)
+        let context = coordinator.engine.buildNarrationContext(campaign: campaign, scene: scene)
         var prompt = """
         Draft a concise scene wrap-up with suggestions for characters, threads, places, curiosities, and key rolls.
         Only include important elements that clearly matter later.
@@ -735,9 +699,9 @@ final class DevTestRunner: ObservableObject {
         Scene Type: \(context.sceneType.rawValue)
         """
 
-        if !pendingInteractions.isEmpty {
+        if !coordinator.interactionDrafts.isEmpty {
             prompt += "\nInteractions:"
-            for interaction in pendingInteractions {
+            for interaction in coordinator.interactionDrafts {
                 prompt += "\n- Player: \(interaction.playerText)"
                 if !interaction.gmText.isEmpty {
                     prompt += " / GM: \(interaction.gmText)"
@@ -745,17 +709,17 @@ final class DevTestRunner: ObservableObject {
             }
         }
 
-        if !pendingSkillChecks.isEmpty {
+        if !coordinator.checkDrafts.isEmpty {
             prompt += "\nSkill Checks:"
-            for check in pendingSkillChecks {
+            for check in coordinator.checkDrafts {
                 let outcome = check.outcome ?? "unknown"
                 prompt += "\n- \(check.playerAction) (\(check.request.skillName)) outcome: \(outcome)"
             }
         }
 
-        if !pendingFateQuestions.isEmpty {
+        if !coordinator.fateQuestionDrafts.isEmpty {
             prompt += "\nFate Questions:"
-            for fate in pendingFateQuestions {
+            for fate in coordinator.fateQuestionDrafts {
                 prompt += "\n- \(fate.question) => \(fate.outcome.uppercased())"
             }
         }
@@ -781,7 +745,7 @@ final class DevTestRunner: ObservableObject {
         }
     }
 
-    private func buildSkillCheckRecords(from drafts: [DevSkillCheckDraft]) -> [SkillCheckRecord] {
+    private func buildSkillCheckRecords(from drafts: [SkillCheckDraft]) -> [SkillCheckRecord] {
         drafts.map { draft in
             let record = SkillCheckRecord(
                 playerAction: draft.playerAction,
@@ -804,6 +768,12 @@ final class DevTestRunner: ObservableObject {
             record.consequence = draft.consequence
             return record
         }
+    }
+
+    private func parseCommaList(_ input: String) -> [String] {
+        input.split(separator: ",")
+            .map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
     }
 
     private func makeSession() -> LanguageModelSession {
@@ -1116,21 +1086,54 @@ final class DevTestRunner: ObservableObject {
 
     @MainActor
     private func createCampaign(named name: String, modelContext: ModelContext) -> Campaign {
-        let campaigns = fetchCampaigns(modelContext)
-        for campaign in campaigns {
-            campaign.isActive = false
-        }
-        let campaign = Campaign(title: name.isEmpty ? "Dev Campaign" : name)
-        modelContext.insert(campaign)
-        campaign.isActive = true
-        campaign.rulesetName = RulesetCatalog.srd.displayName
+        let campaign = ensureDevCampaign(modelContext)
+        resetCampaign(campaign, title: name.isEmpty ? "Dev Test Campaign" : name)
+        coordinator.engine.ruleset = RulesetCatalog.srd
         return campaign
     }
 
     @MainActor
-    private func activeCampaign(in modelContext: ModelContext) -> Campaign? {
+    private func ensureDevCampaign(_ modelContext: ModelContext) -> Campaign {
         let campaigns = fetchCampaigns(modelContext)
-        return campaigns.first(where: { $0.isActive }) ?? campaigns.first
+        if let devId = devCampaignId, let existing = campaigns.first(where: { $0.id == devId }) {
+            return existing
+        }
+        if let existing = campaigns.first(where: { $0.title == "Dev Test Campaign" }) {
+            devCampaignId = existing.id
+            return existing
+        }
+        let campaign = Campaign(title: "Dev Test Campaign")
+        campaign.isActive = false
+        campaign.rulesetName = RulesetCatalog.srd.displayName
+        modelContext.insert(campaign)
+        devCampaignId = campaign.id
+        return campaign
+    }
+
+    @MainActor
+    private func resetCampaign(_ campaign: Campaign, title: String) {
+        campaign.title = title
+        campaign.isActive = false
+        campaign.chaosFactor = 5
+        campaign.sceneNumber = 1
+        campaign.scenes = []
+        campaign.characters = []
+        campaign.threads = []
+        campaign.npcs = []
+        campaign.worldLore = []
+        campaign.playerCharacters = []
+        campaign.party = nil
+        campaign.activeSceneId = nil
+        campaign.activeLocationId = nil
+        campaign.activeNodeId = nil
+        campaign.lastNodeId = nil
+        campaign.locations = nil
+        campaign.eventLog = nil
+        campaign.tableRolls = nil
+        campaign.rngSeed = nil
+        campaign.rngSequence = nil
+        campaign.worldVibe = ""
+        campaign.rulesetName = RulesetCatalog.srd.displayName
     }
 
     @MainActor
@@ -1303,11 +1306,17 @@ struct DevCharacterFixture: Codable {
 }
 
 struct DevTestScenariosView: View {
+    let coordinator: SoloSceneCoordinator
     @Environment(\.modelContext) private var modelContext
-    @StateObject private var runner = DevTestRunner()
+    @StateObject private var runner: DevTestRunner
     @State private var scenarios: [DevTestScenario] = []
     @State private var selectedScenario: DevTestScenario?
     @State private var showLog = false
+
+    @MainActor init(coordinator: SoloSceneCoordinator) {
+        self.coordinator = coordinator
+        _runner = StateObject(wrappedValue: DevTestRunner(coordinator: coordinator))
+    }
 
     var body: some View {
         List {
@@ -1384,7 +1393,13 @@ struct DevTestScenariosView: View {
 
 struct DevSmokeTestView: View {
     @Environment(\.modelContext) private var modelContext
-    @StateObject private var runner = DevTestRunner()
+    let coordinator: SoloSceneCoordinator
+    @StateObject private var runner: DevTestRunner
+
+    @MainActor init(coordinator: SoloSceneCoordinator) {
+        self.coordinator = coordinator
+        _runner = StateObject(wrappedValue: DevTestRunner(coordinator: coordinator))
+    }
 
     var body: some View {
         DevTestLogView(log: runner.log, isRunning: runner.isRunning)

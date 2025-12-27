@@ -12,6 +12,7 @@ import WorldState
 import RPGEngine
 
 struct SettingsView: View {
+    let soloCoordinator: SoloSceneCoordinator
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Campaign.createdAt, order: .reverse) private var campaigns: [Campaign]
     @AppStorage("exaAPIKey") private var exaAPIKey: String = ""
@@ -29,6 +30,10 @@ struct SettingsView: View {
     @State private var showCampaignSheet = false
     @State private var showClearAllAlert = false
     @State private var campaignToDelete: Campaign?
+
+    @MainActor init(soloCoordinator: SoloSceneCoordinator) {
+        self.soloCoordinator = soloCoordinator
+    }
 
     var body: some View {
         ScrollView {
@@ -199,7 +204,7 @@ struct SettingsView: View {
                     .foregroundColor(.secondary)
 
                 NavigationLink("Open Dev Test Scenarios") {
-                    DevTestScenariosView()
+                    DevTestScenariosView(coordinator: soloCoordinator)
                 }
                 .buttonStyle(.bordered)
 
@@ -299,7 +304,7 @@ struct SettingsView: View {
         }
 #if DEV_FIXTURES
         .sheet(isPresented: $showDevSmokeTest) {
-            DevSmokeTestView()
+            DevSmokeTestView(coordinator: soloCoordinator)
         }
 #endif
     }
@@ -391,8 +396,9 @@ struct SettingsView: View {
 }
 
 #Preview {
+    @MainActor in
     NavigationStack {
-        SettingsView()
+        SettingsView(soloCoordinator: SoloSceneCoordinator())
     }
 }
 

@@ -14,6 +14,7 @@ struct AdaptiveNavigationView: View {
     @State private var columnVisibility: NavigationSplitViewVisibility = .automatic
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     private let navigationCoordinator = NavigationCoordinator.shared
+    @StateObject private var soloSceneCoordinator = SoloSceneCoordinator()
 
     var body: some View {
 #if os(iOS)
@@ -59,7 +60,7 @@ struct AdaptiveNavigationView: View {
 
             Tab(TabSelection.settings.displayName, systemImage: "gear", value: .settings) {
                 NavigationStack {
-                    SettingsView()
+                    SettingsView(soloCoordinator: soloSceneCoordinator)
                 }
             }
         }
@@ -112,14 +113,14 @@ struct AdaptiveNavigationView: View {
             }
         case .settings:
             NavigationStack {
-                SettingsView()
+                SettingsView(soloCoordinator: soloSceneCoordinator)
             }
         }
     }
 
     private var examplesNavigation: some View {
         NavigationStack {
-            ExamplesView(viewModel: $contentViewModel)
+            ExamplesView(viewModel: $contentViewModel, soloCoordinator: soloSceneCoordinator)
         }
     }
 }
