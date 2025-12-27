@@ -1200,6 +1200,80 @@ struct SoloScenesView: View {
 
                 if let pendingID = pendingCheckID,
                    let index = checkDrafts.firstIndex(where: { $0.id == pendingID }) {
+                    if let fallback = parseRollFallback(from: trimmed) {
+                        if fallback.declines {
+                            let gmText = "Got it. We move on without attempting the check."
+                            interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
+                            pendingCheckID = nil
+                            sceneInput = ""
+                            return
+                        }
+
+                        if fallback.autoRoll {
+                            if !autoRollEnabled {
+                                let gmText = "Auto-roll is disabled. Please roll and tell me the result, or enable auto-roll in Settings."
+                                interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
+                                sceneInput = ""
+                                return
+                            }
+
+                            let roll = Int.random(in: 1...20)
+                            let modifier = fallback.modifier ?? 0
+                            checkDrafts[index].roll = roll
+                            checkDrafts[index].modifier = modifier
+
+                            let result = engine.evaluateCheck(request: checkDrafts[index].request, roll: roll, modifier: modifier)
+                            checkDrafts[index].total = result.total
+                            checkDrafts[index].outcome = result.outcome
+                            appendRollHighlight(for: checkDrafts[index], outcome: result.outcome, total: result.total)
+                            applyTrapOutcomeIfNeeded(for: checkDrafts[index], outcome: result.outcome)
+                            logAgency(stage: "resolution", message: "Auto-roll check \(checkDrafts[index].request.skillName) => \(result.outcome) total \(result.total)")
+
+                            let consequence = try await generateCheckConsequence(
+                                session: session,
+                                context: context,
+                                check: checkDrafts[index],
+                                result: result
+                            )
+
+                            checkDrafts[index].consequence = consequence
+                            let outcomeText = result.outcome.replacingOccurrences(of: "_", with: " ")
+                            let gmText = "Auto-roll: \(roll) + \(modifier) = \(result.total). \(outcomeText.capitalized). \(consequence)"
+                            interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
+                            pendingCheckID = nil
+                            sceneInput = ""
+                            return
+                        }
+
+                        if let roll = fallback.roll {
+                            let modifier = fallback.modifier ?? 0
+                            checkDrafts[index].roll = roll
+                            checkDrafts[index].modifier = modifier
+
+                            let result = engine.evaluateCheck(request: checkDrafts[index].request, roll: roll, modifier: modifier)
+                            checkDrafts[index].total = result.total
+                            checkDrafts[index].outcome = result.outcome
+                            appendRollHighlight(for: checkDrafts[index], outcome: result.outcome, total: result.total)
+                            applyTrapOutcomeIfNeeded(for: checkDrafts[index], outcome: result.outcome)
+                            logAgency(stage: "resolution", message: "Check \(checkDrafts[index].request.skillName) => \(result.outcome) total \(result.total)")
+
+                            let consequence = try await generateCheckConsequence(
+                                session: session,
+                                context: context,
+                                check: checkDrafts[index],
+                                result: result
+                            )
+
+                            checkDrafts[index].consequence = consequence
+                            let outcomeText = result.outcome.replacingOccurrences(of: "_", with: " ")
+                            let gmText = "Result: \(outcomeText) (Total \(result.total)). \(consequence)"
+                            interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
+                            pendingCheckID = nil
+                            sceneInput = ""
+                            return
+                        }
+                    }
+
                     let rollDraft = try await session.respond(
                         to: Prompt(makeRollParsingPrompt(playerText: trimmed, check: checkDrafts[index])),
                         generating: CheckRollDraft.self
@@ -1956,6 +2030,43 @@ struct SoloScenesView: View {
         return keywords.contains(where: { lower.contains($0) })
     }
 
+    private func shouldOverrideTrapSkill(proposedSkill: String) -> Bool {
+        let lower = proposedSkill.lowercased()
+        return !(lower.contains("perception") || lower.contains("investigation"))
+    }
+
+    private struct RollParseFallback {
+        let roll: Int?
+        let modifier: Int?
+        let autoRoll: Bool
+        let declines: Bool
+    }
+
+    private func parseRollFallback(from text: String) -> RollParseFallback? {
+        let lower = text.lowercased()
+        if lower.contains("auto") {
+            return RollParseFallback(roll: nil, modifier: nil, autoRoll: true, declines: false)
+        }
+        if lower.contains("skip") || lower.contains("decline") || lower.contains("pass") {
+            return RollParseFallback(roll: nil, modifier: nil, autoRoll: false, declines: true)
+        }
+
+        let rollPattern = "(?i)(natural|nat)\\s*(\\d+)"
+        if let match = lower.range(of: rollPattern, options: .regularExpression) {
+            let slice = lower[match]
+            let digits = slice.split(whereSeparator: { !$0.isNumber })
+            if let value = digits.compactMap({ Int($0) }).first, (1...20).contains(value) {
+                return RollParseFallback(roll: value, modifier: nil, autoRoll: false, declines: false)
+            }
+        }
+
+        let numbers = lower.split { !$0.isNumber }.compactMap { Int($0) }.filter { (1...20).contains($0) }
+        if numbers.count == 1, let roll = numbers.first {
+            return RollParseFallback(roll: roll, modifier: nil, autoRoll: false, declines: false)
+        }
+        return nil
+    }
+
     private func forcedCheckRequest(for playerText: String) -> CheckRequest? {
         let lower = playerText.lowercased()
         let skill: String
@@ -2221,7 +2332,7 @@ struct SoloScenesView: View {
         - Roll only if the action is uncertain and consequential.
         - If failure would change the situation in a meaningful way, a roll is required.
         - No roll for trivial or guaranteed actions; set requiresRoll to false and give autoOutcome.
-        - Searching for traps or hidden dangers always requires a roll.
+        - Searching for traps or hidden dangers always requires a roll and should use Perception or Investigation.
         - Use DC bands 5, 10, 15, 20, 25, 30.
         - Advantage for strong leverage; disadvantage for harsh conditions.
         - Provide a concrete, in-fiction reason for the chosen DC.
@@ -2286,6 +2397,28 @@ struct SoloScenesView: View {
             sceneInput = ""
             return true
         }
+        if shouldForceSkillCheck(for: playerText),
+           shouldOverrideTrapSkill(proposedSkill: request.skillName),
+           let forcedRequest = forcedCheckRequest(for: playerText) {
+            let draft = SkillCheckDraft(
+                playerAction: playerText,
+                request: forcedRequest,
+                roll: nil,
+                modifier: nil,
+                total: nil,
+                outcome: nil,
+                consequence: nil,
+                sourceTrapId: nil,
+                sourceKind: nil
+            )
+            checkDrafts.append(draft)
+            pendingCheckID = draft.id
+            let preface = intentSummary.map { "Got it: \($0). " } ?? ""
+            let gmText = preface + gmLineForCheck(forcedRequest)
+            interactionDrafts.append(InteractionDraft(playerText: playerText, gmText: gmText, turnSignal: "gm_response"))
+            sceneInput = ""
+            return true
+        }
         logAgency(stage: "adjudication_request", message: "\(request.skillName) dc=\(request.dc ?? request.opponentDC ?? 0) reason=\(request.reason)")
 
         let draft = SkillCheckDraft(
@@ -2341,6 +2474,7 @@ struct SoloScenesView: View {
         Extract the d20 roll and modifier if present. If they decline, set declines to true.
         If they explicitly ask for an auto-roll (\"auto\"), set autoRoll to true.
         Otherwise set autoRoll to false.
+        Recognize \"natural 1\", \"natural 20\", \"nat 1\", or \"nat 20\" as rolls.
         If no roll is provided, leave roll as null.
 
         Check: \(check.request.skillName) DC \(check.request.dc ?? check.request.opponentDC ?? 10)

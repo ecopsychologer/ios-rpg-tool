@@ -229,6 +229,11 @@ public struct SoloCampaignEngine {
             return defaultPartialSuccessDC(for: dc)
         }()
 
+        let reason = draft.reason.trimmingCharacters(in: .whitespacesAndNewlines)
+        let resolvedReason = reason.isEmpty ? "Standard difficulty for this action." : reason
+        let stakes = draft.stakes.trimmingCharacters(in: .whitespacesAndNewlines)
+        let resolvedStakes = stakes.isEmpty ? "failure complicates the attempt." : stakes
+
         return CheckRequest(
             checkType: type,
             skillName: skillName,
@@ -237,10 +242,10 @@ public struct SoloCampaignEngine {
             opponentSkill: type == .contestedCheck ? opponentSkill : nil,
             opponentDC: type == .contestedCheck ? (opponentDC ?? 10) : nil,
             advantageState: advantage,
-            stakes: draft.stakes.trimmingCharacters(in: .whitespacesAndNewlines),
+            stakes: resolvedStakes,
             partialSuccessDC: clampDC(draft.partialSuccessDC) ?? fallbackPartialDC,
             partialSuccessOutcome: draft.partialSuccessOutcome?.trimmingCharacters(in: .whitespacesAndNewlines),
-            reason: draft.reason.trimmingCharacters(in: .whitespacesAndNewlines)
+            reason: resolvedReason
         )
     }
 
@@ -302,6 +307,7 @@ public struct SoloCampaignEngine {
     ) -> SceneEntry {
         updateCharacters(campaign: campaign, new: bookkeeping.newCharacters, featured: bookkeeping.featuredCharacters, removed: bookkeeping.removedCharacters)
         updateThreads(campaign: campaign, new: bookkeeping.newThreads, featured: bookkeeping.featuredThreads, removed: bookkeeping.removedThreads)
+        updateActiveLocationFromPlaces(campaign: campaign, places: bookkeeping.places)
 
         let updatedChaos = resolver.updateChaosFactor(current: campaign.chaosFactor, pcsInControl: bookkeeping.pcsInControl)
         campaign.chaosFactor = updatedChaos
@@ -344,6 +350,30 @@ public struct SoloCampaignEngine {
         }
 
         return entry
+    }
+
+    private func updateActiveLocationFromPlaces(campaign: Campaign, places: [String]) {
+        let trimmedPlaces = places
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        guard let place = trimmedPlaces.first else { return }
+        guard let locationId = campaign.activeLocationId,
+              let location = campaign.locations?.first(where: { $0.id == locationId }) else { return }
+
+        if location.origin == "system", location.name.caseInsensitiveCompare("Dungeon Entrance") == .orderedSame {
+            location.name = place
+        }
+
+        guard let nodeId = campaign.activeNodeId,
+              let node = location.nodes?.first(where: { $0.id == nodeId }) else { return }
+
+        let genericNodeNames = ["room", "passage", "corridor", "chamber", "entrance", "hall", "hallway"]
+        if node.origin == "system" {
+            let nodeSummary = node.summary.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            if genericNodeNames.contains(nodeSummary) {
+                node.summary = place
+            }
+        }
     }
 
     private func clampDC(_ dc: Int?) -> Int? {

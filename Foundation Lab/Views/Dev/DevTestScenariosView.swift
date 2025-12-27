@@ -6,6 +6,7 @@ import NarratorAgent
 import RPGEngine
 import WorldState
 import TableEngine
+import UIKit
 
 #if DEV_FIXTURES
 struct DevTestScenario: Codable, Identifiable {
@@ -456,6 +457,16 @@ final class DevTestRunner: ObservableObject {
             return
         }
 
+        if isAcknowledgementMessage(text) {
+            let gmText = await generateGMResponse(
+                context: context,
+                playerText: text,
+                isMeta: false
+            )
+            appendGMResponse(gmText, playerText: text)
+            return
+        }
+
         if await handleMovement(
             playerText: text,
             context: context,
@@ -493,6 +504,23 @@ final class DevTestRunner: ObservableObject {
         playerText: String,
         context: NarrationContextPacket
     ) async {
+        if let parsed = parseRollFallback(from: playerText) {
+            if parsed.declines {
+                let gmText = "Understood. We’ll skip that check. What do you do instead?"
+                appendGMResponse(gmText, playerText: playerText)
+                pendingCheck = nil
+                return
+            }
+            if parsed.autoRoll {
+                let roll = Int.random(in: 1...20)
+                await finalizeCheck(draft, roll: roll, modifier: 0, context: context, playerText: playerText)
+                return
+            }
+            if let roll = parsed.roll {
+                await finalizeCheck(draft, roll: roll, modifier: parsed.modifier ?? 0, context: context, playerText: playerText)
+                return
+            }
+        }
         do {
             let session = makeSession()
             let rollDraft = try await session.respond(
@@ -632,6 +660,17 @@ final class DevTestRunner: ObservableObject {
             guard let request = engine.finalizeCheckRequest(from: checkDraft.content) else {
                 appendGMResponse("I couldn't settle on a clear check. Want to rephrase?", playerText: playerText)
                 return true
+            }
+
+            if shouldForceSkillCheck(for: playerText),
+               shouldOverrideTrapSkill(proposedSkill: request.skillName) {
+                if let forcedRequest = forcedCheckRequest(for: playerText) {
+                    let draft = DevSkillCheckDraft(playerAction: playerText, request: forcedRequest)
+                    pendingCheck = draft
+                    let gmText = gmLineForCheck(forcedRequest)
+                    appendGMResponse(gmText, playerText: playerText)
+                    return true
+                }
             }
 
             let draft = DevSkillCheckDraft(playerAction: playerText, request: request)
@@ -831,7 +870,7 @@ final class DevTestRunner: ObservableObject {
         - Roll only if the action is uncertain and consequential.
         - If failure would change the situation in a meaningful way, a roll is required.
         - No roll for trivial or guaranteed actions; set requiresRoll to false and give autoOutcome.
-        - Searching for traps or hidden dangers always requires a roll.
+        - Searching for traps or hidden dangers always requires a roll and should use Perception or Investigation.
         - Use DC bands 5, 10, 15, 20, 25, 30.
         - Advantage for strong leverage; disadvantage for harsh conditions.
         - Provide a concrete, in-fiction reason for the chosen DC.
@@ -852,6 +891,7 @@ final class DevTestRunner: ObservableObject {
         Extract the d20 roll and modifier if present. If they decline, set declines to true.
         If they explicitly ask for an auto-roll ("auto"), set autoRoll to true.
         Otherwise set autoRoll to false.
+        Recognize "natural 1", "natural 20", "nat 1", or "nat 20" as rolls.
         If no roll is provided, leave roll as null.
 
         Check: \(check.request.skillName) DC \(check.request.dc ?? check.request.opponentDC ?? 10)
@@ -918,6 +958,54 @@ final class DevTestRunner: ObservableObject {
             "listen", "peek", "track"
         ]
         return keywords.contains(where: { lower.contains($0) })
+    }
+
+    private func shouldOverrideTrapSkill(proposedSkill: String) -> Bool {
+        let lower = proposedSkill.lowercased()
+        return !(lower.contains("perception") || lower.contains("investigation"))
+    }
+
+    private func isAcknowledgementMessage(_ text: String) -> Bool {
+        let lower = text.lowercased()
+        let acknowledgements = [
+            "glad", "thanks", "thank you", "nice", "great", "cool", "ok", "okay",
+            "awesome", "sweet", "oof", "dang", "yikes", "phew", "ugh", "yep", "yeah"
+        ]
+        guard acknowledgements.contains(where: { lower.contains($0) }) else { return false }
+        let actionVerbs = ["try", "attempt", "go", "move", "open", "search", "look", "ask", "talk", "persuade", "investigate"]
+        return !actionVerbs.contains(where: { lower.contains($0) })
+    }
+
+    private struct RollParseFallback {
+        let roll: Int?
+        let modifier: Int?
+        let autoRoll: Bool
+        let declines: Bool
+    }
+
+    private func parseRollFallback(from text: String) -> RollParseFallback? {
+        let lower = text.lowercased()
+        if lower.contains("auto") {
+            return RollParseFallback(roll: nil, modifier: nil, autoRoll: true, declines: false)
+        }
+        if lower.contains("skip") || lower.contains("decline") || lower.contains("pass") {
+            return RollParseFallback(roll: nil, modifier: nil, autoRoll: false, declines: true)
+        }
+
+        let rollPattern = "(?i)(natural|nat)\\s*(\\d+)"
+        if let match = lower.range(of: rollPattern, options: .regularExpression) {
+            let slice = lower[match]
+            let digits = slice.split(whereSeparator: { !$0.isNumber })
+            if let value = digits.compactMap({ Int($0) }).first, (1...20).contains(value) {
+                return RollParseFallback(roll: value, modifier: nil, autoRoll: false, declines: false)
+            }
+        }
+
+        let numbers = lower.split { !$0.isNumber }.compactMap { Int($0) }.filter { (1...20).contains($0) }
+        if numbers.count == 1, let roll = numbers.first {
+            return RollParseFallback(roll: roll, modifier: nil, autoRoll: false, declines: false)
+        }
+        return nil
     }
 
     private func forcedCheckRequest(for playerText: String) -> CheckRequest? {
@@ -1344,6 +1432,11 @@ private struct DevTestLogView: View {
     @Environment(\.dismiss) private var dismiss
     let log: [String]
     let isRunning: Bool
+    @State private var didCopy = false
+
+    private var logText: String {
+        log.joined(separator: "\n")
+    }
 
     var body: some View {
         NavigationStack {
@@ -1367,6 +1460,17 @@ private struct DevTestLogView: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Close") { dismiss() }
+                }
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button(didCopy ? "Copied" : "Copy All") {
+                        UIPasteboard.general.string = logText
+                        didCopy = true
+                    }
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    ShareLink(item: logText) {
+                        Image(systemName: "square.and.arrow.up")
+                    }
                 }
             }
         }
@@ -1397,6 +1501,11 @@ final class DevLogStore {
 
 struct DevLogsView: View {
     @State private var logs: [String] = DevLogStore.load()
+    @State private var didCopy = false
+
+    private var logText: String {
+        logs.joined(separator: "\n")
+    }
 
     var body: some View {
         List {
@@ -1414,15 +1523,28 @@ struct DevLogsView: View {
         .textSelection(.enabled)
         .navigationTitle("Dev Logs")
         .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button(didCopy ? "Copied" : "Copy All") {
+                    UIPasteboard.general.string = logText
+                    didCopy = true
+                }
+            }
+            ToolbarItem(placement: .navigationBarTrailing) {
+                ShareLink(item: logText) {
+                    Image(systemName: "square.and.arrow.up")
+                }
+            }
             ToolbarItem(placement: .confirmationAction) {
                 Button("Clear") {
                     DevLogStore.clear()
                     logs = []
+                    didCopy = false
                 }
             }
         }
         .onAppear {
             logs = DevLogStore.load()
+            didCopy = false
         }
     }
 }
