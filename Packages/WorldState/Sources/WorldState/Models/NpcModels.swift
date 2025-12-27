@@ -80,6 +80,7 @@ public final class NPCEntry {
     public var moodIntensity: Int
     public var stress: Int
     public var attitudeToParty: String
+    public var partyStatus: String?
     public var conditions: [String]
     public var lastSeenSceneId: UUID?
     public var lastSeenAt: Date?
@@ -160,6 +161,7 @@ public final class NPCEntry {
         self.moodIntensity = 0
         self.stress = 0
         self.attitudeToParty = NPCAttitude.neutral.rawValue
+        self.partyStatus = nil
         self.conditions = []
         self.lastSeenSceneId = nil
         self.lastSeenAt = nil

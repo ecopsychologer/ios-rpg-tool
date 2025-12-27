@@ -12,6 +12,7 @@ public struct SrdContentIndex: Sendable {
     public let spells: [String]
     public let magicItems: [String]
     public let creatures: [String]
+    public let conditions: [String]
     public let classDetails: [String: [String]]
     public let backgroundDetails: [String: [String]]
     public let subclassDetails: [String: [String]]
@@ -21,6 +22,7 @@ public struct SrdContentIndex: Sendable {
     public let magicItemDetails: [String: [String]]
     public let equipmentDetails: [String: [String]]
     public let creatureDetails: [String: [String]]
+    public let conditionDetails: [String: [String]]
     public let spellsByClass: [String: [String]]
     public let magicItemRarities: [String: String]
     public let sections: [String]
@@ -39,6 +41,7 @@ public struct SrdContentIndex: Sendable {
         spells: [String],
         magicItems: [String],
         creatures: [String],
+        conditions: [String],
         classDetails: [String: [String]],
         backgroundDetails: [String: [String]],
         subclassDetails: [String: [String]],
@@ -48,6 +51,7 @@ public struct SrdContentIndex: Sendable {
         magicItemDetails: [String: [String]],
         equipmentDetails: [String: [String]],
         creatureDetails: [String: [String]],
+        conditionDetails: [String: [String]],
         spellsByClass: [String: [String]],
         magicItemRarities: [String: String],
         sections: [String],
@@ -65,6 +69,7 @@ public struct SrdContentIndex: Sendable {
         self.spells = spells
         self.magicItems = magicItems
         self.creatures = creatures
+        self.conditions = conditions
         self.classDetails = classDetails
         self.backgroundDetails = backgroundDetails
         self.subclassDetails = subclassDetails
@@ -74,6 +79,7 @@ public struct SrdContentIndex: Sendable {
         self.magicItemDetails = magicItemDetails
         self.equipmentDetails = equipmentDetails
         self.creatureDetails = creatureDetails
+        self.conditionDetails = conditionDetails
         self.spellsByClass = spellsByClass
         self.magicItemRarities = magicItemRarities
         self.sections = sections
@@ -121,6 +127,7 @@ public struct SrdContentStore {
         let (equipment, equipmentDetails) = parseEquipment(from: json)
         let (magicItems, magicItemDetails, magicItemRarities) = parseMagicItems(from: json)
         let (creatures, creatureDetails) = parseCreatures()
+        let (conditions, conditionDetails) = parseConditions(from: json)
         let sections = json.keys.sorted()
         let sectionDetails = parseSectionDetails(from: json)
 
@@ -136,6 +143,7 @@ public struct SrdContentStore {
             spells: spells,
             magicItems: magicItems,
             creatures: creatures,
+            conditions: conditions,
             classDetails: classDetails,
             backgroundDetails: backgroundDetails,
             subclassDetails: subclassDetails,
@@ -145,6 +153,7 @@ public struct SrdContentStore {
             magicItemDetails: magicItemDetails,
             equipmentDetails: equipmentDetails,
             creatureDetails: creatureDetails,
+            conditionDetails: conditionDetails,
             spellsByClass: spellsByClass,
             magicItemRarities: magicItemRarities,
             sections: sections,
@@ -518,6 +527,23 @@ public struct SrdContentStore {
         return (names, details, rarities)
     }
 
+    private func parseConditions(from root: [String: Any]) -> ([String], [String: [String]]) {
+        guard let appendix = root["Appendix PH-A: Conditions"] as? [String: Any] else { return ([], [:]) }
+        var names: [String] = []
+        var details: [String: [String]] = [:]
+
+        for (key, value) in appendix where key.lowercased() != "content" {
+            let lines = extractTextLines(from: value, includeKeys: false)
+            let sanitized = sanitize(lines)
+            guard !sanitized.isEmpty else { continue }
+            names.append(key)
+            details[key] = sanitized
+        }
+
+        names.sort()
+        return (names, details)
+    }
+
     private func parseCreatures() -> ([String], [String: [String]]) {
         guard let data = loadCreaturesData(),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
@@ -767,6 +793,7 @@ extension SrdContentStore {
             spells: mergedSpells,
             magicItems: mergedMagicItems,
             creatures: mergedCreatures,
+            conditions: base.conditions,
             classDetails: classDetails,
             backgroundDetails: backgroundDetails,
             subclassDetails: subclassDetails,
@@ -776,6 +803,7 @@ extension SrdContentStore {
             magicItemDetails: magicItemDetails,
             equipmentDetails: equipmentDetails,
             creatureDetails: creatureDetails,
+            conditionDetails: base.conditionDetails,
             spellsByClass: base.spellsByClass,
             magicItemRarities: magicItemRarities,
             sections: base.sections,

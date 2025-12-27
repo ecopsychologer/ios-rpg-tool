@@ -306,8 +306,10 @@ public struct SoloCampaignEngine {
         bookkeeping: BookkeepingInput
     ) -> SceneEntry {
         updateCharacters(campaign: campaign, new: bookkeeping.newCharacters, featured: bookkeeping.featuredCharacters, removed: bookkeeping.removedCharacters)
+        updateNpcEntries(campaign: campaign, new: bookkeeping.newCharacters)
         updateThreads(campaign: campaign, new: bookkeeping.newThreads, featured: bookkeeping.featuredThreads, removed: bookkeeping.removedThreads)
         updateActiveLocationFromPlaces(campaign: campaign, places: bookkeeping.places)
+        updateActiveNodeDetails(campaign: campaign, places: bookkeeping.places, curiosities: bookkeeping.curiosities)
 
         let updatedChaos = resolver.updateChaosFactor(current: campaign.chaosFactor, pcsInControl: bookkeeping.pcsInControl)
         campaign.chaosFactor = updatedChaos
@@ -360,19 +362,15 @@ public struct SoloCampaignEngine {
         guard let locationId = campaign.activeLocationId,
               let location = campaign.locations?.first(where: { $0.id == locationId }) else { return }
 
-        if location.origin == "system", location.name.caseInsensitiveCompare("Dungeon Entrance") == .orderedSame {
+        if location.origin == "system" {
             location.name = place
         }
 
         guard let nodeId = campaign.activeNodeId,
               let node = location.nodes?.first(where: { $0.id == nodeId }) else { return }
 
-        let genericNodeNames = ["room", "passage", "corridor", "chamber", "entrance", "hall", "hallway"]
         if node.origin == "system" {
-            let nodeSummary = node.summary.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-            if genericNodeNames.contains(nodeSummary) {
-                node.summary = place
-            }
+            node.summary = place
         }
     }
 
@@ -397,6 +395,96 @@ public struct SoloCampaignEngine {
         removed: [String]
     ) {
         applyListUpdates(entries: &campaign.threads, new: new, featured: featured, removed: removed, entryFactory: ThreadEntry.init)
+    }
+
+    private func updateNpcEntries(campaign: Campaign, new: [String]) {
+        guard !new.isEmpty else { return }
+        let pcNames = Set(campaign.playerCharacters.map { $0.displayName.lowercased() })
+        let existingNpcNames = Set(campaign.npcs.map { $0.name.lowercased() })
+
+        for name in new {
+            let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { continue }
+            let key = trimmed.lowercased()
+            guard !pcNames.contains(key) else { continue }
+            guard !existingNpcNames.contains(key) else { continue }
+
+            let npc = NPCEntry(
+                name: trimmed,
+                species: "Unknown",
+                roleTag: "Unknown",
+                importance: NPCImportance.minor.rawValue,
+                origin: "scene"
+            )
+            npc.currentLocationId = campaign.activeLocationId
+            campaign.npcs.append(npc)
+        }
+    }
+
+    private func updateActiveNodeDetails(
+        campaign: Campaign,
+        places: [String],
+        curiosities: [String]
+    ) {
+        guard let locationId = campaign.activeLocationId,
+              let location = campaign.locations?.first(where: { $0.id == locationId }),
+              let nodeId = campaign.activeNodeId,
+              let node = location.nodes?.first(where: { $0.id == nodeId }) else { return }
+
+        let placeDetails = Array(places.dropFirst())
+        let detailItems = (placeDetails + curiosities)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        guard !detailItems.isEmpty else { return }
+
+        let existing = node.contentSummary ?? ""
+        let existingLower = existing.lowercased()
+        let additions = detailItems.filter { !existingLower.contains($0.lowercased()) }
+        guard !additions.isEmpty else { return }
+
+        if existing.isEmpty {
+            node.contentSummary = additions.joined(separator: "; ")
+        } else {
+            node.contentSummary = existing + "; " + additions.joined(separator: "; ")
+        }
+    }
+
+    public func syncPartyMembers(campaign: Campaign) {
+        if campaign.party == nil {
+            campaign.party = Party()
+        }
+        guard let party = campaign.party else { return }
+
+        let existingMembers = party.members ?? []
+        let existingPcMap: [String: PartyMember] = Dictionary(uniqueKeysWithValues: existingMembers.compactMap { member in
+            member.isNpc ? nil : (member.name.lowercased(), member)
+        })
+        let existingNpcMap: [UUID: PartyMember] = Dictionary(uniqueKeysWithValues: existingMembers.compactMap { member in
+            guard member.isNpc, let npcId = member.npcId else { return nil }
+            return (npcId, member)
+        })
+
+        var updated: [PartyMember] = []
+
+        for pc in campaign.playerCharacters {
+            let name = pc.displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !name.isEmpty else { continue }
+            if let existing = existingPcMap[name.lowercased()] {
+                updated.append(existing)
+            } else {
+                updated.append(PartyMember(name: name, role: "PC", isNpc: false))
+            }
+        }
+
+        for npc in campaign.npcs where npc.partyStatus == "consented" {
+            if let existing = existingNpcMap[npc.id] {
+                updated.append(existing)
+            } else {
+                updated.append(PartyMember(name: npc.name, role: "Sidekick", isNpc: true, npcId: npc.id))
+            }
+        }
+
+        party.members = updated
     }
 
     private func applyListUpdates<T: AnyObject>(

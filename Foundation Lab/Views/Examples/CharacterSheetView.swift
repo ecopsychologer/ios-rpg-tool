@@ -280,6 +280,13 @@ private struct CharacterDetailView: View {
                 detailMap: details,
                 mode: .append
             )
+        case "conditions":
+            return SrdFieldOptions(
+                title: "Conditions",
+                items: index.conditions,
+                detailMap: index.conditionDetails,
+                mode: .append
+            )
         default:
             return nil
         }

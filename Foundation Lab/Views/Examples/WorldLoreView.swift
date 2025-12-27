@@ -35,6 +35,8 @@ struct WorldLoreView: View {
         .textSelection(.enabled)
         .navigationTitle("World Lore")
         .onAppear { ensureCampaign() }
+        .onChange(of: campaign?.playerCharacters.count ?? 0) { _ in syncPartyMembers() }
+        .onChange(of: campaign?.npcs.count ?? 0) { _ in syncPartyMembers() }
         .sheet(isPresented: $showAddSheet) {
             WorldLoreEditSheet(
                 title: "Add Lore",
@@ -86,15 +88,7 @@ struct WorldLoreView: View {
                 ), axis: .vertical)
                 .textFieldStyle(.roundedBorder)
 
-                if campaign.party == nil {
-                    Button("Create Party") {
-                        campaign.party = Party()
-                        try? modelContext.save()
-                    }
-                    .buttonStyle(.borderedProminent)
-                } else {
-                    partyEditorSection
-                }
+                partyEditorSection
 
                 if !setupSummary.isEmpty {
                     Text(setupSummary)
@@ -127,26 +121,29 @@ struct WorldLoreView: View {
     private var partyEditorSection: some View {
         VStack(alignment: .leading, spacing: Spacing.small) {
             if let party = campaign?.party {
-                Stepper("Party Size: \(party.members?.count ?? 0)", value: Binding(
-                    get: { party.members?.count ?? 0 },
-                    set: { newValue in
-                        updatePartySize(newValue)
-                    }
-                ), in: 0...8)
+                Text("Party Members (derived from characters and consenting NPCs)")
+                    .font(.footnote)
+                    .foregroundColor(.secondary)
+
+                Text("Party Size: \(party.members?.count ?? 0)")
+                    .font(.callout)
+
+                if party.members?.isEmpty ?? true {
+                    Text("No party members yet.")
+                        .font(.callout)
+                        .foregroundColor(.secondary)
+                }
 
                 ForEach(party.members ?? []) { member in
                     VStack(alignment: .leading, spacing: 6) {
-                        TextField("Name", text: Binding(
-                            get: { member.name },
-                            set: { member.name = $0; try? modelContext.save() }
-                        ))
+                        Text(member.name)
+                            .font(.headline)
+                        Text(member.isNpc ? "NPC Sidekick" : "Player Character")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
                         TextField("Role/Notes", text: Binding(
                             get: { member.role },
                             set: { member.role = $0; try? modelContext.save() }
-                        ))
-                        Toggle("NPC Sidekick", isOn: Binding(
-                            get: { member.isNpc },
-                            set: { member.isNpc = $0; try? modelContext.save() }
                         ))
                     }
                     .padding(Spacing.small)
@@ -227,12 +224,20 @@ struct WorldLoreView: View {
     private func ensureCampaign() {
         if let existing = campaigns.first(where: { $0.isActive }) ?? campaigns.first {
             campaign = existing
+            syncPartyMembers()
+            try? modelContext.save()
         } else {
             let newCampaign = Campaign()
             modelContext.insert(newCampaign)
             campaign = newCampaign
+            syncPartyMembers()
             try? modelContext.save()
         }
+    }
+
+    private func syncPartyMembers() {
+        guard let campaign else { return }
+        coordinator.engine.syncPartyMembers(campaign: campaign)
     }
 
     private func draftLore() {
@@ -272,21 +277,6 @@ struct WorldLoreView: View {
                 draftError = error.localizedDescription
             }
         }
-    }
-
-    private func updatePartySize(_ newSize: Int) {
-        guard let campaign, let party = campaign.party else { return }
-        var members = party.members ?? []
-        if newSize > members.count {
-            let start = members.count + 1
-            for index in start...newSize {
-                members.append(PartyMember(name: "PC \(index)"))
-            }
-        } else if newSize < members.count {
-            members = Array(members.prefix(newSize))
-        }
-        party.members = members
-        try? modelContext.save()
     }
 
     private func summarizeSetup() {

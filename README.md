@@ -84,6 +84,7 @@ This repo includes a solo roleplaying system built on top of the on-device model
 - **Interactive challenges**: skill checks, traps, and fate-style questions, each stored as records.
 - **Table engine**: JSON-defined tables with deterministic rolls and action scripts.
 - **Event logs**: stored roll results and entity changes so sessions can be replayed.
+- **SRD conditions**: condition list and details parsed and available in SRD Library + character sheet pickers.
 
 ### Modules in the App
 - **Solo Scenes**: the main scene loop and conversation interface.
@@ -112,7 +113,7 @@ Work-in-progress task list (engine expansion):
 
 ### SRD Mechanics Roadmap (Outline)
 This is the mechanical task list for bringing the engine up to SRD parity. The narrator should only render outcomes supplied by these systems.
-- **Ruleset ingestion**: parse SRD abilities, skills, species, classes, feats, spells, equipment, and conditions into structured models with stable IDs.
+- **Ruleset ingestion**: parse SRD abilities, skills, species, classes, feats, spells, and equipment into structured models with stable IDs.
 - **Character mechanics**: proficiency bonus by level, ability modifiers, saving throws, skill proficiency, class features, and level progression.
 - **Combat system**: initiative, turn order, action economy, attack resolution, damage types, conditions, death saves, and recovery.
 - **Spellcasting**: slots/points, prepared vs known, casting time, range/area, concentration, and component requirements.

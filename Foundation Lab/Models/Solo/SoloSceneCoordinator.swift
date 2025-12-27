@@ -409,6 +409,11 @@ final class SoloSceneCoordinator: ObservableObject {
                 return gmText
             }
 
+            if let joinResponse = attemptNpcJoinIfRequested(playerText: trimmed, campaign: campaign, modelContext: modelContext) {
+                interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: joinResponse, turnSignal: "gm_response"))
+                return joinResponse
+            }
+
             let didAdvance = try await resolveMovementIntent(
                 session: session,
                 context: context,
@@ -931,6 +936,10 @@ final class SoloSceneCoordinator: ObservableObject {
             guard let name = matchSrdName(rawName, in: index.creatures),
                   let lines = index.creatureDetails[name], !lines.isEmpty else { return nil }
             return SrdLookupOutcome(category: "Creature", name: name, lines: lines, reason: reason)
+        case "condition":
+            guard let name = matchSrdName(rawName, in: index.conditions),
+                  let lines = index.conditionDetails[name], !lines.isEmpty else { return nil }
+            return SrdLookupOutcome(category: "Condition", name: name, lines: lines, reason: reason)
         case "rule", "section":
             guard let name = matchSrdName(rawName, in: index.sections),
                   let lines = index.sectionDetails[name], !lines.isEmpty else { return nil }
@@ -1115,31 +1124,155 @@ final class SoloSceneCoordinator: ObservableObject {
             to: Prompt(makeMovementIntentPrompt(playerText: playerText, context: context, campaign: campaign)),
             generating: MovementIntentDraft.self
         )
-        guard movementDraft.content.isMovement else { return false }
+        if !movementDraft.content.isMovement {
+            guard let fallback = fallbackMovementIntent(for: playerText) else { return false }
+            return applyMovementIntent(
+                summary: fallback.summary,
+                destination: fallback.destination,
+                exitLabel: fallback.exitLabel,
+                playerText: playerText,
+                campaign: campaign,
+                modelContext: modelContext
+            )
+        }
 
-        let summary = movementDraft.content.summary.trimmingCharacters(in: .whitespacesAndNewlines)
-        let destination = movementDraft.content.destination?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let exitLabel = movementDraft.content.exitLabel?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return applyMovementIntent(
+            summary: movementDraft.content.summary,
+            destination: movementDraft.content.destination,
+            exitLabel: movementDraft.content.exitLabel,
+            playerText: playerText,
+            campaign: campaign,
+            modelContext: modelContext
+        )
+    }
+
+    private struct MovementFallback {
+        let summary: String
+        let destination: String?
+        let exitLabel: String?
+    }
+
+    private func fallbackMovementIntent(for playerText: String) -> MovementFallback? {
+        let trimmed = playerText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        let lower = trimmed.lowercased()
+        if isLikelyQuestion(lower) { return nil }
+
+        let blocked = ["check", "search", "scan", "look", "ask", "talk", "persuade", "investigate", "listen", "peek"]
+        if blocked.contains(where: { lower.contains($0) }) {
+            return nil
+        }
+
+        let movementVerbs = ["go", "move", "head", "enter", "step", "walk", "proceed", "leave", "exit", "approach", "follow", "advance", "climb"]
+        guard movementVerbs.contains(where: { lower.contains($0) }) else { return nil }
+
+        let exitKeywords = ["door", "doorway", "archway", "hall", "hallway", "corridor", "passage", "stair", "stairs", "gate", "path", "tunnel"]
+        let exitLabel = exitKeywords.first(where: { lower.contains($0) })
+        let destination = extractDestination(from: lower)
+
+        return MovementFallback(summary: trimmed, destination: destination, exitLabel: exitLabel)
+    }
+
+    private func extractDestination(from text: String) -> String? {
+        let tokens = ["to", "into", "through", "toward", "towards", "out of", "across"]
+        for token in tokens {
+            if let range = text.range(of: "\(token) ") {
+                let candidate = text[range.upperBound...].trimmingCharacters(in: .whitespacesAndNewlines)
+                if !candidate.isEmpty {
+                    return String(candidate)
+                }
+            }
+        }
+        return nil
+    }
+
+    private func applyMovementIntent(
+        summary: String,
+        destination: String?,
+        exitLabel: String?,
+        playerText: String,
+        campaign: Campaign,
+        modelContext: ModelContext
+    ) -> Bool {
+        let trimmedSummary = summary.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedDestination = destination?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let trimmedExit = exitLabel?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let reason: String
-        if !destination.isEmpty && !summary.isEmpty {
-            reason = "\(summary) (\(destination))"
-        } else if !summary.isEmpty {
-            reason = summary
-        } else if !destination.isEmpty {
-            reason = destination
+        if !trimmedDestination.isEmpty && !trimmedSummary.isEmpty {
+            reason = "\(trimmedSummary) (\(trimmedDestination))"
+        } else if !trimmedSummary.isEmpty {
+            reason = trimmedSummary
+        } else if !trimmedDestination.isEmpty {
+            reason = trimmedDestination
         } else {
             reason = playerText
         }
 
         if let location = activeLocation(in: campaign),
            let node = activeNode(in: campaign, location: location),
-           let edge = edgeForExitLabel(exitLabel, location: location, node: node) {
+           let edge = edgeForExitLabel(trimmedExit, location: location, node: node) {
             _ = locationEngine.advanceAlongEdge(campaign: campaign, edge: edge, reason: reason)
         } else {
             _ = locationEngine.advanceToNextNode(campaign: campaign, reason: reason)
         }
         try? modelContext.save()
         return true
+    }
+
+    private func attemptNpcJoinIfRequested(
+        playerText: String,
+        campaign: Campaign,
+        modelContext: ModelContext
+    ) -> String? {
+        let lower = playerText.lowercased()
+        let joinPhrases = ["join the party", "join our party", "come with us", "come along", "travel with us", "join us", "tag along"]
+        guard joinPhrases.contains(where: { lower.contains($0) }) else { return nil }
+
+        guard let npc = referencedNpc(in: playerText, campaign: campaign) else {
+            return "Which NPC are you asking to join the party?"
+        }
+
+        let partyCount = currentPartyCount(campaign: campaign)
+        guard partyCount < 5 else {
+            npc.partyStatus = "declined"
+            try? modelContext.save()
+            return "\(npc.name) shakes their head. \"Your group is already full.\""
+        }
+
+        let attitude = npc.attitudeToParty.lowercased()
+        guard attitude == NPCAttitude.friendly.rawValue else {
+            npc.partyStatus = "declined"
+            try? modelContext.save()
+            return "\(npc.name) seems hesitant and declines to join right now."
+        }
+
+        let roll = engine.rollD100()
+        if roll <= 20 {
+            npc.partyStatus = "consented"
+            npc.currentLocationId = campaign.activeLocationId
+            engine.syncPartyMembers(campaign: campaign)
+            try? modelContext.save()
+            return "\(npc.name) agrees to travel with you as a sidekick."
+        } else {
+            npc.partyStatus = "declined"
+            try? modelContext.save()
+            return "\(npc.name) apologizes and decides to stay behind for now."
+        }
+    }
+
+    private func referencedNpc(in text: String, campaign: Campaign) -> NPCEntry? {
+        let lower = text.lowercased()
+        return campaign.npcs.first(where: { npc in
+            let name = npc.name.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !name.isEmpty else { return false }
+            return lower.contains(name.lowercased())
+        })
+    }
+
+    private func currentPartyCount(campaign: Campaign) -> Int {
+        let pcs = campaign.playerCharacters.filter { !$0.displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        let consentingNpcs = campaign.npcs.filter { $0.partyStatus == "consented" }
+        return pcs.count + consentingNpcs.count
     }
 
     private func edgeForExitLabel(

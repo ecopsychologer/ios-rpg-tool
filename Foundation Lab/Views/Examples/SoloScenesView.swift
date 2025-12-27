@@ -469,6 +469,15 @@ struct SoloScenesView: View {
                             .font(.callout)
                     }
 
+                    if !showLocationDebug,
+                       let node = activeNode(in: campaign, location: location),
+                       let traps = node.traps?.filter({ $0.state != "hidden" }),
+                       !traps.isEmpty {
+                        let trapNames = traps.map { $0.name }.joined(separator: ", ")
+                        Text("Known Traps: \(trapNames)")
+                            .font(.callout)
+                    }
+
                     if let node = activeNode(in: campaign, location: location) {
                         let exitItems = exitDisplays(for: location, node: node)
                         if !exitItems.isEmpty {

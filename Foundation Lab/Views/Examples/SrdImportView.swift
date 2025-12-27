@@ -55,6 +55,7 @@ struct SrdImportView: View {
                     Text("Spells: \(index.spells.count)")
                     Text("Magic Items: \(index.magicItems.count)")
                     Text("Creatures: \(index.creatures.count)")
+                    Text("Conditions: \(index.conditions.count)")
                     Text("Sections: \(index.sections.count)")
                 } else if isLoadingIndex {
                     Text("Loading SRD index...")
@@ -129,6 +130,22 @@ struct SrdImportView: View {
                                 SrdDetailView(
                                     title: item,
                                     subtitle: "Subclass",
+                                    lines: details
+                                )
+                            } label: {
+                                Text(item)
+                            }
+                            .textSelection(.enabled)
+                        }
+                    }
+
+                    DisclosureGroup("Conditions (\(filtered(index.conditions).count))") {
+                        ForEach(filtered(index.conditions), id: \.self) { item in
+                            let details = index.conditionDetails[item] ?? []
+                            NavigationLink {
+                                SrdDetailView(
+                                    title: item,
+                                    subtitle: "Condition",
                                     lines: details
                                 )
                             } label: {
