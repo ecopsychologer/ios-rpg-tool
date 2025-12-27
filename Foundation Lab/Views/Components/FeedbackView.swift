@@ -7,6 +7,7 @@
 
 import SwiftUI
 import FoundationModels
+import Combine
 
 struct FeedbackView: View {
     let viewModel: ChatViewModel

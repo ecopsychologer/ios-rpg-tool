@@ -8,6 +8,7 @@
 import Foundation
 import FoundationModels
 import Observation
+import Combine
 
 enum SamplingStrategy: Int, CaseIterable {
     case `default`

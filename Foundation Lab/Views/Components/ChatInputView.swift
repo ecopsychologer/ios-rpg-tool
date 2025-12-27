@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Combine
 
 struct ChatInputView: View {
     @Binding var messageText: String

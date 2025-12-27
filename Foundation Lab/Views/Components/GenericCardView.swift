@@ -7,6 +7,7 @@
 
 import SwiftUI
 import LiquidGlasKit
+import Combine
 
 /// Generic card view used across example and tool lists
 struct GenericCardView: View {

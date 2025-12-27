@@ -7,6 +7,7 @@
 
 import FoundationModels
 import SwiftUI
+import Combine
 
 /// View component for displaying AI model requests and responses
 struct ResponseDisplayView: View {

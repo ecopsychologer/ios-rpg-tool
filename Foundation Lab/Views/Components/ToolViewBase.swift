@@ -7,6 +7,7 @@
 
 import FoundationModels
 import SwiftUI
+import Combine
 
 /// Base component for tool views providing consistent UI elements
 struct ToolViewBase<Content: View>: View {

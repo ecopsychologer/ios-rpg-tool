@@ -83,17 +83,27 @@ public struct SrdContentIndex: Sendable {
 }
 
 public struct SrdContentStore {
+    private let devSupplementalFlagKey = "devEnableSupplementalRules"
+
     public init() {}
 
     public func loadIndex() -> SrdContentIndex? {
         guard let (data, source) = loadDataAndSource() else { return nil }
         if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-            return buildIndex(from: json, source: source)
+            let baseIndex = buildIndex(from: json, source: source)
+            if let supplemental = loadDevSupplementalContent() {
+                return merge(base: baseIndex, supplemental: supplemental)
+            }
+            return baseIndex
         }
         if source == "imported",
            let bundledData = loadBundledData(),
            let json = try? JSONSerialization.jsonObject(with: bundledData) as? [String: Any] {
-            return buildIndex(from: json, source: "bundled")
+            let baseIndex = buildIndex(from: json, source: "bundled")
+            if let supplemental = loadDevSupplementalContent() {
+                return merge(base: baseIndex, supplemental: supplemental)
+            }
+            return baseIndex
         }
         return nil
     }
@@ -634,5 +644,517 @@ public struct SrdContentStore {
             return rarity
         }
         return nil
+    }
+}
+
+private struct SupplementalContent {
+    var species: [String] = []
+    var classes: [String] = []
+    var subclasses: [String] = []
+    var backgrounds: [String] = []
+    var feats: [String] = []
+    var spells: [String] = []
+    var equipment: [String] = []
+    var magicItems: [String] = []
+    var creatures: [String] = []
+    var classDetails: [String: [String]] = [:]
+    var subclassDetails: [String: [String]] = [:]
+    var backgroundDetails: [String: [String]] = [:]
+    var featDetails: [String: [String]] = [:]
+    var spellDetails: [String: [String]] = [:]
+    var equipmentDetails: [String: [String]] = [:]
+    var magicItemDetails: [String: [String]] = [:]
+    var creatureDetails: [String: [String]] = [:]
+    var magicItemRarities: [String: String] = [:]
+    var subclassesByClass: [String: [String]] = [:]
+}
+
+extension SrdContentStore {
+    private func loadDevSupplementalContent() -> SupplementalContent? {
+        guard UserDefaults.standard.bool(forKey: devSupplementalFlagKey) else { return nil }
+        guard let rootURL = dev5eToolsDataURL() else { return nil }
+
+        var content = SupplementalContent()
+        let parser = Dev5eToolsParser()
+
+        if let (names, details) = parser.loadBackgrounds(from: rootURL) {
+            content.backgrounds = names
+            content.backgroundDetails = details
+        }
+
+        if let (names, details) = parser.loadFeats(from: rootURL) {
+            content.feats = names
+            content.featDetails = details
+        }
+
+        if let (names, _) = parser.loadSpecies(from: rootURL) {
+            content.species = names
+        }
+
+        if let (classes, classDetails, subclasses, subclassDetails, subclassesByClass) = parser.loadClasses(from: rootURL) {
+            content.classes = classes
+            content.classDetails = classDetails
+            content.subclasses = subclasses
+            content.subclassDetails = subclassDetails
+            content.subclassesByClass = subclassesByClass
+        }
+
+        if let (spells, details) = parser.loadSpells(from: rootURL) {
+            content.spells = spells
+            content.spellDetails = details
+        }
+
+        if let (equipment, equipmentDetails, magicItems, magicItemDetails, magicItemRarities) = parser.loadItems(from: rootURL) {
+            content.equipment = equipment
+            content.equipmentDetails = equipmentDetails
+            content.magicItems = magicItems
+            content.magicItemDetails = magicItemDetails
+            content.magicItemRarities = magicItemRarities
+        }
+
+        if let (creatures, creatureDetails) = parser.loadCreatures(from: rootURL) {
+            content.creatures = creatures
+            content.creatureDetails = creatureDetails
+        }
+
+        return content
+    }
+
+    private func dev5eToolsDataURL() -> URL? {
+        if let url = Bundle.main.url(forResource: "data", withExtension: nil, subdirectory: "DevAssets/5etools") {
+            return url
+        }
+        if let url = Bundle.main.url(forResource: "data", withExtension: nil, subdirectory: "DevAssets/5etools-v2.14.1") {
+            return url
+        }
+        return nil
+    }
+
+    private func merge(base: SrdContentIndex, supplemental: SupplementalContent) -> SrdContentIndex {
+        let mergedSpecies = mergeStrings(base.species, supplemental.species)
+        let mergedClasses = mergeStrings(base.classes, supplemental.classes)
+        let mergedSubclasses = mergeStrings(base.subclasses, supplemental.subclasses)
+        let mergedBackgrounds = mergeStrings(base.backgrounds, supplemental.backgrounds)
+        let mergedFeats = mergeStrings(base.feats, supplemental.feats)
+        let mergedSpells = mergeStrings(base.spells, supplemental.spells)
+        let mergedEquipment = mergeStrings(base.equipment, supplemental.equipment)
+        let mergedMagicItems = mergeStrings(base.magicItems, supplemental.magicItems)
+        let mergedCreatures = mergeStrings(base.creatures, supplemental.creatures)
+
+        let classDetails = mergeDetails(base.classDetails, supplemental.classDetails)
+        let subclassDetails = mergeDetails(base.subclassDetails, supplemental.subclassDetails)
+        let backgroundDetails = mergeDetails(base.backgroundDetails, supplemental.backgroundDetails)
+        let featDetails = mergeDetails(base.featDetails, supplemental.featDetails)
+        let spellDetails = mergeDetails(base.spellDetails, supplemental.spellDetails)
+        let equipmentDetails = mergeDetails(base.equipmentDetails, supplemental.equipmentDetails)
+        let magicItemDetails = mergeDetails(base.magicItemDetails, supplemental.magicItemDetails)
+        let creatureDetails = mergeDetails(base.creatureDetails, supplemental.creatureDetails)
+
+        let magicItemRarities = mergeRarities(base.magicItemRarities, supplemental.magicItemRarities)
+        let subclassesByClass = mergeStringMap(base.subclassesByClass, supplemental.subclassesByClass)
+
+        let sourceSuffix = base.source.contains("dev") ? base.source : "\(base.source) + dev"
+
+        return SrdContentIndex(
+            abilities: base.abilities,
+            skills: base.skills,
+            species: mergedSpecies,
+            classes: mergedClasses,
+            backgrounds: mergedBackgrounds,
+            subclasses: mergedSubclasses,
+            feats: mergedFeats,
+            equipment: mergedEquipment,
+            spells: mergedSpells,
+            magicItems: mergedMagicItems,
+            creatures: mergedCreatures,
+            classDetails: classDetails,
+            backgroundDetails: backgroundDetails,
+            subclassDetails: subclassDetails,
+            subclassesByClass: subclassesByClass,
+            featDetails: featDetails,
+            spellDetails: spellDetails,
+            magicItemDetails: magicItemDetails,
+            equipmentDetails: equipmentDetails,
+            creatureDetails: creatureDetails,
+            spellsByClass: base.spellsByClass,
+            magicItemRarities: magicItemRarities,
+            sections: base.sections,
+            sectionDetails: base.sectionDetails,
+            source: sourceSuffix
+        )
+    }
+
+    private func mergeStrings(_ base: [String], _ extra: [String]) -> [String] {
+        var seen: [String: String] = [:]
+        for item in base {
+            let key = item.lowercased()
+            if seen[key] == nil {
+                seen[key] = item
+            }
+        }
+        for item in extra {
+            let key = item.lowercased()
+            if seen[key] == nil {
+                seen[key] = item
+            }
+        }
+        return seen.values.sorted()
+    }
+
+    private func mergeDetails(_ base: [String: [String]], _ extra: [String: [String]]) -> [String: [String]] {
+        var merged = base
+        var map = Dictionary(uniqueKeysWithValues: base.keys.map { ($0.lowercased(), $0) })
+        for (key, lines) in extra {
+            let lower = key.lowercased()
+            if let existing = map[lower] {
+                if (merged[existing]?.isEmpty ?? true), !lines.isEmpty {
+                    merged[existing] = lines
+                }
+            } else {
+                merged[key] = lines
+                map[lower] = key
+            }
+        }
+        return merged
+    }
+
+    private func mergeRarities(_ base: [String: String], _ extra: [String: String]) -> [String: String] {
+        var merged = base
+        var map = Dictionary(uniqueKeysWithValues: base.keys.map { ($0.lowercased(), $0) })
+        for (key, rarity) in extra {
+            let lower = key.lowercased()
+            if map[lower] == nil {
+                merged[key] = rarity
+                map[lower] = key
+            }
+        }
+        return merged
+    }
+
+    private func mergeStringMap(_ base: [String: [String]], _ extra: [String: [String]]) -> [String: [String]] {
+        var merged = base
+        for (key, list) in extra {
+            let existing = merged[key] ?? []
+            merged[key] = mergeStrings(existing, list)
+        }
+        return merged
+    }
+}
+
+private struct Dev5eToolsParser {
+    func loadBackgrounds(from root: URL) -> ([String], [String: [String]])? {
+        guard let data = loadJSON(from: root.appendingPathComponent("backgrounds.json")),
+              let list = data["background"] as? [[String: Any]] else { return nil }
+        return parseEntries(list, detailBuilder: backgroundDetail)
+    }
+
+    func loadFeats(from root: URL) -> ([String], [String: [String]])? {
+        guard let data = loadJSON(from: root.appendingPathComponent("feats.json")),
+              let list = data["feat"] as? [[String: Any]] else { return nil }
+        return parseEntries(list, detailBuilder: simpleDetail)
+    }
+
+    func loadSpecies(from root: URL) -> ([String], [String: [String]])? {
+        guard let data = loadJSON(from: root.appendingPathComponent("races.json")) else { return nil }
+        var list: [[String: Any]] = []
+        if let races = data["race"] as? [[String: Any]] {
+            list.append(contentsOf: races)
+        }
+        if let subraces = data["subrace"] as? [[String: Any]] {
+            list.append(contentsOf: subraces)
+        }
+        return parseEntries(list, detailBuilder: simpleDetail, nameTransform: raceName)
+    }
+
+    func loadClasses(from root: URL) -> ([String], [String: [String]], [String], [String: [String]], [String: [String]])? {
+        let classFolder = root.appendingPathComponent("class")
+        guard let files = listJSONFiles(in: classFolder, prefix: "class-") else { return nil }
+        var classList: [String] = []
+        var classDetails: [String: [String]] = [:]
+        var subclassList: [String] = []
+        var subclassDetails: [String: [String]] = [:]
+        var subclassesByClass: [String: [String]] = [:]
+
+        for file in files {
+            guard let data = loadJSON(from: file) else { continue }
+            if let classes = data["class"] as? [[String: Any]] {
+                let parsed = parseEntries(classes, detailBuilder: classDetail)
+                classList.append(contentsOf: parsed.names)
+                classDetails.merge(parsed.details) { current, _ in current }
+            }
+            if let subclasses = data["subclass"] as? [[String: Any]] {
+                for entry in subclasses {
+                    guard let name = entry["name"] as? String else { continue }
+                    let className = entry["className"] as? String ?? "Unknown Class"
+                    subclassList.append(name)
+                    let details = classDetail(entry)
+                    if !details.isEmpty {
+                        subclassDetails[name] = details
+                    }
+                    subclassesByClass[className, default: []].append(name)
+                }
+            }
+        }
+
+        classList = uniqueSorted(classList)
+        subclassList = uniqueSorted(subclassList)
+        for (key, list) in subclassesByClass {
+            subclassesByClass[key] = uniqueSorted(list)
+        }
+
+        return (classList, classDetails, subclassList, subclassDetails, subclassesByClass)
+    }
+
+    func loadSpells(from root: URL) -> ([String], [String: [String]])? {
+        let spellsFolder = root.appendingPathComponent("spells")
+        guard let files = listJSONFiles(in: spellsFolder, prefix: "spells-") else { return nil }
+        var names: [String] = []
+        var details: [String: [String]] = [:]
+        for file in files {
+            guard let data = loadJSON(from: file),
+                  let list = data["spell"] as? [[String: Any]] else { continue }
+            let parsed = parseEntries(list, detailBuilder: spellDetail)
+            names.append(contentsOf: parsed.names)
+            details.merge(parsed.details) { current, _ in current }
+        }
+        return (uniqueSorted(names), details)
+    }
+
+    func loadItems(from root: URL) -> ([String], [String: [String]], [String], [String: [String]], [String: String])? {
+        guard let data = loadJSON(from: root.appendingPathComponent("items.json")),
+              let list = data["item"] as? [[String: Any]] else { return nil }
+        var equipment: [String] = []
+        var equipmentDetails: [String: [String]] = [:]
+        var magicItems: [String] = []
+        var magicItemDetails: [String: [String]] = [:]
+        var magicItemRarities: [String: String] = [:]
+
+        for entry in list {
+            guard let name = entry["name"] as? String else { continue }
+            let rarity = entry["rarity"] as? String ?? ""
+            let details = itemDetail(entry)
+            if !rarity.isEmpty && rarity.lowercased() != "none" {
+                magicItems.append(name)
+                magicItemDetails[name] = details
+                magicItemRarities[name] = rarity.lowercased()
+            } else {
+                equipment.append(name)
+                equipmentDetails[name] = details
+            }
+        }
+
+        return (
+            uniqueSorted(equipment),
+            equipmentDetails,
+            uniqueSorted(magicItems),
+            magicItemDetails,
+            magicItemRarities
+        )
+    }
+
+    func loadCreatures(from root: URL) -> ([String], [String: [String]])? {
+        let bestiaryFolder = root.appendingPathComponent("bestiary")
+        guard let files = listJSONFiles(in: bestiaryFolder, prefix: "bestiary-") else { return nil }
+        var names: [String] = []
+        var details: [String: [String]] = [:]
+        for file in files {
+            guard let data = loadJSON(from: file),
+                  let list = data["monster"] as? [[String: Any]] else { continue }
+            let parsed = parseEntries(list, detailBuilder: creatureDetail)
+            names.append(contentsOf: parsed.names)
+            details.merge(parsed.details) { current, _ in current }
+        }
+        return (uniqueSorted(names), details)
+    }
+
+    private func parseEntries(
+        _ list: [[String: Any]],
+        detailBuilder: ([String: Any]) -> [String],
+        nameTransform: (([String: Any]) -> String?)? = nil
+    ) -> (names: [String], details: [String: [String]]) {
+        var names: [String] = []
+        var details: [String: [String]] = [:]
+        for entry in list {
+            guard let name = nameTransform?(entry) ?? (entry["name"] as? String) else { continue }
+            names.append(name)
+            let lines = detailBuilder(entry)
+            if !lines.isEmpty {
+                details[name] = lines
+            }
+        }
+        return (uniqueSorted(names), details)
+    }
+
+    private func backgroundDetail(_ entry: [String: Any]) -> [String] {
+        var lines = sourceLine(entry)
+        lines += extractEntries(from: entry["entries"])
+        return sanitize(lines)
+    }
+
+    private func classDetail(_ entry: [String: Any]) -> [String] {
+        var lines = sourceLine(entry)
+        if let hitDice = entry["hd"] as? [String: Any], let faces = hitDice["faces"] as? Int {
+            lines.append("Hit Die: d\(faces)")
+        }
+        if let subclassTitle = entry["subclassTitle"] as? String {
+            lines.append("Subclass: \(subclassTitle)")
+        }
+        lines += extractEntries(from: entry["entries"])
+        return sanitize(lines)
+    }
+
+    private func simpleDetail(_ entry: [String: Any]) -> [String] {
+        var lines = sourceLine(entry)
+        lines += extractEntries(from: entry["entries"])
+        return sanitize(lines)
+    }
+
+    private func spellDetail(_ entry: [String: Any]) -> [String] {
+        var lines = sourceLine(entry)
+        if let level = entry["level"] as? Int {
+            lines.append("Level: \(level)")
+        }
+        if let school = entry["school"] as? String {
+            lines.append("School: \(school)")
+        }
+        if let range = entry["range"] as? [String: Any] {
+            if let rangeType = range["type"] as? String {
+                lines.append("Range: \(rangeType)")
+            }
+        }
+        if let duration = entry["duration"] as? [[String: Any]],
+           let first = duration.first,
+           let durationType = first["type"] as? String {
+            lines.append("Duration: \(durationType)")
+        }
+        lines += extractEntries(from: entry["entries"])
+        return sanitize(lines)
+    }
+
+    private func itemDetail(_ entry: [String: Any]) -> [String] {
+        var lines = sourceLine(entry)
+        if let rarity = entry["rarity"] as? String, !rarity.isEmpty {
+            lines.append("Rarity: \(rarity)")
+        }
+        if let itemType = entry["type"] as? String {
+            lines.append("Type: \(itemType)")
+        }
+        lines += extractEntries(from: entry["entries"])
+        return sanitize(lines)
+    }
+
+    private func creatureDetail(_ entry: [String: Any]) -> [String] {
+        var lines = sourceLine(entry)
+        if let size = entry["size"] as? [String], let first = size.first {
+            lines.append("Size: \(first)")
+        }
+        if let type = entry["type"] as? String {
+            lines.append("Type: \(type)")
+        }
+        if let cr = entry["cr"] {
+            lines.append("CR: \(formatValue(cr))")
+        }
+        if let alignment = entry["alignment"] {
+            lines.append("Alignment: \(formatValue(alignment))")
+        }
+        return sanitize(lines)
+    }
+
+    private func raceName(_ entry: [String: Any]) -> String? {
+        let name = entry["name"] as? String
+        if let raceName = entry["raceName"] as? String,
+           let name, !raceName.isEmpty {
+            return "\(raceName) (\(name))"
+        }
+        return name
+    }
+
+    private func sourceLine(_ entry: [String: Any]) -> [String] {
+        if let source = entry["source"] as? String {
+            return ["Source: \(source)"]
+        }
+        return []
+    }
+
+    private func extractEntries(from value: Any?) -> [String] {
+        guard let value else { return [] }
+        return flattenText(value)
+    }
+
+    private func flattenText(_ value: Any) -> [String] {
+        if let string = value as? String {
+            return [string]
+        }
+        if let array = value as? [Any] {
+            return array.flatMap { flattenText($0) }
+        }
+        if let dict = value as? [String: Any] {
+            if let entries = dict["entries"] {
+                var lines = flattenText(entries)
+                if let name = dict["name"] as? String {
+                    lines.insert(name, at: 0)
+                }
+                return lines
+            }
+            if let items = dict["items"] {
+                return flattenText(items)
+            }
+            if let entry = dict["entry"] {
+                return flattenText(entry)
+            }
+            if let text = dict["text"] as? String {
+                return [text]
+            }
+            return dict.values.flatMap { flattenText($0) }
+        }
+        return []
+    }
+
+    private func listJSONFiles(in directory: URL, prefix: String) -> [URL]? {
+        guard let files = try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil) else {
+            return nil
+        }
+        return files.filter { url in
+            url.pathExtension == "json" && url.lastPathComponent.hasPrefix(prefix)
+        }
+    }
+
+    private func loadJSON(from url: URL) -> [String: Any]? {
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        return (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+    }
+
+    private func uniqueSorted(_ values: [String]) -> [String] {
+        var seen: [String: String] = [:]
+        for value in values {
+            let key = value.lowercased()
+            if seen[key] == nil {
+                seen[key] = value
+            }
+        }
+        return seen.values.sorted()
+    }
+
+    private func sanitize(_ values: [String]) -> [String] {
+        values
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+    }
+
+    private func formatValue(_ value: Any) -> String {
+        if let string = value as? String {
+            return string
+        }
+        if let number = value as? NSNumber {
+            return number.stringValue
+        }
+        if let dict = value as? [String: Any],
+           let cr = dict["cr"] {
+            return formatValue(cr)
+        }
+        if let array = value as? [Any] {
+            return array.compactMap { formatValue($0) }.joined(separator: ", ")
+        }
+        return "\(value)"
     }
 }

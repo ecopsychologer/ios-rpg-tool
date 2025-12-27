@@ -7,6 +7,7 @@
 
 import SwiftUI
 import FoundationModels
+import Combine
 
 struct MessageBubbleView: View {
   let message: ChatMessage

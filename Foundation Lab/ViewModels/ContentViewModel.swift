@@ -10,6 +10,7 @@ import FoundationModels
 import FoundationModelsTools
 import Observation
 import SwiftUI
+import Combine
 
 /// ViewModel for managing ContentView state and operations
 @MainActor

@@ -7,6 +7,7 @@
 
 import SwiftUI
 import FoundationModels
+import Combine
 
 struct ChatView: View {
     @State private var viewModel = ChatViewModel()

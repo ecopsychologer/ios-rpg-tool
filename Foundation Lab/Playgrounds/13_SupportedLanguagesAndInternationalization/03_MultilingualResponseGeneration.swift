@@ -1,6 +1,7 @@
 import FoundationModels
 import Playgrounds
 import Foundation
+import Combine
 
 #Playground {
     // Generate responses in different languages by prompting in that language

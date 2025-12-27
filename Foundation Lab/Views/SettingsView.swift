@@ -18,6 +18,10 @@ struct SettingsView: View {
     @AppStorage("soloShowLocationDebug") private var showLocationDebug = false
     @AppStorage("soloAutoRollEnabled") private var autoRollEnabled = false
     @AppStorage("soloGMRunsCompanions") private var gmRunsCompanionsEnabled = false
+#if DEV_FIXTURES
+    @AppStorage("devEnableSupplementalRules") private var devEnableSupplementalRules = false
+    @State private var showDevSmokeTest = false
+#endif
     @State private var tempAPIKey: String = ""
     @State private var showingAlert = false
     @State private var alertMessage = ""
@@ -181,6 +185,33 @@ struct SettingsView: View {
             .glassCard()
             .padding([.horizontal, .top])
 
+#if DEV_FIXTURES
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Developer")
+                    .font(.headline)
+
+                Toggle("Enable supplemental rules data", isOn: $devEnableSupplementalRules)
+                    .font(.callout)
+
+                Text("Loads extra rules data from DevAssets at build time. This is not included in release builds.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                NavigationLink("Open Dev Test Scenarios") {
+                    DevTestScenariosView()
+                }
+                .buttonStyle(.bordered)
+
+                Button("Run Quick Smoke Test") {
+                    showDevSmokeTest = true
+                }
+                .buttonStyle(.borderedProminent)
+            }
+            .padding()
+            .glassCard()
+            .padding([.horizontal, .top])
+#endif
+
             VStack(alignment: .leading, spacing: 16) {
                 Link(destination: URL(string: "https://github.com/rudrankriyam/Foundation-Models-Framework-Example/issues")!) {
                     HStack {
@@ -241,6 +272,11 @@ struct SettingsView: View {
                 showCampaignSheet = false
             }
         }
+#if DEV_FIXTURES
+        .sheet(isPresented: $showDevSmokeTest) {
+            DevSmokeTestView()
+        }
+#endif
     }
 
     private func saveAPIKey() {

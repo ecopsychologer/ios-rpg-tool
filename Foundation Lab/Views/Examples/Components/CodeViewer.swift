@@ -127,6 +127,7 @@ struct CodeDisclosure: View {
     VStack(spacing: Spacing.large) {
       CodeViewer(code: """
 import FoundationModels
+import Combine
 
 let session = LanguageModelSession()
 let response = try await session.generate(

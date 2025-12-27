@@ -107,6 +107,7 @@
 				0AAE4FFB2DF76E6600838F13 /* Sources */,
 				0AAE4FFC2DF76E6600838F13 /* Frameworks */,
 				0AAE4FFD2DF76E6600838F13 /* Resources */,
+				0B5E7A112F1A000100000001 /* Copy Dev Assets */,
 			);
 			buildRules = (
 			);
@@ -189,6 +190,28 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		0B5E7A112F1A000100000001 /* Copy Dev Assets */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Copy Dev Assets";
+			outputFileListPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			outputPaths = (
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/DevAssets/.dev_assets_stamp",
+			);
+			shellScript = "if [[ \"$SWIFT_ACTIVE_COMPILATION_CONDITIONS\" != *DEV_FIXTURES* ]]; then\n  exit 0\nfi\n\nDEV_ASSETS_ROOT=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/DevAssets\"\nmkdir -p \"${DEV_ASSETS_ROOT}\"\n\nTOOLS_SOURCE=\"${SRCROOT}/testing/5etools-src/data\"\nif [[ -d \"${TOOLS_SOURCE}\" ]]; then\n  mkdir -p \"${DEV_ASSETS_ROOT}/5etools/data\"\n  rsync -a --delete \"${TOOLS_SOURCE}/\" \"${DEV_ASSETS_ROOT}/5etools/data/\"\nfi\n\nLOCAL_DEV_ASSETS=\"${SRCROOT}/DevAssets\"\nif [[ -d \"${LOCAL_DEV_ASSETS}\" ]]; then\n  rsync -a --delete \"${LOCAL_DEV_ASSETS}/\" \"${DEV_ASSETS_ROOT}/\"\nfi\n\ntouch \"${DEV_ASSETS_ROOT}/.dev_assets_stamp\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		0AAE4FFB2DF76E6600838F13 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -260,7 +283,7 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG DEV_FIXTURES $(inherited)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};

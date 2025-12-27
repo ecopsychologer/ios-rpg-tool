@@ -1,6 +1,7 @@
 import FoundationModels
 import Playgrounds
 import Foundation
+import Combine
 
 #Playground {
     let session = LanguageModelSession(model: SystemLanguageModel.default)

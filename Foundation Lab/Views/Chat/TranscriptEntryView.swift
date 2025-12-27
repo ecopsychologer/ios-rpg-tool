@@ -7,6 +7,7 @@
 
 import SwiftUI
 import FoundationModels
+import Combine
 
 struct TranscriptEntryView: View {
     let entry: Transcript.Entry

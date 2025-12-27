@@ -130,6 +130,7 @@ This repo includes a solo roleplaying system built on top of the on-device model
 
 ### Expansion Progress
 Current stage: persistent locations, scene chat loop, skill checks, and content pack tables are live. Movement intent parsing is active (with exit label matching). NPCs, world lore, and character sheets are implemented as separate modules. Markdown table import (paste or file) is now available in Tables (log-only actions by default). Location navigation now exposes exits for deterministic traversal and reuse, and narrator context includes current exits.
+Dev tooling: optional DEV_FIXTURES build flag adds a developer test runner with scripted scenarios and a quick smoke test. A local-only supplemental rules data loader can merge 5eTools data at build time when enabled (not included in release builds).
 
 Work-in-progress task list (engine expansion):
 - **Architecture**: define module boundaries (engine, narrator, world state, tables) and plan a Swift package split without breaking current UI.
