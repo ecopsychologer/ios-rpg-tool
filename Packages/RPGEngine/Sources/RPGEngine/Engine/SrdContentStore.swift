@@ -5,19 +5,26 @@ public struct SrdContentIndex: Sendable {
     public let skills: [SkillDefinition]
     public let species: [String]
     public let classes: [String]
+    public let backgrounds: [String]
+    public let subclasses: [String]
     public let feats: [String]
     public let equipment: [String]
     public let spells: [String]
     public let magicItems: [String]
     public let creatures: [String]
     public let classDetails: [String: [String]]
+    public let backgroundDetails: [String: [String]]
+    public let subclassDetails: [String: [String]]
+    public let subclassesByClass: [String: [String]]
     public let featDetails: [String: [String]]
     public let spellDetails: [String: [String]]
     public let magicItemDetails: [String: [String]]
     public let equipmentDetails: [String: [String]]
     public let creatureDetails: [String: [String]]
+    public let spellsByClass: [String: [String]]
     public let magicItemRarities: [String: String]
     public let sections: [String]
+    public let sectionDetails: [String: [String]]
     public let source: String
 
     public init(
@@ -25,38 +32,52 @@ public struct SrdContentIndex: Sendable {
         skills: [SkillDefinition],
         species: [String],
         classes: [String],
+        backgrounds: [String],
+        subclasses: [String],
         feats: [String],
         equipment: [String],
         spells: [String],
         magicItems: [String],
         creatures: [String],
         classDetails: [String: [String]],
+        backgroundDetails: [String: [String]],
+        subclassDetails: [String: [String]],
+        subclassesByClass: [String: [String]],
         featDetails: [String: [String]],
         spellDetails: [String: [String]],
         magicItemDetails: [String: [String]],
         equipmentDetails: [String: [String]],
         creatureDetails: [String: [String]],
+        spellsByClass: [String: [String]],
         magicItemRarities: [String: String],
         sections: [String],
+        sectionDetails: [String: [String]],
         source: String
     ) {
         self.abilities = abilities
         self.skills = skills
         self.species = species
         self.classes = classes
+        self.backgrounds = backgrounds
+        self.subclasses = subclasses
         self.feats = feats
         self.equipment = equipment
         self.spells = spells
         self.magicItems = magicItems
         self.creatures = creatures
         self.classDetails = classDetails
+        self.backgroundDetails = backgroundDetails
+        self.subclassDetails = subclassDetails
+        self.subclassesByClass = subclassesByClass
         self.featDetails = featDetails
         self.spellDetails = spellDetails
         self.magicItemDetails = magicItemDetails
         self.equipmentDetails = equipmentDetails
         self.creatureDetails = creatureDetails
+        self.spellsByClass = spellsByClass
         self.magicItemRarities = magicItemRarities
         self.sections = sections
+        self.sectionDetails = sectionDetails
         self.source = source
     }
 }
@@ -83,31 +104,41 @@ public struct SrdContentStore {
         let species = parseSpecies(from: json)
         let classDetails = parseClassDetails(from: json)
         let classes = classDetails.keys.sorted()
+        let (backgrounds, backgroundDetails) = parseBackgrounds(from: json)
+        let (subclasses, subclassDetails, subclassesByClass) = parseSubclasses(from: json, classNames: classes)
         let (feats, featDetails) = parseFeats(from: json)
-        let (spells, spellDetails) = parseSpells(from: json)
+        let (spells, spellDetails, spellsByClass) = parseSpells(from: json)
         let (equipment, equipmentDetails) = parseEquipment(from: json)
         let (magicItems, magicItemDetails, magicItemRarities) = parseMagicItems(from: json)
         let (creatures, creatureDetails) = parseCreatures()
         let sections = json.keys.sorted()
+        let sectionDetails = parseSectionDetails(from: json)
 
         return SrdContentIndex(
             abilities: abilities,
             skills: skills,
             species: species,
             classes: classes,
+            backgrounds: backgrounds,
+            subclasses: subclasses,
             feats: feats,
             equipment: equipment,
             spells: spells,
             magicItems: magicItems,
             creatures: creatures,
             classDetails: classDetails,
+            backgroundDetails: backgroundDetails,
+            subclassDetails: subclassDetails,
+            subclassesByClass: subclassesByClass,
             featDetails: featDetails,
             spellDetails: spellDetails,
             magicItemDetails: magicItemDetails,
             equipmentDetails: equipmentDetails,
             creatureDetails: creatureDetails,
+            spellsByClass: spellsByClass,
             magicItemRarities: magicItemRarities,
             sections: sections,
+            sectionDetails: sectionDetails,
             source: source
         )
     }
@@ -230,6 +261,100 @@ public struct SrdContentStore {
         return details
     }
 
+    private func parseBackgrounds(from root: [String: Any]) -> ([String], [String: [String]]) {
+        guard let backgrounds = root["Backgrounds"] as? [String: Any] else { return ([], [:]) }
+        let exclusions: Set<String> = [
+            "content",
+            "proficiencies",
+            "languages",
+            "equipment",
+            "suggested characteristics",
+            "customizing a background"
+        ]
+        var names: [String] = []
+        var details: [String: [String]] = [:]
+
+        for (key, value) in backgrounds {
+            let normalized = key.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            guard !exclusions.contains(normalized) else { continue }
+            let lines = extractTextLines(from: value, includeKeys: true)
+            let sanitized = sanitize(lines)
+            guard !sanitized.isEmpty else { continue }
+            names.append(key)
+            details[key] = sanitized
+        }
+
+        names.sort()
+        return (names, details)
+    }
+
+    private func parseSubclasses(
+        from root: [String: Any],
+        classNames: [String]
+    ) -> ([String], [String: [String]], [String: [String]]) {
+        let containerKeywords = [
+            "archetype", "archetypes",
+            "domain", "circle", "oath",
+            "tradition", "patron", "college",
+            "path", "origin", "school",
+            "conclave", "bloodline"
+        ]
+        let subclassExclusions = [
+            "content",
+            "domain spells",
+            "circle spells",
+            "oath spells",
+            "spell list",
+            "spells"
+        ]
+
+        var subclassNames = Set<String>()
+        var subclassDetails: [String: [String]] = [:]
+        var subclassesByClass: [String: [String]] = [:]
+
+        func collectSubclasses(from value: Any, className: String) {
+            if let dict = value as? [String: Any] {
+                for (key, nested) in dict {
+                    let normalized = key.lowercased()
+                    if containerKeywords.contains(where: { normalized.contains($0) }),
+                       let container = nested as? [String: Any] {
+                        for (subclassName, subclassValue) in container {
+                            let lower = subclassName.lowercased()
+                            guard !subclassExclusions.contains(lower) else { continue }
+                            if lower.contains("spell") { continue }
+                            let lines = extractTextLines(from: subclassValue, includeKeys: true)
+                            let sanitized = sanitize(lines)
+                            guard !sanitized.isEmpty else { continue }
+                            subclassNames.insert(subclassName)
+                            subclassDetails[subclassName] = sanitized
+                            subclassesByClass[className, default: []].append(subclassName)
+                        }
+                    }
+                    collectSubclasses(from: nested, className: className)
+                }
+            } else if let array = value as? [Any] {
+                for nested in array {
+                    collectSubclasses(from: nested, className: className)
+                }
+            }
+        }
+
+        for className in classNames {
+            guard let classDict = root[className] else { continue }
+            collectSubclasses(from: classDict, className: className)
+        }
+
+        var cleanedByClass: [String: [String]] = [:]
+        for (className, list) in subclassesByClass {
+            let unique = Array(Set(list)).sorted()
+            if !unique.isEmpty {
+                cleanedByClass[className] = unique
+            }
+        }
+
+        return (Array(subclassNames).sorted(), subclassDetails, cleanedByClass)
+    }
+
     private func parseFeats(from root: [String: Any]) -> ([String], [String: [String]]) {
         guard let feats = root["Feats"] as? [String: Any] else { return ([], [:]) }
         var names: [String] = []
@@ -243,23 +368,30 @@ public struct SrdContentStore {
         return (names, details)
     }
 
-    private func parseSpells(from root: [String: Any]) -> ([String], [String: [String]]) {
+    private func parseSpells(from root: [String: Any]) -> ([String], [String: [String]], [String: [String]]) {
         guard let spellcasting = root["Spellcasting"] as? [String: Any],
               let lists = spellcasting["Spell Lists"] as? [String: Any] else {
-            return ([], [:])
+            return ([], [:], [:])
         }
         var spells: Set<String> = []
-        for (_, value) in lists {
+        var spellsByClass: [String: Set<String>] = [:]
+        for (className, value) in lists {
             guard let classList = value as? [String: Any] else { continue }
-            for (_, levelValue) in classList {
+            var classSpells: Set<String> = []
+            for (levelKey, levelValue) in classList where levelKey.lowercased() != "content" {
                 let names = extractStringList(from: levelValue)
                 spells.formUnion(names)
+                classSpells.formUnion(names)
+            }
+            if !className.isEmpty {
+                spellsByClass[className] = (spellsByClass[className] ?? []).union(classSpells)
             }
         }
         let detailMap = parseSpellDetails()
         let detailNames = Set(detailMap.keys)
         spells.formUnion(detailNames)
-        return (spells.sorted(), detailMap)
+        let finalizedByClass = spellsByClass.mapValues { Array($0).sorted() }
+        return (spells.sorted(), detailMap, finalizedByClass)
     }
 
     private func parseEquipment(from root: [String: Any]) -> ([String], [String: [String]]) {
@@ -399,6 +531,18 @@ public struct SrdContentStore {
 
         names = Array(Set(names)).sorted()
         return (names, details)
+    }
+
+    private func parseSectionDetails(from root: [String: Any]) -> [String: [String]] {
+        var details: [String: [String]] = [:]
+        for (key, value) in root where key.lowercased() != "content" {
+            let lines = extractTextLines(from: value, includeKeys: true)
+            let sanitized = sanitize(lines)
+            if !sanitized.isEmpty {
+                details[key] = sanitized
+            }
+        }
+        return details
     }
 
     private func loadCreaturesData() -> Data? {

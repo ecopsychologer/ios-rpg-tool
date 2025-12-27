@@ -1717,6 +1717,14 @@ struct SoloScenesView: View {
             guard let name = matchSrdName(rawName, in: index.classes),
                   let lines = index.classDetails[name], !lines.isEmpty else { return nil }
             return SrdLookupOutcome(category: "Class", name: name, lines: lines, reason: reason)
+        case "background":
+            guard let name = matchSrdName(rawName, in: index.backgrounds),
+                  let lines = index.backgroundDetails[name], !lines.isEmpty else { return nil }
+            return SrdLookupOutcome(category: "Background", name: name, lines: lines, reason: reason)
+        case "subclass":
+            guard let name = matchSrdName(rawName, in: index.subclasses),
+                  let lines = index.subclassDetails[name], !lines.isEmpty else { return nil }
+            return SrdLookupOutcome(category: "Subclass", name: name, lines: lines, reason: reason)
         case "spell":
             guard let name = matchSrdName(rawName, in: index.spells),
                   let lines = index.spellDetails[name], !lines.isEmpty else { return nil }
@@ -1737,6 +1745,10 @@ struct SoloScenesView: View {
             guard let name = matchSrdName(rawName, in: index.creatures),
                   let lines = index.creatureDetails[name], !lines.isEmpty else { return nil }
             return SrdLookupOutcome(category: "Creature", name: name, lines: lines, reason: reason)
+        case "rule", "section":
+            guard let name = matchSrdName(rawName, in: index.sections),
+                  let lines = index.sectionDetails[name], !lines.isEmpty else { return nil }
+            return SrdLookupOutcome(category: "Rule", name: name, lines: lines, reason: reason)
         default:
             return nil
         }
@@ -2360,7 +2372,7 @@ struct SoloScenesView: View {
 
     private func makeSrdLookupPrompt(playerText: String, context: NarrationContextPacket) -> String {
         """
-        Decide if an SRD lookup is needed to answer the player (rules text, spell, feat, item, equipment, creature, class).
+        Decide if an SRD lookup is needed to answer the player (rules text, class, subclass, background, spell, feat, item, equipment, creature).
         Only request a lookup when the player explicitly references something from the rules.
         If a lookup is needed, provide the category and name as stated by the player.
 

@@ -271,7 +271,7 @@ public struct SrdLookupRequestDraft {
     @Guide(description: "Set true if an SRD lookup would help answer the player.")
     public let shouldLookup: Bool
 
-    @Guide(description: "Category: class, spell, feat, item, equipment, creature, rule")
+    @Guide(description: "Category: class, subclass, background, spell, feat, item, equipment, creature, rule")
     public let category: String
 
     @Guide(description: "Name to look up, preferably taken from the player's text.")

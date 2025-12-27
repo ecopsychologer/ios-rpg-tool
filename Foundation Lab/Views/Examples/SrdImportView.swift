@@ -48,6 +48,8 @@ struct SrdImportView: View {
                     Text("Skills: \(index.skills.count)")
                     Text("Species: \(index.species.count)")
                     Text("Classes: \(index.classes.count)")
+                    Text("Backgrounds: \(index.backgrounds.count)")
+                    Text("Subclasses: \(index.subclasses.count)")
                     Text("Feats: \(index.feats.count)")
                     Text("Equipment: \(index.equipment.count)")
                     Text("Spells: \(index.spells.count)")
@@ -95,6 +97,38 @@ struct SrdImportView: View {
                                 SrdDetailView(
                                     title: item,
                                     subtitle: "Class",
+                                    lines: details
+                                )
+                            } label: {
+                                Text(item)
+                            }
+                            .textSelection(.enabled)
+                        }
+                    }
+
+                    DisclosureGroup("Backgrounds (\(filtered(index.backgrounds).count))") {
+                        ForEach(filtered(index.backgrounds), id: \.self) { item in
+                            let details = index.backgroundDetails[item] ?? []
+                            NavigationLink {
+                                SrdDetailView(
+                                    title: item,
+                                    subtitle: "Background",
+                                    lines: details
+                                )
+                            } label: {
+                                Text(item)
+                            }
+                            .textSelection(.enabled)
+                        }
+                    }
+
+                    DisclosureGroup("Subclasses (\(filtered(index.subclasses).count))") {
+                        ForEach(filtered(index.subclasses), id: \.self) { item in
+                            let details = index.subclassDetails[item] ?? []
+                            NavigationLink {
+                                SrdDetailView(
+                                    title: item,
+                                    subtitle: "Subclass",
                                     lines: details
                                 )
                             } label: {
@@ -195,8 +229,17 @@ struct SrdImportView: View {
 
                     DisclosureGroup("Sections (\(filtered(index.sections).count))") {
                         ForEach(filtered(index.sections), id: \.self) { item in
-                            Text(item)
-                                .textSelection(.enabled)
+                            let details = index.sectionDetails[item] ?? []
+                            NavigationLink {
+                                SrdDetailView(
+                                    title: item,
+                                    subtitle: "Rules",
+                                    lines: details
+                                )
+                            } label: {
+                                Text(item)
+                            }
+                            .textSelection(.enabled)
                         }
                     }
                 }
@@ -241,6 +284,7 @@ struct SrdImportView: View {
 }
 
 private struct SrdDetailView: View {
+    @Environment(\.dismiss) private var dismiss
     let title: String
     let subtitle: String?
     let lines: [String]
@@ -252,14 +296,19 @@ private struct SrdDetailView: View {
                     Text(subtitle)
                         .font(.caption)
                         .foregroundColor(.secondary)
+                        .textSelection(.enabled)
                 }
                 if lines.isEmpty {
                     Text("No additional detail found in the SRD.")
                         .font(.callout)
                         .foregroundColor(.secondary)
                 } else {
-                    ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
-                        Text(line)
+                    let markdown = lines.joined(separator: "\n\n")
+                    if let attributed = try? AttributedString(markdown: markdown) {
+                        Text(attributed)
+                            .textSelection(.enabled)
+                    } else {
+                        Text(markdown)
                             .textSelection(.enabled)
                     }
                 }
@@ -268,5 +317,11 @@ private struct SrdDetailView: View {
             .padding(.horizontal, Spacing.medium)
         }
         .navigationTitle(title)
+        .navigationBarBackButtonHidden(true)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button("Back") { dismiss() }
+            }
+        }
     }
 }

@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import Foundation
 import WorldState
 import RPGEngine
 
@@ -218,6 +219,23 @@ private struct CharacterDetailView: View {
                 detailMap: index.classDetails,
                 mode: .replace
             )
+        case "background":
+            return SrdFieldOptions(
+                title: "Background",
+                items: index.backgrounds,
+                detailMap: index.backgroundDetails,
+                mode: .replace
+            )
+        case "subclass":
+            let className = matchedClassName(from: fieldValue(key: "class"), in: index)
+            let subclasses = className.flatMap { index.subclassesByClass[$0] } ?? index.subclasses
+            guard !subclasses.isEmpty else { return nil }
+            return SrdFieldOptions(
+                title: "Subclass",
+                items: subclasses,
+                detailMap: index.subclassDetails,
+                mode: .replace
+            )
         case "skills":
             let names = index.skills.map { $0.name }
             let details = Dictionary(uniqueKeysWithValues: index.skills.map {
@@ -244,9 +262,11 @@ private struct CharacterDetailView: View {
                 mode: .append
             )
         case "spells_known":
+            let className = matchedClassName(from: fieldValue(key: "class"), in: index)
+            let filteredSpells = className.flatMap { index.spellsByClass[$0] } ?? index.spells
             return SrdFieldOptions(
                 title: "Spells",
-                items: index.spells,
+                items: filteredSpells,
                 detailMap: index.spellDetails,
                 mode: .append
             )
@@ -263,6 +283,15 @@ private struct CharacterDetailView: View {
         default:
             return nil
         }
+    }
+
+    private func matchedClassName(from rawValue: String, in index: SrdContentIndex) -> String? {
+        let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        if let exact = index.classes.first(where: { $0.caseInsensitiveCompare(trimmed) == .orderedSame }) {
+            return exact
+        }
+        return index.classes.first(where: { $0.lowercased().contains(trimmed.lowercased()) })
     }
 }
 
@@ -429,7 +458,9 @@ private struct SrdPickerView: View {
                 }
             }
             .sheet(item: $detailSelection) { selection in
-                SrdDetailView(title: selection.title, subtitle: nil, lines: selection.lines)
+                NavigationStack {
+                    SrdDetailView(title: selection.title, subtitle: nil, lines: selection.lines)
+                }
             }
         }
     }
@@ -448,6 +479,7 @@ private struct SrdDetailSelection: Identifiable {
 }
 
 private struct SrdDetailView: View {
+    @Environment(\.dismiss) private var dismiss
     let title: String
     let subtitle: String?
     let lines: [String]
@@ -459,14 +491,19 @@ private struct SrdDetailView: View {
                     Text(subtitle)
                         .font(.caption)
                         .foregroundColor(.secondary)
+                        .textSelection(.enabled)
                 }
                 if lines.isEmpty {
                     Text("No additional detail found in the SRD.")
                         .font(.callout)
                         .foregroundColor(.secondary)
                 } else {
-                    ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
-                        Text(line)
+                    let markdown = lines.joined(separator: "\n\n")
+                    if let attributed = try? AttributedString(markdown: markdown) {
+                        Text(attributed)
+                            .textSelection(.enabled)
+                    } else {
+                        Text(markdown)
                             .textSelection(.enabled)
                     }
                 }
@@ -475,6 +512,12 @@ private struct SrdDetailView: View {
             .padding(.horizontal, Spacing.medium)
         }
         .navigationTitle(title)
+        .navigationBarBackButtonHidden(true)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button("Back") { dismiss() }
+            }
+        }
     }
 }
 
