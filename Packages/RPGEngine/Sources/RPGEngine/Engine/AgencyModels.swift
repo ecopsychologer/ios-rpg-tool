@@ -253,3 +253,30 @@ public struct NarrationPlanDraft {
     @Guide(description: "Optional rule summary line")
     public let ruleSummary: String?
 }
+
+@Generable
+public struct TableRollRequestDraft {
+    @Guide(description: "Set true if a table roll would help answer the player. False otherwise.")
+    public let shouldRoll: Bool
+
+    @Guide(description: "Table id to roll from the provided list, or null if none.")
+    public let tableId: String?
+
+    @Guide(description: "Short reason for choosing this table.")
+    public let reason: String
+}
+
+@Generable
+public struct SrdLookupRequestDraft {
+    @Guide(description: "Set true if an SRD lookup would help answer the player.")
+    public let shouldLookup: Bool
+
+    @Guide(description: "Category: class, spell, feat, item, equipment, creature, rule")
+    public let category: String
+
+    @Guide(description: "Name to look up, preferably taken from the player's text.")
+    public let name: String?
+
+    @Guide(description: "Short reason for the lookup.")
+    public let reason: String
+}

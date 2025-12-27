@@ -308,6 +308,23 @@ private struct CharacterFieldRow: View {
 
     @ViewBuilder
     private var fieldInput: some View {
+        if let srdOptions, srdOptions.mode == .replace, field.valueType == "string" {
+            let selectionBinding = Binding(
+                get: { field.valueString ?? "" },
+                set: { newValue in
+                    field.valueString = newValue
+                    field.updatedAt = Date()
+                }
+            )
+            Picker("SRD \(srdOptions.title)", selection: selectionBinding) {
+                Text("Custom").tag("")
+                ForEach(srdOptions.items, id: \.self) { item in
+                    Text(item).tag(item)
+                }
+            }
+            .pickerStyle(.menu)
+        }
+
         switch field.valueType {
         case "int":
             TextField(field.label, text: Binding(

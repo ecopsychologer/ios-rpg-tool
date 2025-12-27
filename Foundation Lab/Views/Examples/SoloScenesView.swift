@@ -3,6 +3,7 @@ import SwiftUI
 import SwiftData
 import WorldState
 import RPGEngine
+import TableEngine
 
 struct SoloScenesView: View {
     private enum ScenePhase {
@@ -56,6 +57,19 @@ struct SoloScenesView: View {
         let roll: Int?
         let target: Int?
         let outcome: String?
+    }
+
+    private struct TableRollOutcome {
+        let tableId: String
+        let result: String
+        let reason: String
+    }
+
+    private struct SrdLookupOutcome {
+        let category: String
+        let name: String
+        let lines: [String]
+        let reason: String
     }
 
     private struct PendingLocationFeature: Identifiable {
@@ -1311,12 +1325,25 @@ struct SoloScenesView: View {
                 }
 
                 if isMetaMessage(trimmed) {
+                    let tableRoll = try await resolveTableRollIfNeeded(
+                        session: session,
+                        context: context,
+                        playerText: trimmed,
+                        campaign: campaign
+                    )
+                    let srdLookup = try await resolveSrdLookupIfNeeded(
+                        session: session,
+                        context: context,
+                        playerText: trimmed
+                    )
                     let gmText = try await generateNormalGMResponse(
                         session: session,
                         context: context,
                         playerText: trimmed,
                         isMeta: true,
-                        playerInputKind: .gmCommand
+                        playerInputKind: .gmCommand,
+                        tableRoll: tableRoll,
+                        srdLookup: srdLookup
                     )
                     interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
                     sceneInput = ""
@@ -1371,12 +1398,25 @@ struct SoloScenesView: View {
                 }
 
                 if intentCategory == .gmCommand {
+                    let tableRoll = try await resolveTableRollIfNeeded(
+                        session: session,
+                        context: context,
+                        playerText: trimmed,
+                        campaign: campaign
+                    )
+                    let srdLookup = try await resolveSrdLookupIfNeeded(
+                        session: session,
+                        context: context,
+                        playerText: trimmed
+                    )
                     let gmText = try await generateNormalGMResponse(
                         session: session,
                         context: context,
                         playerText: trimmed,
                         isMeta: true,
-                        playerInputKind: .gmCommand
+                        playerInputKind: .gmCommand,
+                        tableRoll: tableRoll,
+                        srdLookup: srdLookup
                     )
                     interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
                     sceneInput = ""
@@ -1397,12 +1437,25 @@ struct SoloScenesView: View {
                     )
 
                     if fateDraft.content.isFateQuestion == false {
+                        let tableRoll = try await resolveTableRollIfNeeded(
+                            session: session,
+                            context: context,
+                            playerText: trimmed,
+                            campaign: campaign
+                        )
+                        let srdLookup = try await resolveSrdLookupIfNeeded(
+                            session: session,
+                            context: context,
+                            playerText: trimmed
+                        )
                         let gmText = try await generateNormalGMResponse(
                             session: session,
                             context: context,
                             playerText: trimmed,
                             isMeta: false,
-                            playerInputKind: .playerQuestion
+                            playerInputKind: .playerQuestion,
+                            tableRoll: tableRoll,
+                            srdLookup: srdLookup
                         )
                         interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
                         sceneInput = ""
@@ -1475,24 +1528,50 @@ struct SoloScenesView: View {
                 }
 
                 if intentCategory == .roleplayDialogue {
+                    let tableRoll = try await resolveTableRollIfNeeded(
+                        session: session,
+                        context: context,
+                        playerText: trimmed,
+                        campaign: campaign
+                    )
+                    let srdLookup = try await resolveSrdLookupIfNeeded(
+                        session: session,
+                        context: context,
+                        playerText: trimmed
+                    )
                     let gmText = try await generateNormalGMResponse(
                         session: session,
                         context: context,
                         playerText: trimmed,
                         isMeta: false,
-                        playerInputKind: .roleplayDialogue
+                        playerInputKind: .roleplayDialogue,
+                        tableRoll: tableRoll,
+                        srdLookup: srdLookup
                     )
                     interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
                     sceneInput = ""
                     return
                 }
 
+                let tableRoll = try await resolveTableRollIfNeeded(
+                    session: session,
+                    context: context,
+                    playerText: trimmed,
+                    campaign: campaign
+                )
+                let srdLookup = try await resolveSrdLookupIfNeeded(
+                    session: session,
+                    context: context,
+                    playerText: trimmed
+                )
                 let gmText = try await generateNormalGMResponse(
                     session: session,
                     context: context,
                     playerText: trimmed,
                     isMeta: false,
-                    playerInputKind: intentCategory
+                    playerInputKind: intentCategory,
+                    tableRoll: tableRoll,
+                    srdLookup: srdLookup
                 )
                 await captureLocationFeatures(from: gmText, session: session, campaign: campaign)
 
@@ -1577,6 +1656,105 @@ struct SoloScenesView: View {
 
     private func logAgency(stage: String, message: String) {
         agencyLogs.append(AgencyLogEntry(stage: stage, message: message))
+    }
+
+    private func availableTableIds() -> [String] {
+        do {
+            let pack = try ContentPackStore().loadDefaultPack()
+            return pack.tables.map { $0.id }.sorted()
+        } catch {
+            return []
+        }
+    }
+
+    private func resolveTableRollIfNeeded(
+        session: LanguageModelSession,
+        context: NarrationContextPacket,
+        playerText: String,
+        campaign: Campaign
+    ) async throws -> TableRollOutcome? {
+        let tableIds = availableTableIds()
+        guard !tableIds.isEmpty else { return nil }
+
+        let draft = try await session.respond(
+            to: Prompt(makeTableRollPrompt(playerText: playerText, context: context, tableIds: tableIds)),
+            generating: TableRollRequestDraft.self
+        )
+
+        guard draft.content.shouldRoll,
+              let tableId = draft.content.tableId,
+              tableIds.contains(tableId) else { return nil }
+
+        var tableOracle = TableOracleEngine()
+        let result = tableOracle.rollMessage(campaign: campaign, tableId: tableId, tags: ["table_oracle", tableId])
+        if let result {
+            return TableRollOutcome(tableId: tableId, result: result, reason: draft.content.reason)
+        }
+        return nil
+    }
+
+    private func resolveSrdLookupIfNeeded(
+        session: LanguageModelSession,
+        context: NarrationContextPacket,
+        playerText: String
+    ) async throws -> SrdLookupOutcome? {
+        guard let index = SrdContentStore().loadIndex() else { return nil }
+
+        let draft = try await session.respond(
+            to: Prompt(makeSrdLookupPrompt(playerText: playerText, context: context)),
+            generating: SrdLookupRequestDraft.self
+        )
+
+        guard draft.content.shouldLookup,
+              let rawName = draft.content.name?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !rawName.isEmpty else { return nil }
+
+        let category = draft.content.category.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let reason = draft.content.reason
+
+        switch category {
+        case "class":
+            guard let name = matchSrdName(rawName, in: index.classes),
+                  let lines = index.classDetails[name], !lines.isEmpty else { return nil }
+            return SrdLookupOutcome(category: "Class", name: name, lines: lines, reason: reason)
+        case "spell":
+            guard let name = matchSrdName(rawName, in: index.spells),
+                  let lines = index.spellDetails[name], !lines.isEmpty else { return nil }
+            return SrdLookupOutcome(category: "Spell", name: name, lines: lines, reason: reason)
+        case "feat":
+            guard let name = matchSrdName(rawName, in: index.feats),
+                  let lines = index.featDetails[name], !lines.isEmpty else { return nil }
+            return SrdLookupOutcome(category: "Feat", name: name, lines: lines, reason: reason)
+        case "item":
+            guard let name = matchSrdName(rawName, in: index.magicItems),
+                  let lines = index.magicItemDetails[name], !lines.isEmpty else { return nil }
+            return SrdLookupOutcome(category: "Magic Item", name: name, lines: lines, reason: reason)
+        case "equipment":
+            guard let name = matchSrdName(rawName, in: index.equipment),
+                  let lines = index.equipmentDetails[name], !lines.isEmpty else { return nil }
+            return SrdLookupOutcome(category: "Equipment", name: name, lines: lines, reason: reason)
+        case "creature", "monster":
+            guard let name = matchSrdName(rawName, in: index.creatures),
+                  let lines = index.creatureDetails[name], !lines.isEmpty else { return nil }
+            return SrdLookupOutcome(category: "Creature", name: name, lines: lines, reason: reason)
+        default:
+            return nil
+        }
+    }
+
+    private func matchSrdName(_ name: String, in candidates: [String]) -> String? {
+        let normalized = name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if normalized.isEmpty { return nil }
+        if let exact = candidates.first(where: { $0.lowercased() == normalized }) {
+            return exact
+        }
+        if let contains = candidates.first(where: { $0.lowercased().contains(normalized) }) {
+            return contains
+        }
+        if let inverse = candidates.first(where: { normalized.contains($0.lowercased()) }) {
+            return inverse
+        }
+        return nil
     }
 
     private func isMetaMessage(_ text: String) -> Bool {
@@ -2160,12 +2338,48 @@ struct SoloScenesView: View {
         """
     }
 
+    private func makeTableRollPrompt(
+        playerText: String,
+        context: NarrationContextPacket,
+        tableIds: [String]
+    ) -> String {
+        let tableList = tableIds.joined(separator: ", ")
+        return """
+        Decide if a random table roll would help answer the player.
+        Only request a roll when it directly supports the response.
+        If a roll is needed, choose one table id from the provided list.
+
+        Scene #\(context.sceneNumber)
+        Scene Type: \(context.sceneType.rawValue)
+        Player: \(playerText)
+        Available Tables: \(tableList)
+
+        Return a TableRollRequestDraft.
+        """
+    }
+
+    private func makeSrdLookupPrompt(playerText: String, context: NarrationContextPacket) -> String {
+        """
+        Decide if an SRD lookup is needed to answer the player (rules text, spell, feat, item, equipment, creature, class).
+        Only request a lookup when the player explicitly references something from the rules.
+        If a lookup is needed, provide the category and name as stated by the player.
+
+        Scene #\(context.sceneNumber)
+        Scene Type: \(context.sceneType.rawValue)
+        Player: \(playerText)
+
+        Return a SrdLookupRequestDraft.
+        """
+    }
+
     private func generateNormalGMResponse(
         session: LanguageModelSession,
         context: NarrationContextPacket,
         playerText: String,
         isMeta: Bool,
-        playerInputKind: IntentCategory? = nil
+        playerInputKind: IntentCategory? = nil,
+        tableRoll: TableRollOutcome? = nil,
+        srdLookup: SrdLookupOutcome? = nil
     ) async throws -> String {
         var prompt = """
         You are the game master in a solo RPG. Respond conversationally.
@@ -2261,6 +2475,24 @@ struct SoloScenesView: View {
 
         if !context.recentRollHighlights.isEmpty {
             prompt += "\nRecent Rolls: \(context.recentRollHighlights.joined(separator: ", "))"
+        }
+
+        if let tableRoll {
+            prompt += "\nTable Roll (\(tableRoll.tableId)): \(tableRoll.result)"
+            if !tableRoll.reason.isEmpty {
+                prompt += "\nTable Roll Reason: \(tableRoll.reason)"
+            }
+        }
+
+        if let srdLookup {
+            let detailSummary = srdLookup.lines.prefix(8).joined(separator: " ")
+            prompt += "\nSRD Reference (\(srdLookup.category)): \(srdLookup.name)"
+            if !srdLookup.reason.isEmpty {
+                prompt += "\nSRD Lookup Reason: \(srdLookup.reason)"
+            }
+            if !detailSummary.isEmpty {
+                prompt += "\nSRD Details: \(detailSummary)"
+            }
         }
 
         prompt += """

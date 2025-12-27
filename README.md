@@ -143,6 +143,24 @@ Work-in-progress task list (engine expansion):
 - **Encounters**: encounter clocks and repeatable encounter state.
 - **Campaign tools**: import/export, duplicate campaigns, and per-campaign rulesets.
 
+### SRD Mechanics Roadmap (Outline)
+This is the mechanical task list for bringing the engine up to SRD parity. The narrator should only render outcomes supplied by these systems.
+- **Ruleset ingestion**: parse SRD abilities, skills, species, classes, feats, spells, equipment, and conditions into structured models with stable IDs.
+- **Character mechanics**: proficiency bonus by level, ability modifiers, saving throws, skill proficiency, class features, and level progression.
+- **Combat system**: initiative, turn order, action economy, attack resolution, damage types, conditions, death saves, and recovery.
+- **Spellcasting**: slots/points, prepared vs known, casting time, range/area, concentration, and component requirements.
+- **Equipment & inventory**: armor/shield AC, weapon properties, damage dice, encumbrance, and item tags.
+- **Creatures/monsters**: statblock parser (AC/HP/speed/abilities/actions/traits), CR/XP, resistances/immunities, and special actions.
+- **Rest & recovery**: short/long rest rules, resource recovery, and condition clearing.
+- **Exploration & travel**: movement pace, vision/light, stealth/surprise logic, and hazards.
+- **Encounter pacing**: difficulty estimation and activity clocks tied to party size/level.
+
+Known gaps that will need dedicated tables or research:
+- **Treasure & loot**: distribution tables for mundane and magic items (including rarity bands).
+- **Shop availability**: market checks and item sourcing logic per settlement size.
+- **Downtime activities**: structured options and consequences.
+- **Environmental hazards**: regional/weather hazard tables and effects.
+
 ### Module Split Plan (Draft)
 Goal: separate engine and narrator concerns while keeping the current UI intact.
 - **WorldState**: data models + persistence helpers (Campaign, Locations, NPCs, Character sheet).

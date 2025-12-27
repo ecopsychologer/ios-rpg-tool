@@ -75,5 +75,7 @@ dist/
 __pycache__/
 *.pyc
 .Python
-/info
+info/
+testing/
 .github/copilot-instructions.md
+
