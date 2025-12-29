@@ -889,7 +889,9 @@ final class SoloSceneCoordinator: ObservableObject {
         context: NarrationContextPacket,
         playerText: String
     ) async throws -> SrdLookupOutcome? {
-        guard let index = SrdContentStore().loadIndex() else { return nil }
+        let index = RulesetCatalog.contentIndex(for: engine.ruleset.id)
+            ?? RulesetCatalog.contentIndex(for: engine.ruleset.displayName)
+        guard let index else { return nil }
 
         let draft = try await session.respond(
             to: Prompt(makeSrdLookupPrompt(playerText: playerText, context: context)),

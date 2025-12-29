@@ -53,9 +53,15 @@ public struct SrdRuleset: Ruleset, Sendable {
     public let skills: [SkillDefinition]
     public let species: [String]
     public let classes: [String]
+    public let backgrounds: [String]
+    public let subclasses: [String]
     public let feats: [String]
     public let equipment: [String]
     public let spells: [String]
+    public let magicItems: [String]
+    public let creatures: [String]
+    public let conditions: [String]
+    public let spellsByClass: [String: [String]]
     public let dcBands: [Int]
     public let contestedPairs: [(String, String)]
 
@@ -106,9 +112,15 @@ public struct SrdRuleset: Ruleset, Sendable {
 
         species = index?.species ?? []
         classes = index?.classes ?? []
+        backgrounds = index?.backgrounds ?? []
+        subclasses = index?.subclasses ?? []
         feats = index?.feats ?? []
         equipment = index?.equipment ?? []
         spells = index?.spells ?? []
+        magicItems = index?.magicItems ?? []
+        creatures = index?.creatures ?? []
+        conditions = index?.conditions ?? []
+        spellsByClass = index?.spellsByClass ?? [:]
         dcBands = [5, 10, 15, 20, 25, 30]
         contestedPairs = [
             ("Stealth", "Perception"),
@@ -146,6 +158,22 @@ public struct RulesetCatalog {
             return SrdRuleset(index: index)
         }
         return srd
+    }
+
+    public static func srdIndex() -> SrdContentIndex? {
+        SrdContentStore().loadIndex()
+    }
+
+    public static func contentIndex(for nameOrId: String?) -> SrdContentIndex? {
+        guard let nameOrId = nameOrId?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !nameOrId.isEmpty else {
+            return srdIndex()
+        }
+        if nameOrId.caseInsensitiveCompare(srd.id) == .orderedSame ||
+            nameOrId.caseInsensitiveCompare(srd.displayName) == .orderedSame {
+            return srdIndex()
+        }
+        return nil
     }
 
     public static func ruleset(for nameOrId: String?) -> any Ruleset {

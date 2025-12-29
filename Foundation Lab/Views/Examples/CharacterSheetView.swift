@@ -137,6 +137,7 @@ private struct CharacterDetailView: View {
             ensureDefaultFields()
             loadSrdIndex()
         }
+        .onChange(of: character.rulesetId) { loadSrdIndex() }
     }
 
     private var sectionNames: [String] {
@@ -198,13 +199,7 @@ private struct CharacterDetailView: View {
     }
 
     private func loadSrdIndex() {
-        let rulesetId = character.rulesetId.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard rulesetId == RulesetCatalog.srd.id.lowercased() || rulesetId == RulesetCatalog.srd.displayName.lowercased() else {
-            return
-        }
-        if srdIndex == nil {
-            srdIndex = SrdContentStore().loadIndex()
-        }
+        srdIndex = RulesetCatalog.contentIndex(for: character.rulesetId)
     }
 
     private func srdOptions(for field: CharacterField) -> SrdFieldOptions? {

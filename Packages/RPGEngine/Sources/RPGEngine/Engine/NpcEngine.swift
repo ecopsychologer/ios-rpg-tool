@@ -172,7 +172,7 @@ public struct SoloNpcEngine {
     }
 
     private func loadSrdSpecies() -> [String] {
-        guard let index = SrdContentStore().loadIndex(), !index.species.isEmpty else { return [] }
+        guard let index = RulesetCatalog.srdIndex(), !index.species.isEmpty else { return [] }
         return index.species
     }
 

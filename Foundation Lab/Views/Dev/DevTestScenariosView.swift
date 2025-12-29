@@ -1353,7 +1353,7 @@ struct DevTestScenariosView: View {
             loaded.append(scenario)
         }
         if loaded.isEmpty {
-            loaded = [defaultSmokeScenario()]
+            loaded = [defaultSmokeScenario(), defaultThoroughScenario()]
         }
         scenarios = loaded.sorted { $0.title < $1.title }
     }
@@ -1385,6 +1385,39 @@ struct DevTestScenariosView: View {
                 .endScene(summary: "", pcsInControl: false, concluded: false),
                 .startScene(expected: "A service door stands ajar beside a humming generator."),
                 .playerInput(text: "I head through the adjoining doorway."),
+                .endScene(summary: "", pcsInControl: true, concluded: false)
+            ]
+        )
+    }
+
+    private func defaultThoroughScenario() -> DevTestScenario {
+        DevTestScenario(
+            id: "thorough_test",
+            title: "Thorough Dev Test",
+            actions: [
+                .createCampaign(name: "Dev Thorough Test"),
+                .setPartySize(1),
+                .setWorldLore(title: "Windward Expanse", description: "Rolling plains, lonely roads, and ruins half-swallowed by grass."),
+                .createCharacter(
+                    name: "Hazel Woods",
+                    level: 1,
+                    abilities: DevAbilities(strength: 9, dexterity: 14, constitution: 15, intelligence: 16, wisdom: 13, charisma: 17),
+                    proficiencies: ["Investigation", "Perception", "Survival"]
+                ),
+                .moveToLocation(label: "Roadside Camp"),
+                .startScene(expected: "Traveling the road at dusk, the party keeps an eye out for trouble."),
+                .playerInput(text: "We travel the road for the next few hours."),
+                .playerInput(text: "Do we encounter anyone on the road?"),
+                .playerInput(text: "I check the path for hazards or traps."),
+                .playerInput(text: "Natural 15."),
+                .endScene(summary: "", pcsInControl: true, concluded: false),
+                .startScene(expected: "A small ruin appears off the path."),
+                .playerInput(text: "I search the ruin for anything unusual."),
+                .playerInput(text: "Natural 10."),
+                .playerInput(text: "GM, is there a hidden door here?"),
+                .endScene(summary: "", pcsInControl: false, concluded: false),
+                .startScene(expected: "The night grows colder as you make camp."),
+                .playerInput(text: "We make camp and keep watch."),
                 .endScene(summary: "", pcsInControl: true, concluded: false)
             ]
         )

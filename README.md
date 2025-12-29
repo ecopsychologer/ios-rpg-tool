@@ -98,6 +98,7 @@ This repo includes a solo roleplaying system built on top of the on-device model
 Current stage: persistent locations, scene chat loop, skill checks, and content pack tables are live. Movement intent parsing is active (with exit label matching). NPCs, world lore, and character sheets are implemented as separate modules. Markdown table import (paste or file) is now available in Tables (log-only actions by default). Location navigation now exposes exits for deterministic traversal and reuse, and narrator context includes current exits.
 Dev tooling: optional DEV_FIXTURES build flag adds a developer test runner with scripted scenarios and a quick smoke test. A local-only supplemental rules data loader can merge extra data at build time when enabled (not included in release builds).
 SRD integration: structured item and creature records are parsed for engine use (equipment/magic items and monsters/creatures) and surfaced in SRD detail views and inventory pickers.
+Content tables: travel/exploration/encounter tables are now bundled in `rpg_tables.json` for TableEngine use.
 
 Work-in-progress task list (engine expansion):
 - **Architecture**: define module boundaries (engine, narrator, world state, tables) and plan a Swift package split without breaking current UI.
@@ -111,6 +112,10 @@ Work-in-progress task list (engine expansion):
 - **Skill checks**: contested checks, passive checks, and check-to-oracle modifiers.
 - **Encounters**: encounter clocks and repeatable encounter state.
 - **Campaign tools**: import/export, duplicate campaigns, and per-campaign rulesets.
+- **Queued**: encounter pacing integration (SRD guidance + engine hooks).
+- **Queued**: exploration and travel integration (SRD guidance + engine hooks).
+- **Queued**: complete ruleset integration.
+- **Queued**: character mechanics implementation (proficiency, saves, skills, level progression).
 
 ### SRD Mechanics Roadmap (Outline)
 This is the mechanical task list for bringing the engine up to SRD parity. The narrator should only render outcomes supplied by these systems.

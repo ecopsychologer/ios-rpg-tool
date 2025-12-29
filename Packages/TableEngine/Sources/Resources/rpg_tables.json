@@ -4,549 +4,3861 @@
       "name": "scene_type",
       "dice": "d20",
       "entries": [
-        {"range": [1,1], "result": "Introduction – meet the situation and set expectations."},
-        {"range": [2,2], "result": "Discovery – the party uncovers a clue, secret or resource."},
-        {"range": [3,3], "result": "Travel – movement between locations with potential events."},
-        {"range": [4,4], "result": "Conflict – confrontation with an obstacle, foe or dilemma."},
-        {"range": [5,5], "result": "Reveal – something hidden becomes known and shifts the story."},
-        {"range": [6,6], "result": "Interlude – downtime, rest or light social interaction."},
-        {"range": [7,7], "result": "Decision – the party makes a consequential choice."},
-        {"range": [8,8], "result": "Complication – an unexpected twist complicates the current plan."},
-        {"range": [9,9], "result": "Chase – pursue or be pursued through challenging terrain."},
-        {"range": [10,10], "result": "Negotiation – bargaining, diplomacy or persuasion is central."},
-        {"range": [11,11], "result": "Investigation – gather information, examine evidence and deduce."},
-        {"range": [12,12], "result": "Puzzle – solve a riddle, code or mechanical device."},
-        {"range": [13,13], "result": "Exploration – map unknown areas and catalogue features."},
-        {"range": [14,14], "result": "Contest – compete in a game, duel or skill challenge."},
-        {"range": [15,15], "result": "Boon – receive aid, treasure or a helpful contact."},
-        {"range": [16,16], "result": "Bane – suffer setback, injury or loss."},
-        {"range": [17,17], "result": "Transformation – character arc or location undergoes change."},
-        {"range": [18,18], "result": "Flashback – revisit a past event to inform current events."},
-        {"range": [19,19], "result": "Foreshadowing – hint at future events or threats."},
-        {"range": [20,20], "result": "Resolution – wrap up a thread, resolve conflict or close a chapter."}
+        {
+          "range": [
+            1,
+            1
+          ],
+          "result": "Introduction – meet the situation and set expectations."
+        },
+        {
+          "range": [
+            2,
+            2
+          ],
+          "result": "Discovery – the party uncovers a clue, secret or resource."
+        },
+        {
+          "range": [
+            3,
+            3
+          ],
+          "result": "Travel – movement between locations with potential events."
+        },
+        {
+          "range": [
+            4,
+            4
+          ],
+          "result": "Conflict – confrontation with an obstacle, foe or dilemma."
+        },
+        {
+          "range": [
+            5,
+            5
+          ],
+          "result": "Reveal – something hidden becomes known and shifts the story."
+        },
+        {
+          "range": [
+            6,
+            6
+          ],
+          "result": "Interlude – downtime, rest or light social interaction."
+        },
+        {
+          "range": [
+            7,
+            7
+          ],
+          "result": "Decision – the party makes a consequential choice."
+        },
+        {
+          "range": [
+            8,
+            8
+          ],
+          "result": "Complication – an unexpected twist complicates the current plan."
+        },
+        {
+          "range": [
+            9,
+            9
+          ],
+          "result": "Chase – pursue or be pursued through challenging terrain."
+        },
+        {
+          "range": [
+            10,
+            10
+          ],
+          "result": "Negotiation – bargaining, diplomacy or persuasion is central."
+        },
+        {
+          "range": [
+            11,
+            11
+          ],
+          "result": "Investigation – gather information, examine evidence and deduce."
+        },
+        {
+          "range": [
+            12,
+            12
+          ],
+          "result": "Puzzle – solve a riddle, code or mechanical device."
+        },
+        {
+          "range": [
+            13,
+            13
+          ],
+          "result": "Exploration – map unknown areas and catalogue features."
+        },
+        {
+          "range": [
+            14,
+            14
+          ],
+          "result": "Contest – compete in a game, duel or skill challenge."
+        },
+        {
+          "range": [
+            15,
+            15
+          ],
+          "result": "Boon – receive aid, treasure or a helpful contact."
+        },
+        {
+          "range": [
+            16,
+            16
+          ],
+          "result": "Bane – suffer setback, injury or loss."
+        },
+        {
+          "range": [
+            17,
+            17
+          ],
+          "result": "Transformation – character arc or location undergoes change."
+        },
+        {
+          "range": [
+            18,
+            18
+          ],
+          "result": "Flashback – revisit a past event to inform current events."
+        },
+        {
+          "range": [
+            19,
+            19
+          ],
+          "result": "Foreshadowing – hint at future events or threats."
+        },
+        {
+          "range": [
+            20,
+            20
+          ],
+          "result": "Resolution – wrap up a thread, resolve conflict or close a chapter."
+        }
       ]
     },
     {
       "name": "scene_focus",
       "dice": "d12",
       "entries": [
-        {"range": [1,1], "result": "An NPC takes the spotlight."},
-        {"range": [2,2], "result": "A story thread advances or intersects."},
-        {"range": [3,3], "result": "A member of the party confronts a personal issue."},
-        {"range": [4,4], "result": "A location feature becomes important."},
-        {"range": [5,5], "result": "Resources (money, supplies) determine the scene."},
-        {"range": [6,6], "result": "The environment (weather or terrain) shapes events."},
-        {"range": [7,7], "result": "An internal moral dilemma drives the narrative."},
-        {"range": [8,8], "result": "A rumor or clue takes centre stage."},
-        {"range": [9,9], "result": "A faction or organization acts against you."},
-        {"range": [10,10], "result": "A supernatural or mystical force interferes."},
-        {"range": [11,11], "result": "An unresolved past action resurfaces."},
-        {"range": [12,12], "result": "An ally requests aid or offers guidance."}
+        {
+          "range": [
+            1,
+            1
+          ],
+          "result": "An NPC takes the spotlight."
+        },
+        {
+          "range": [
+            2,
+            2
+          ],
+          "result": "A story thread advances or intersects."
+        },
+        {
+          "range": [
+            3,
+            3
+          ],
+          "result": "A member of the party confronts a personal issue."
+        },
+        {
+          "range": [
+            4,
+            4
+          ],
+          "result": "A location feature becomes important."
+        },
+        {
+          "range": [
+            5,
+            5
+          ],
+          "result": "Resources (money, supplies) determine the scene."
+        },
+        {
+          "range": [
+            6,
+            6
+          ],
+          "result": "The environment (weather or terrain) shapes events."
+        },
+        {
+          "range": [
+            7,
+            7
+          ],
+          "result": "An internal moral dilemma drives the narrative."
+        },
+        {
+          "range": [
+            8,
+            8
+          ],
+          "result": "A rumor or clue takes centre stage."
+        },
+        {
+          "range": [
+            9,
+            9
+          ],
+          "result": "A faction or organization acts against you."
+        },
+        {
+          "range": [
+            10,
+            10
+          ],
+          "result": "A supernatural or mystical force interferes."
+        },
+        {
+          "range": [
+            11,
+            11
+          ],
+          "result": "An unresolved past action resurfaces."
+        },
+        {
+          "range": [
+            12,
+            12
+          ],
+          "result": "An ally requests aid or offers guidance."
+        }
       ]
     },
     {
       "name": "npc_archetype",
       "dice": "d20",
       "entries": [
-        {"range": [1,1], "result": "Humble farmer"},
-        {"range": [2,2], "result": "Curious scholar"},
-        {"range": [3,3], "result": "Stoic guard"},
-        {"range": [4,4], "result": "Cunning thief"},
-        {"range": [5,5], "result": "Charming merchant"},
-        {"range": [6,6], "result": "Secretive noble"},
-        {"range": [7,7], "result": "Traveling minstrel"},
-        {"range": [8,8], "result": "Streetwise orphan"},
-        {"range": [9,9], "result": "Gruff blacksmith"},
-        {"range": [10,10], "result": "Eccentric alchemist"},
-        {"range": [11,11], "result": "Mysterious wanderer"},
-        {"range": [12,12], "result": "Ambitious magistrate"},
-        {"range": [13,13], "result": "Reverent cleric"},
-        {"range": [14,14], "result": "Bold captain"},
-        {"range": [15,15], "result": "Jovial barkeep"},
-        {"range": [16,16], "result": "Reclusive hermit"},
-        {"range": [17,17], "result": "Fanatical cultist"},
-        {"range": [18,18], "result": "Fickle noble heir"},
-        {"range": [19,19], "result": "Weary veteran"},
-        {"range": [20,20], "result": "Obsessive inventor"}
+        {
+          "range": [
+            1,
+            1
+          ],
+          "result": "Humble farmer"
+        },
+        {
+          "range": [
+            2,
+            2
+          ],
+          "result": "Curious scholar"
+        },
+        {
+          "range": [
+            3,
+            3
+          ],
+          "result": "Stoic guard"
+        },
+        {
+          "range": [
+            4,
+            4
+          ],
+          "result": "Cunning thief"
+        },
+        {
+          "range": [
+            5,
+            5
+          ],
+          "result": "Charming merchant"
+        },
+        {
+          "range": [
+            6,
+            6
+          ],
+          "result": "Secretive noble"
+        },
+        {
+          "range": [
+            7,
+            7
+          ],
+          "result": "Traveling minstrel"
+        },
+        {
+          "range": [
+            8,
+            8
+          ],
+          "result": "Streetwise orphan"
+        },
+        {
+          "range": [
+            9,
+            9
+          ],
+          "result": "Gruff blacksmith"
+        },
+        {
+          "range": [
+            10,
+            10
+          ],
+          "result": "Eccentric alchemist"
+        },
+        {
+          "range": [
+            11,
+            11
+          ],
+          "result": "Mysterious wanderer"
+        },
+        {
+          "range": [
+            12,
+            12
+          ],
+          "result": "Ambitious magistrate"
+        },
+        {
+          "range": [
+            13,
+            13
+          ],
+          "result": "Reverent cleric"
+        },
+        {
+          "range": [
+            14,
+            14
+          ],
+          "result": "Bold captain"
+        },
+        {
+          "range": [
+            15,
+            15
+          ],
+          "result": "Jovial barkeep"
+        },
+        {
+          "range": [
+            16,
+            16
+          ],
+          "result": "Reclusive hermit"
+        },
+        {
+          "range": [
+            17,
+            17
+          ],
+          "result": "Fanatical cultist"
+        },
+        {
+          "range": [
+            18,
+            18
+          ],
+          "result": "Fickle noble heir"
+        },
+        {
+          "range": [
+            19,
+            19
+          ],
+          "result": "Weary veteran"
+        },
+        {
+          "range": [
+            20,
+            20
+          ],
+          "result": "Obsessive inventor"
+        }
       ]
     },
     {
       "name": "npc_goal",
       "dice": "d20",
       "entries": [
-        {"range": [1,1], "result": "Seek revenge for a past wrong."},
-        {"range": [2,2], "result": "Find a lost loved one."},
-        {"range": [3,3], "result": "Uncover forbidden knowledge."},
-        {"range": [4,4], "result": "Earn enough coin for a noble cause."},
-        {"range": [5,5], "result": "Protect their community from harm."},
-        {"range": [6,6], "result": "Escape an arranged obligation."},
-        {"range": [7,7], "result": "Prove themselves worthy of a title."},
-        {"range": [8,8], "result": "Solve a baffling mystery."},
-        {"range": [9,9], "result": "Avenge an insult to their honor."},
-        {"range": [10,10], "result": "Build a lasting legacy."},
-        {"range": [11,11], "result": "Restore a family heirloom."},
-        {"range": [12,12], "result": "Expose corruption in high places."},
-        {"range": [13,13], "result": "Escape from criminal ties."},
-        {"range": [14,14], "result": "Protect a dangerous secret."},
-        {"range": [15,15], "result": "Win the heart of another."},
-        {"range": [16,16], "result": "Rid the land of a monstrous threat."},
-        {"range": [17,17], "result": "Acquire rare ingredients for a ritual."},
-        {"range": [18,18], "result": "Obtain power through political maneuvering."},
-        {"range": [19,19], "result": "Gain freedom from a curse."},
-        {"range": [20,20], "result": "Travel to see the world’s wonders."}
+        {
+          "range": [
+            1,
+            1
+          ],
+          "result": "Seek revenge for a past wrong."
+        },
+        {
+          "range": [
+            2,
+            2
+          ],
+          "result": "Find a lost loved one."
+        },
+        {
+          "range": [
+            3,
+            3
+          ],
+          "result": "Uncover forbidden knowledge."
+        },
+        {
+          "range": [
+            4,
+            4
+          ],
+          "result": "Earn enough coin for a noble cause."
+        },
+        {
+          "range": [
+            5,
+            5
+          ],
+          "result": "Protect their community from harm."
+        },
+        {
+          "range": [
+            6,
+            6
+          ],
+          "result": "Escape an arranged obligation."
+        },
+        {
+          "range": [
+            7,
+            7
+          ],
+          "result": "Prove themselves worthy of a title."
+        },
+        {
+          "range": [
+            8,
+            8
+          ],
+          "result": "Solve a baffling mystery."
+        },
+        {
+          "range": [
+            9,
+            9
+          ],
+          "result": "Avenge an insult to their honor."
+        },
+        {
+          "range": [
+            10,
+            10
+          ],
+          "result": "Build a lasting legacy."
+        },
+        {
+          "range": [
+            11,
+            11
+          ],
+          "result": "Restore a family heirloom."
+        },
+        {
+          "range": [
+            12,
+            12
+          ],
+          "result": "Expose corruption in high places."
+        },
+        {
+          "range": [
+            13,
+            13
+          ],
+          "result": "Escape from criminal ties."
+        },
+        {
+          "range": [
+            14,
+            14
+          ],
+          "result": "Protect a dangerous secret."
+        },
+        {
+          "range": [
+            15,
+            15
+          ],
+          "result": "Win the heart of another."
+        },
+        {
+          "range": [
+            16,
+            16
+          ],
+          "result": "Rid the land of a monstrous threat."
+        },
+        {
+          "range": [
+            17,
+            17
+          ],
+          "result": "Acquire rare ingredients for a ritual."
+        },
+        {
+          "range": [
+            18,
+            18
+          ],
+          "result": "Obtain power through political maneuvering."
+        },
+        {
+          "range": [
+            19,
+            19
+          ],
+          "result": "Gain freedom from a curse."
+        },
+        {
+          "range": [
+            20,
+            20
+          ],
+          "result": "Travel to see the world’s wonders."
+        }
       ]
     },
     {
       "name": "npc_personality",
       "dice": "d20",
       "entries": [
-        {"range": [1,1], "result": "Brave but reckless."},
-        {"range": [2,2], "result": "Kind yet secretive."},
-        {"range": [3,3], "result": "Greedy yet loyal to friends."},
-        {"range": [4,4], "result": "Stoic but humorous in private."},
-        {"range": [5,5], "result": "Suspicious of authority."},
-        {"range": [6,6], "result": "Idealistic and naive."},
-        {"range": [7,7], "result": "Cynical but protective."},
-        {"range": [8,8], "result": "Flirtatious and daring."},
-        {"range": [9,9], "result": "Strictly honorable."},
-        {"range": [10,10], "result": "Lazy but brilliant."},
-        {"range": [11,11], "result": "Melancholic dreamer."},
-        {"range": [12,12], "result": "Pragmatic negotiator."},
-        {"range": [13,13], "result": "Gentle but paranoid."},
-        {"range": [14,14], "result": "Ruthlessly ambitious."},
-        {"range": [15,15], "result": "Relentlessly optimistic."},
-        {"range": [16,16], "result": "Brooding philosopher."},
-        {"range": [17,17], "result": "Nervous but inventive."},
-        {"range": [18,18], "result": "Judgmental perfectionist."},
-        {"range": [19,19], "result": "Patient strategist."},
-        {"range": [20,20], "result": "Unpredictably whimsical."}
+        {
+          "range": [
+            1,
+            1
+          ],
+          "result": "Brave but reckless."
+        },
+        {
+          "range": [
+            2,
+            2
+          ],
+          "result": "Kind yet secretive."
+        },
+        {
+          "range": [
+            3,
+            3
+          ],
+          "result": "Greedy yet loyal to friends."
+        },
+        {
+          "range": [
+            4,
+            4
+          ],
+          "result": "Stoic but humorous in private."
+        },
+        {
+          "range": [
+            5,
+            5
+          ],
+          "result": "Suspicious of authority."
+        },
+        {
+          "range": [
+            6,
+            6
+          ],
+          "result": "Idealistic and naive."
+        },
+        {
+          "range": [
+            7,
+            7
+          ],
+          "result": "Cynical but protective."
+        },
+        {
+          "range": [
+            8,
+            8
+          ],
+          "result": "Flirtatious and daring."
+        },
+        {
+          "range": [
+            9,
+            9
+          ],
+          "result": "Strictly honorable."
+        },
+        {
+          "range": [
+            10,
+            10
+          ],
+          "result": "Lazy but brilliant."
+        },
+        {
+          "range": [
+            11,
+            11
+          ],
+          "result": "Melancholic dreamer."
+        },
+        {
+          "range": [
+            12,
+            12
+          ],
+          "result": "Pragmatic negotiator."
+        },
+        {
+          "range": [
+            13,
+            13
+          ],
+          "result": "Gentle but paranoid."
+        },
+        {
+          "range": [
+            14,
+            14
+          ],
+          "result": "Ruthlessly ambitious."
+        },
+        {
+          "range": [
+            15,
+            15
+          ],
+          "result": "Relentlessly optimistic."
+        },
+        {
+          "range": [
+            16,
+            16
+          ],
+          "result": "Brooding philosopher."
+        },
+        {
+          "range": [
+            17,
+            17
+          ],
+          "result": "Nervous but inventive."
+        },
+        {
+          "range": [
+            18,
+            18
+          ],
+          "result": "Judgmental perfectionist."
+        },
+        {
+          "range": [
+            19,
+            19
+          ],
+          "result": "Patient strategist."
+        },
+        {
+          "range": [
+            20,
+            20
+          ],
+          "result": "Unpredictably whimsical."
+        }
       ]
     },
     {
       "name": "story_thread",
       "dice": "d20",
       "entries": [
-        {"range": [1,1], "result": "An ancient cult plans to awaken a dormant god."},
-        {"range": [2,2], "result": "A noble family hides a shameful secret."},
-        {"range": [3,3], "result": "A plague threatens to overwhelm the realm."},
-        {"range": [4,4], "result": "Bandits undermine trade and are protected by a powerful patron."},
-        {"range": [5,5], "result": "A magical artifact warps reality around it."},
-        {"range": [6,6], "result": "A war between rival guilds destabilizes the city."},
-        {"range": [7,7], "result": "A prophecy hints at the party’s pivotal role."},
-        {"range": [8,8], "result": "A disappearance shakes trust in the leadership."},
-        {"range": [9,9], "result": "The land is failing due to a blight of unknown origin."},
-        {"range": [10,10], "result": "An usurper gathers allies to seize the throne."},
-        {"range": [11,11], "result": "A portal to another realm begins to open."},
-        {"range": [12,12], "result": "A long-lost heir returns under false pretenses."},
-        {"range": [13,13], "result": "A natural disaster is imminent and preventable."},
-        {"range": [14,14], "result": "A revolution brews among the oppressed."},
-        {"range": [15,15], "result": "An explorer seeks funding for a dangerous journey."},
-        {"range": [16,16], "result": "A legendary creature hunts in populated lands."},
-        {"range": [17,17], "result": "An invented drug changes its users in mysterious ways."},
-        {"range": [18,18], "result": "A hidden vault holds the answer to a recurring dream."},
-        {"range": [19,19], "result": "A judge of the dead demands restitution for past sins."},
-        {"range": [20,20], "result": "A school of magic is torn by ideological schism."}
+        {
+          "range": [
+            1,
+            1
+          ],
+          "result": "An ancient cult plans to awaken a dormant god."
+        },
+        {
+          "range": [
+            2,
+            2
+          ],
+          "result": "A noble family hides a shameful secret."
+        },
+        {
+          "range": [
+            3,
+            3
+          ],
+          "result": "A plague threatens to overwhelm the realm."
+        },
+        {
+          "range": [
+            4,
+            4
+          ],
+          "result": "Bandits undermine trade and are protected by a powerful patron."
+        },
+        {
+          "range": [
+            5,
+            5
+          ],
+          "result": "A magical artifact warps reality around it."
+        },
+        {
+          "range": [
+            6,
+            6
+          ],
+          "result": "A war between rival guilds destabilizes the city."
+        },
+        {
+          "range": [
+            7,
+            7
+          ],
+          "result": "A prophecy hints at the party’s pivotal role."
+        },
+        {
+          "range": [
+            8,
+            8
+          ],
+          "result": "A disappearance shakes trust in the leadership."
+        },
+        {
+          "range": [
+            9,
+            9
+          ],
+          "result": "The land is failing due to a blight of unknown origin."
+        },
+        {
+          "range": [
+            10,
+            10
+          ],
+          "result": "An usurper gathers allies to seize the throne."
+        },
+        {
+          "range": [
+            11,
+            11
+          ],
+          "result": "A portal to another realm begins to open."
+        },
+        {
+          "range": [
+            12,
+            12
+          ],
+          "result": "A long-lost heir returns under false pretenses."
+        },
+        {
+          "range": [
+            13,
+            13
+          ],
+          "result": "A natural disaster is imminent and preventable."
+        },
+        {
+          "range": [
+            14,
+            14
+          ],
+          "result": "A revolution brews among the oppressed."
+        },
+        {
+          "range": [
+            15,
+            15
+          ],
+          "result": "An explorer seeks funding for a dangerous journey."
+        },
+        {
+          "range": [
+            16,
+            16
+          ],
+          "result": "A legendary creature hunts in populated lands."
+        },
+        {
+          "range": [
+            17,
+            17
+          ],
+          "result": "An invented drug changes its users in mysterious ways."
+        },
+        {
+          "range": [
+            18,
+            18
+          ],
+          "result": "A hidden vault holds the answer to a recurring dream."
+        },
+        {
+          "range": [
+            19,
+            19
+          ],
+          "result": "A judge of the dead demands restitution for past sins."
+        },
+        {
+          "range": [
+            20,
+            20
+          ],
+          "result": "A school of magic is torn by ideological schism."
+        }
       ]
     },
     {
       "name": "location_seed",
       "dice": "d30",
       "entries": [
-        {"range": [1,1], "result": "Verdant grove dotted with luminous mushrooms."},
-        {"range": [2,2], "result": "Crumbled castle overgrown with thorny vines."},
-        {"range": [3,3], "result": "Busy market square filled with smells and noise."},
-        {"range": [4,4], "result": "Secluded mountain monastery carved into stone."},
-        {"range": [5,5], "result": "Sunken temple submerged beneath a lake."},
-        {"range": [6,6], "result": "Abandoned mine shaft echoing with whispers."},
-        {"range": [7,7], "result": "Remote coastal village with weathered docks."},
-        {"range": [8,8], "result": "Ancient library buried under desert sands."},
-        {"range": [9,9], "result": "Frozen wasteland with jagged ice spires."},
-        {"range": [10,10], "result": "Dense jungle teeming with unseen life."},
-        {"range": [11,11], "result": "Underground cavern glittering with crystals."},
-        {"range": [12,12], "result": "Towering city of spiraling towers and bridges."},
-        {"range": [13,13], "result": "Ruinous battlefield strewn with rusted arms."},
-        {"range": [14,14], "result": "Sacred grove guarded by stone statues."},
-        {"range": [15,15], "result": "Isolated island surrounded by jagged reefs."},
-        {"range": [16,16], "result": "Underground lake with phosphorescent algae."},
-        {"range": [17,17], "result": "Misty moor dotted with standing stones."},
-        {"range": [18,18], "result": "Hollowed-out giant tree forming a dwelling."},
-        {"range": [19,19], "result": "Spectral graveyard where spirits linger."},
-        {"range": [20,20], "result": "Cliffside fortress accessible via narrow path."},
-        {"range": [21,21], "result": "Bustling port city alive with commerce."},
-        {"range": [22,22], "result": "Hidden valley filled with exotic fauna."},
-        {"range": [23,23], "result": "Ancient aqueduct crossing arid plains."},
-        {"range": [24,24], "result": "Festival fairground vibrant with color."},
-        {"range": [25,25], "result": "Clockwork workshop humming with gears."},
-        {"range": [26,26], "result": "Forgotten shrine covered in moss."},
-        {"range": [27,27], "result": "Snow-capped peak with precarious ledges."},
-        {"range": [28,28], "result": "Basalt cave warmed by subterranean magma."},
-        {"range": [29,29], "result": "Serene monastery floating on clouds."},
-        {"range": [30,30], "result": "Marketplace filled with exotic spices and traders."}
+        {
+          "range": [
+            1,
+            1
+          ],
+          "result": "Verdant grove dotted with luminous mushrooms."
+        },
+        {
+          "range": [
+            2,
+            2
+          ],
+          "result": "Crumbled castle overgrown with thorny vines."
+        },
+        {
+          "range": [
+            3,
+            3
+          ],
+          "result": "Busy market square filled with smells and noise."
+        },
+        {
+          "range": [
+            4,
+            4
+          ],
+          "result": "Secluded mountain monastery carved into stone."
+        },
+        {
+          "range": [
+            5,
+            5
+          ],
+          "result": "Sunken temple submerged beneath a lake."
+        },
+        {
+          "range": [
+            6,
+            6
+          ],
+          "result": "Abandoned mine shaft echoing with whispers."
+        },
+        {
+          "range": [
+            7,
+            7
+          ],
+          "result": "Remote coastal village with weathered docks."
+        },
+        {
+          "range": [
+            8,
+            8
+          ],
+          "result": "Ancient library buried under desert sands."
+        },
+        {
+          "range": [
+            9,
+            9
+          ],
+          "result": "Frozen wasteland with jagged ice spires."
+        },
+        {
+          "range": [
+            10,
+            10
+          ],
+          "result": "Dense jungle teeming with unseen life."
+        },
+        {
+          "range": [
+            11,
+            11
+          ],
+          "result": "Underground cavern glittering with crystals."
+        },
+        {
+          "range": [
+            12,
+            12
+          ],
+          "result": "Towering city of spiraling towers and bridges."
+        },
+        {
+          "range": [
+            13,
+            13
+          ],
+          "result": "Ruinous battlefield strewn with rusted arms."
+        },
+        {
+          "range": [
+            14,
+            14
+          ],
+          "result": "Sacred grove guarded by stone statues."
+        },
+        {
+          "range": [
+            15,
+            15
+          ],
+          "result": "Isolated island surrounded by jagged reefs."
+        },
+        {
+          "range": [
+            16,
+            16
+          ],
+          "result": "Underground lake with phosphorescent algae."
+        },
+        {
+          "range": [
+            17,
+            17
+          ],
+          "result": "Misty moor dotted with standing stones."
+        },
+        {
+          "range": [
+            18,
+            18
+          ],
+          "result": "Hollowed-out giant tree forming a dwelling."
+        },
+        {
+          "range": [
+            19,
+            19
+          ],
+          "result": "Spectral graveyard where spirits linger."
+        },
+        {
+          "range": [
+            20,
+            20
+          ],
+          "result": "Cliffside fortress accessible via narrow path."
+        },
+        {
+          "range": [
+            21,
+            21
+          ],
+          "result": "Bustling port city alive with commerce."
+        },
+        {
+          "range": [
+            22,
+            22
+          ],
+          "result": "Hidden valley filled with exotic fauna."
+        },
+        {
+          "range": [
+            23,
+            23
+          ],
+          "result": "Ancient aqueduct crossing arid plains."
+        },
+        {
+          "range": [
+            24,
+            24
+          ],
+          "result": "Festival fairground vibrant with color."
+        },
+        {
+          "range": [
+            25,
+            25
+          ],
+          "result": "Clockwork workshop humming with gears."
+        },
+        {
+          "range": [
+            26,
+            26
+          ],
+          "result": "Forgotten shrine covered in moss."
+        },
+        {
+          "range": [
+            27,
+            27
+          ],
+          "result": "Snow-capped peak with precarious ledges."
+        },
+        {
+          "range": [
+            28,
+            28
+          ],
+          "result": "Basalt cave warmed by subterranean magma."
+        },
+        {
+          "range": [
+            29,
+            29
+          ],
+          "result": "Serene monastery floating on clouds."
+        },
+        {
+          "range": [
+            30,
+            30
+          ],
+          "result": "Marketplace filled with exotic spices and traders."
+        }
       ]
     },
     {
       "name": "exit_label",
       "dice": "d10",
       "entries": [
-        {"range": [1,1], "result": "Narrow tunnel leading north."},
-        {"range": [2,2], "result": "Steep stairway descending into darkness."},
-        {"range": [3,3], "result": "Winding corridor lined with carved reliefs."},
-        {"range": [4,4], "result": "Broken archway opening west."},
-        {"range": [5,5], "result": "Heavy wooden door bound in iron."},
-        {"range": [6,6], "result": "Rope bridge suspended over a chasm."},
-        {"range": [7,7], "result": "Moss-covered path heading south."},
-        {"range": [8,8], "result": "Hidden trapdoor concealed by rubble."},
-        {"range": [9,9], "result": "Glowing portal swirling with light."},
-        {"range": [10,10], "result": "Ladder leading up through a narrow shaft."}
+        {
+          "range": [
+            1,
+            1
+          ],
+          "result": "Narrow tunnel leading north."
+        },
+        {
+          "range": [
+            2,
+            2
+          ],
+          "result": "Steep stairway descending into darkness."
+        },
+        {
+          "range": [
+            3,
+            3
+          ],
+          "result": "Winding corridor lined with carved reliefs."
+        },
+        {
+          "range": [
+            4,
+            4
+          ],
+          "result": "Broken archway opening west."
+        },
+        {
+          "range": [
+            5,
+            5
+          ],
+          "result": "Heavy wooden door bound in iron."
+        },
+        {
+          "range": [
+            6,
+            6
+          ],
+          "result": "Rope bridge suspended over a chasm."
+        },
+        {
+          "range": [
+            7,
+            7
+          ],
+          "result": "Moss-covered path heading south."
+        },
+        {
+          "range": [
+            8,
+            8
+          ],
+          "result": "Hidden trapdoor concealed by rubble."
+        },
+        {
+          "range": [
+            9,
+            9
+          ],
+          "result": "Glowing portal swirling with light."
+        },
+        {
+          "range": [
+            10,
+            10
+          ],
+          "result": "Ladder leading up through a narrow shaft."
+        }
       ]
     },
     {
       "name": "trap",
       "dice": "d20",
       "entries": [
-        {"range": [1,1], "result": "Pressure plate triggers darts from the walls."},
-        {"range": [2,2], "result": "Tripwire releases a swinging log."},
-        {"range": [3,3], "result": "Hidden pit covered by brittle leaves."},
-        {"range": [4,4], "result": "Poison gas fills the room when a chest is opened."},
-        {"range": [5,5], "result": "Illusory floor hides a drop into spikes."},
-        {"range": [6,6], "result": "Snare rope pulls the victim into the air."},
-        {"range": [7,7], "result": "Magic glyph triggers a stunning flash."},
-        {"range": [8,8], "result": "Falling block triggered by weight."},
-        {"range": [9,9], "result": "Wall sections close to crush intruders."},
-        {"range": [10,10], "result": "Sticky web entangles and holds fast."},
-        {"range": [11,11], "result": "Collapsing stairs send you sliding into danger."},
-        {"range": [12,12], "result": "Rune triggers a sleep-inducing mist."},
-        {"range": [13,13], "result": "Floor tile tilts into a water-filled shaft."},
-        {"range": [14,14], "result": "Magnetic trap pulls away metal gear."},
-        {"range": [15,15], "result": "Hidden spear thrusts from the wall."},
-        {"range": [16,16], "result": "Cursed object binds the toucher to the spot."},
-        {"range": [17,17], "result": "Swarm of insects released from the ceiling."},
-        {"range": [18,18], "result": "Time-delayed explosion triggered by sound."},
-        {"range": [19,19], "result": "Mirrored hall confuses direction and leads to loops."},
-        {"range": [20,20], "result": "Teleportation trap sends you to a random location."}
+        {
+          "range": [
+            1,
+            1
+          ],
+          "result": "Pressure plate triggers darts from the walls."
+        },
+        {
+          "range": [
+            2,
+            2
+          ],
+          "result": "Tripwire releases a swinging log."
+        },
+        {
+          "range": [
+            3,
+            3
+          ],
+          "result": "Hidden pit covered by brittle leaves."
+        },
+        {
+          "range": [
+            4,
+            4
+          ],
+          "result": "Poison gas fills the room when a chest is opened."
+        },
+        {
+          "range": [
+            5,
+            5
+          ],
+          "result": "Illusory floor hides a drop into spikes."
+        },
+        {
+          "range": [
+            6,
+            6
+          ],
+          "result": "Snare rope pulls the victim into the air."
+        },
+        {
+          "range": [
+            7,
+            7
+          ],
+          "result": "Magic glyph triggers a stunning flash."
+        },
+        {
+          "range": [
+            8,
+            8
+          ],
+          "result": "Falling block triggered by weight."
+        },
+        {
+          "range": [
+            9,
+            9
+          ],
+          "result": "Wall sections close to crush intruders."
+        },
+        {
+          "range": [
+            10,
+            10
+          ],
+          "result": "Sticky web entangles and holds fast."
+        },
+        {
+          "range": [
+            11,
+            11
+          ],
+          "result": "Collapsing stairs send you sliding into danger."
+        },
+        {
+          "range": [
+            12,
+            12
+          ],
+          "result": "Rune triggers a sleep-inducing mist."
+        },
+        {
+          "range": [
+            13,
+            13
+          ],
+          "result": "Floor tile tilts into a water-filled shaft."
+        },
+        {
+          "range": [
+            14,
+            14
+          ],
+          "result": "Magnetic trap pulls away metal gear."
+        },
+        {
+          "range": [
+            15,
+            15
+          ],
+          "result": "Hidden spear thrusts from the wall."
+        },
+        {
+          "range": [
+            16,
+            16
+          ],
+          "result": "Cursed object binds the toucher to the spot."
+        },
+        {
+          "range": [
+            17,
+            17
+          ],
+          "result": "Swarm of insects released from the ceiling."
+        },
+        {
+          "range": [
+            18,
+            18
+          ],
+          "result": "Time-delayed explosion triggered by sound."
+        },
+        {
+          "range": [
+            19,
+            19
+          ],
+          "result": "Mirrored hall confuses direction and leads to loops."
+        },
+        {
+          "range": [
+            20,
+            20
+          ],
+          "result": "Teleportation trap sends you to a random location."
+        }
       ]
     },
     {
       "name": "skill_challenge",
       "dice": "d20",
       "entries": [
-        {"range": [1,1], "result": {"challenge": "Balance across a narrow ledge over a deep chasm.", "difficulty": "Hard", "skill": "Acrobatics"}},
-        {"range": [2,2], "result": {"challenge": "Decode an ancient inscription on a monolith.", "difficulty": "Medium", "skill": "History"}},
-        {"range": [3,3], "result": {"challenge": "Convince a suspicious guard to grant entry.", "difficulty": "Medium", "skill": "Persuasion"}},
-        {"range": [4,4], "result": {"challenge": "Disarm a complex mechanical trap.", "difficulty": "Hard", "skill": "Sleight of Hand"}},
-        {"range": [5,5], "result": {"challenge": "Endure a gruelling climb up a cliff.", "difficulty": "Hard", "skill": "Athletics"}},
-        {"range": [6,6], "result": {"challenge": "Navigate a maze of mirrors without getting lost.", "difficulty": "Medium", "skill": "Intelligence"}},
-        {"range": [7,7], "result": {"challenge": "Charm a surly tavern crowd to avoid a brawl.", "difficulty": "Easy", "skill": "Performance"}},
-        {"range": [8,8], "result": {"challenge": "Track a creature’s footprints through marshland.", "difficulty": "Medium", "skill": "Survival"}},
-        {"range": [9,9], "result": {"challenge": "Pickpocket a key from an oblivious noble.", "difficulty": "Medium", "skill": "Sleight of Hand"}},
-        {"range": [10,10], "result": {"challenge": "Steady the ship’s rudder during a storm.", "difficulty": "Hard", "skill": "Strength"}},
-        {"range": [11,11], "result": {"challenge": "Compose a compelling argument in a court debate.", "difficulty": "Hard", "skill": "Deception"}},
-        {"range": [12,12], "result": {"challenge": "Search an ancient archive for a specific document.", "difficulty": "Medium", "skill": "Investigation"}},
-        {"range": [13,13], "result": {"challenge": "Cross a rope bridge while under missile fire.", "difficulty": "Hard", "skill": "Dexterity"}},
-        {"range": [14,14], "result": {"challenge": "Convince a rival to form an uneasy alliance.", "difficulty": "Hard", "skill": "Intimidation"}},
-        {"range": [15,15], "result": {"challenge": "Hold your breath and swim through an underwater tunnel.", "difficulty": "Medium", "skill": "Constitution"}},
-        {"range": [16,16], "result": {"challenge": "Identify the poison in a drink by smell alone.", "difficulty": "Medium", "skill": "Nature"}},
-        {"range": [17,17], "result": {"challenge": "Recite the correct pass phrase under stress.", "difficulty": "Easy", "skill": "Wisdom"}},
-        {"range": [18,18], "result": {"challenge": "Escape from a locked cell using improvised tools.", "difficulty": "Hard", "skill": "Dexterity"}},
-        {"range": [19,19], "result": {"challenge": "Calm a terrified animal to approach safely.", "difficulty": "Easy", "skill": "Animal Handling"}},
-        {"range": [20,20], "result": {"challenge": "Counter a magical effect with a clever trick.", "difficulty": "Hard", "skill": "Arcana"}}
+        {
+          "range": [
+            1,
+            1
+          ],
+          "result": {
+            "challenge": "Balance across a narrow ledge over a deep chasm.",
+            "difficulty": "Hard",
+            "skill": "Acrobatics"
+          }
+        },
+        {
+          "range": [
+            2,
+            2
+          ],
+          "result": {
+            "challenge": "Decode an ancient inscription on a monolith.",
+            "difficulty": "Medium",
+            "skill": "History"
+          }
+        },
+        {
+          "range": [
+            3,
+            3
+          ],
+          "result": {
+            "challenge": "Convince a suspicious guard to grant entry.",
+            "difficulty": "Medium",
+            "skill": "Persuasion"
+          }
+        },
+        {
+          "range": [
+            4,
+            4
+          ],
+          "result": {
+            "challenge": "Disarm a complex mechanical trap.",
+            "difficulty": "Hard",
+            "skill": "Sleight of Hand"
+          }
+        },
+        {
+          "range": [
+            5,
+            5
+          ],
+          "result": {
+            "challenge": "Endure a gruelling climb up a cliff.",
+            "difficulty": "Hard",
+            "skill": "Athletics"
+          }
+        },
+        {
+          "range": [
+            6,
+            6
+          ],
+          "result": {
+            "challenge": "Navigate a maze of mirrors without getting lost.",
+            "difficulty": "Medium",
+            "skill": "Intelligence"
+          }
+        },
+        {
+          "range": [
+            7,
+            7
+          ],
+          "result": {
+            "challenge": "Charm a surly tavern crowd to avoid a brawl.",
+            "difficulty": "Easy",
+            "skill": "Performance"
+          }
+        },
+        {
+          "range": [
+            8,
+            8
+          ],
+          "result": {
+            "challenge": "Track a creature’s footprints through marshland.",
+            "difficulty": "Medium",
+            "skill": "Survival"
+          }
+        },
+        {
+          "range": [
+            9,
+            9
+          ],
+          "result": {
+            "challenge": "Pickpocket a key from an oblivious noble.",
+            "difficulty": "Medium",
+            "skill": "Sleight of Hand"
+          }
+        },
+        {
+          "range": [
+            10,
+            10
+          ],
+          "result": {
+            "challenge": "Steady the ship’s rudder during a storm.",
+            "difficulty": "Hard",
+            "skill": "Strength"
+          }
+        },
+        {
+          "range": [
+            11,
+            11
+          ],
+          "result": {
+            "challenge": "Compose a compelling argument in a court debate.",
+            "difficulty": "Hard",
+            "skill": "Deception"
+          }
+        },
+        {
+          "range": [
+            12,
+            12
+          ],
+          "result": {
+            "challenge": "Search an ancient archive for a specific document.",
+            "difficulty": "Medium",
+            "skill": "Investigation"
+          }
+        },
+        {
+          "range": [
+            13,
+            13
+          ],
+          "result": {
+            "challenge": "Cross a rope bridge while under missile fire.",
+            "difficulty": "Hard",
+            "skill": "Dexterity"
+          }
+        },
+        {
+          "range": [
+            14,
+            14
+          ],
+          "result": {
+            "challenge": "Convince a rival to form an uneasy alliance.",
+            "difficulty": "Hard",
+            "skill": "Intimidation"
+          }
+        },
+        {
+          "range": [
+            15,
+            15
+          ],
+          "result": {
+            "challenge": "Hold your breath and swim through an underwater tunnel.",
+            "difficulty": "Medium",
+            "skill": "Constitution"
+          }
+        },
+        {
+          "range": [
+            16,
+            16
+          ],
+          "result": {
+            "challenge": "Identify the poison in a drink by smell alone.",
+            "difficulty": "Medium",
+            "skill": "Nature"
+          }
+        },
+        {
+          "range": [
+            17,
+            17
+          ],
+          "result": {
+            "challenge": "Recite the correct pass phrase under stress.",
+            "difficulty": "Easy",
+            "skill": "Wisdom"
+          }
+        },
+        {
+          "range": [
+            18,
+            18
+          ],
+          "result": {
+            "challenge": "Escape from a locked cell using improvised tools.",
+            "difficulty": "Hard",
+            "skill": "Dexterity"
+          }
+        },
+        {
+          "range": [
+            19,
+            19
+          ],
+          "result": {
+            "challenge": "Calm a terrified animal to approach safely.",
+            "difficulty": "Easy",
+            "skill": "Animal Handling"
+          }
+        },
+        {
+          "range": [
+            20,
+            20
+          ],
+          "result": {
+            "challenge": "Counter a magical effect with a clever trick.",
+            "difficulty": "Hard",
+            "skill": "Arcana"
+          }
+        }
       ]
     },
     {
       "name": "item_seed",
       "dice": "d20",
       "entries": [
-        {"range": [1,1], "result": "Rusty key of unknown origin."},
-        {"range": [2,2], "result": "Pouch of shimmering dust that glows faintly."},
-        {"range": [3,3], "result": "Map fragment showing part of an uncharted region."},
-        {"range": [4,4], "result": "Silver locket with a miniature painting inside."},
-        {"range": [5,5], "result": "Vial of fragrant oil with healing properties."},
-        {"range": [6,6], "result": "Ancient coin minted with forgotten symbols."},
-        {"range": [7,7], "result": "Jeweled dagger inscribed with a warning."},
-        {"range": [8,8], "result": "Bundle of rare herbs valued by alchemists."},
-        {"range": [9,9], "result": "Piece of chalk that writes in invisible ink."},
-        {"range": [10,10], "result": "Tiny mirror that shows distant scenes."},
-        {"range": [11,11], "result": "Lockpick set etched with symbols."},
-        {"range": [12,12], "result": "Carved bone whistle that calls unseen creatures."},
-        {"range": [13,13], "result": "Folding telescope made of brass."},
-        {"range": [14,14], "result": "Feather quill that never needs ink."},
-        {"range": [15,15], "result": "Piece of parchment that records whispers."},
-        {"range": [16,16], "result": "Smooth stone that warms when danger is near."},
-        {"range": [17,17], "result": "Ring carved from meteoric iron."},
-        {"range": [18,18], "result": "Tiny box that emits soft music when opened."},
-        {"range": [19,19], "result": "Puzzle cube that rearranges itself."},
-        {"range": [20,20], "result": "Crystal vial holding a trapped wisp of smoke."}
+        {
+          "range": [
+            1,
+            1
+          ],
+          "result": "Rusty key of unknown origin."
+        },
+        {
+          "range": [
+            2,
+            2
+          ],
+          "result": "Pouch of shimmering dust that glows faintly."
+        },
+        {
+          "range": [
+            3,
+            3
+          ],
+          "result": "Map fragment showing part of an uncharted region."
+        },
+        {
+          "range": [
+            4,
+            4
+          ],
+          "result": "Silver locket with a miniature painting inside."
+        },
+        {
+          "range": [
+            5,
+            5
+          ],
+          "result": "Vial of fragrant oil with healing properties."
+        },
+        {
+          "range": [
+            6,
+            6
+          ],
+          "result": "Ancient coin minted with forgotten symbols."
+        },
+        {
+          "range": [
+            7,
+            7
+          ],
+          "result": "Jeweled dagger inscribed with a warning."
+        },
+        {
+          "range": [
+            8,
+            8
+          ],
+          "result": "Bundle of rare herbs valued by alchemists."
+        },
+        {
+          "range": [
+            9,
+            9
+          ],
+          "result": "Piece of chalk that writes in invisible ink."
+        },
+        {
+          "range": [
+            10,
+            10
+          ],
+          "result": "Tiny mirror that shows distant scenes."
+        },
+        {
+          "range": [
+            11,
+            11
+          ],
+          "result": "Lockpick set etched with symbols."
+        },
+        {
+          "range": [
+            12,
+            12
+          ],
+          "result": "Carved bone whistle that calls unseen creatures."
+        },
+        {
+          "range": [
+            13,
+            13
+          ],
+          "result": "Folding telescope made of brass."
+        },
+        {
+          "range": [
+            14,
+            14
+          ],
+          "result": "Feather quill that never needs ink."
+        },
+        {
+          "range": [
+            15,
+            15
+          ],
+          "result": "Piece of parchment that records whispers."
+        },
+        {
+          "range": [
+            16,
+            16
+          ],
+          "result": "Smooth stone that warms when danger is near."
+        },
+        {
+          "range": [
+            17,
+            17
+          ],
+          "result": "Ring carved from meteoric iron."
+        },
+        {
+          "range": [
+            18,
+            18
+          ],
+          "result": "Tiny box that emits soft music when opened."
+        },
+        {
+          "range": [
+            19,
+            19
+          ],
+          "result": "Puzzle cube that rearranges itself."
+        },
+        {
+          "range": [
+            20,
+            20
+          ],
+          "result": "Crystal vial holding a trapped wisp of smoke."
+        }
       ]
     },
     {
       "name": "quest_seed",
       "dice": "d20",
       "entries": [
-        {"range": [1,1], "result": "Rescue a captured artisan from a bandit camp."},
-        {"range": [2,2], "result": "Recover a relic from a submerged temple."},
-        {"range": [3,3], "result": "Deliver an important message across dangerous territory."},
-        {"range": [4,4], "result": "Escort pilgrims to a distant shrine."},
-        {"range": [5,5], "result": "Investigate strange lights seen in the night sky."},
-        {"range": [6,6], "result": "Broker peace between warring villages."},
-        {"range": [7,7], "result": "Stop a series of thefts plaguing a town."},
-        {"range": [8,8], "result": "Hunt down a beast terrorizing farms."},
-        {"range": [9,9], "result": "Find the source of a disease afflicting livestock."},
-        {"range": [10,10], "result": "Retrieve an ingredient needed for a cure."},
-        {"range": [11,11], "result": "Stop a corrupt official from framing an innocent."},
-        {"range": [12,12], "result": "Reveal the identity of a masked vigilante."},
-        {"range": [13,13], "result": "Map an uncharted cave system."},
-        {"range": [14,14], "result": "Protect a caravan from known ambushers."},
-        {"range": [15,15], "result": "Clear out monsters from ancient ruins."},
-        {"range": [16,16], "result": "Negotiate with spirits haunting a forest."},
-        {"range": [17,17], "result": "Track down a stolen magical tome."},
-        {"range": [18,18], "result": "Investigate the silence of a usually bustling mine."},
-        {"range": [19,19], "result": "Prevent a ritual that would open a planar rift."},
-        {"range": [20,20], "result": "Find the true heir to a contested throne."}
+        {
+          "range": [
+            1,
+            1
+          ],
+          "result": "Rescue a captured artisan from a bandit camp."
+        },
+        {
+          "range": [
+            2,
+            2
+          ],
+          "result": "Recover a relic from a submerged temple."
+        },
+        {
+          "range": [
+            3,
+            3
+          ],
+          "result": "Deliver an important message across dangerous territory."
+        },
+        {
+          "range": [
+            4,
+            4
+          ],
+          "result": "Escort pilgrims to a distant shrine."
+        },
+        {
+          "range": [
+            5,
+            5
+          ],
+          "result": "Investigate strange lights seen in the night sky."
+        },
+        {
+          "range": [
+            6,
+            6
+          ],
+          "result": "Broker peace between warring villages."
+        },
+        {
+          "range": [
+            7,
+            7
+          ],
+          "result": "Stop a series of thefts plaguing a town."
+        },
+        {
+          "range": [
+            8,
+            8
+          ],
+          "result": "Hunt down a beast terrorizing farms."
+        },
+        {
+          "range": [
+            9,
+            9
+          ],
+          "result": "Find the source of a disease afflicting livestock."
+        },
+        {
+          "range": [
+            10,
+            10
+          ],
+          "result": "Retrieve an ingredient needed for a cure."
+        },
+        {
+          "range": [
+            11,
+            11
+          ],
+          "result": "Stop a corrupt official from framing an innocent."
+        },
+        {
+          "range": [
+            12,
+            12
+          ],
+          "result": "Reveal the identity of a masked vigilante."
+        },
+        {
+          "range": [
+            13,
+            13
+          ],
+          "result": "Map an uncharted cave system."
+        },
+        {
+          "range": [
+            14,
+            14
+          ],
+          "result": "Protect a caravan from known ambushers."
+        },
+        {
+          "range": [
+            15,
+            15
+          ],
+          "result": "Clear out monsters from ancient ruins."
+        },
+        {
+          "range": [
+            16,
+            16
+          ],
+          "result": "Negotiate with spirits haunting a forest."
+        },
+        {
+          "range": [
+            17,
+            17
+          ],
+          "result": "Track down a stolen magical tome."
+        },
+        {
+          "range": [
+            18,
+            18
+          ],
+          "result": "Investigate the silence of a usually bustling mine."
+        },
+        {
+          "range": [
+            19,
+            19
+          ],
+          "result": "Prevent a ritual that would open a planar rift."
+        },
+        {
+          "range": [
+            20,
+            20
+          ],
+          "result": "Find the true heir to a contested throne."
+        }
       ]
     },
     {
       "name": "travel_event",
       "dice": "d20",
       "entries": [
-        {"range": [1,1], "result": "A sudden storm forces you to seek shelter."},
-        {"range": [2,2], "result": "You find a lost child who needs help."},
-        {"range": [3,3], "result": "A caravan with a broken wagon requests assistance."},
-        {"range": [4,4], "result": "An abandoned campsite holds a mysterious journal."},
-        {"range": [5,5], "result": "You encounter a wounded animal."},
-        {"range": [6,6], "result": "Bandits ambush the road ahead."},
-        {"range": [7,7], "result": "A field of wildflowers hides poisonous insects."},
-        {"range": [8,8], "result": "You spot smoke rising from the trees."},
-        {"range": [9,9], "result": "A friendly traveler shares news from afar."},
-        {"range": [10,10], "result": "You stumble upon a hidden treasure cache."},
-        {"range": [11,11], "result": "A series of stone markers leads you off the road."},
-        {"range": [12,12], "result": "A wild animal follows you cautiously."},
-        {"range": [13,13], "result": "A collapsed bridge requires improvisation."},
-        {"range": [14,14], "result": "You are challenged to a race by a rival group."},
-        {"range": [15,15], "result": "A group of pilgrims invites you to join their ritual."},
-        {"range": [16,16], "result": "You cross paths with a traveling merchant caravan."},
-        {"range": [17,17], "result": "You find a strange device half-buried in the earth."},
-        {"range": [18,18], "result": "A flock of birds darkens the sky overhead."},
-        {"range": [19,19], "result": "You discover an unmarked grave."},
-        {"range": [20,20], "result": "A fallen meteorite sizzles near the path."}
+        {
+          "range": [
+            1,
+            1
+          ],
+          "result": "A sudden storm forces you to seek shelter."
+        },
+        {
+          "range": [
+            2,
+            2
+          ],
+          "result": "You find a lost child who needs help."
+        },
+        {
+          "range": [
+            3,
+            3
+          ],
+          "result": "A caravan with a broken wagon requests assistance."
+        },
+        {
+          "range": [
+            4,
+            4
+          ],
+          "result": "An abandoned campsite holds a mysterious journal."
+        },
+        {
+          "range": [
+            5,
+            5
+          ],
+          "result": "You encounter a wounded animal."
+        },
+        {
+          "range": [
+            6,
+            6
+          ],
+          "result": "Bandits ambush the road ahead."
+        },
+        {
+          "range": [
+            7,
+            7
+          ],
+          "result": "A field of wildflowers hides poisonous insects."
+        },
+        {
+          "range": [
+            8,
+            8
+          ],
+          "result": "You spot smoke rising from the trees."
+        },
+        {
+          "range": [
+            9,
+            9
+          ],
+          "result": "A friendly traveler shares news from afar."
+        },
+        {
+          "range": [
+            10,
+            10
+          ],
+          "result": "You stumble upon a hidden treasure cache."
+        },
+        {
+          "range": [
+            11,
+            11
+          ],
+          "result": "A series of stone markers leads you off the road."
+        },
+        {
+          "range": [
+            12,
+            12
+          ],
+          "result": "A wild animal follows you cautiously."
+        },
+        {
+          "range": [
+            13,
+            13
+          ],
+          "result": "A collapsed bridge requires improvisation."
+        },
+        {
+          "range": [
+            14,
+            14
+          ],
+          "result": "You are challenged to a race by a rival group."
+        },
+        {
+          "range": [
+            15,
+            15
+          ],
+          "result": "A group of pilgrims invites you to join their ritual."
+        },
+        {
+          "range": [
+            16,
+            16
+          ],
+          "result": "You cross paths with a traveling merchant caravan."
+        },
+        {
+          "range": [
+            17,
+            17
+          ],
+          "result": "You find a strange device half-buried in the earth."
+        },
+        {
+          "range": [
+            18,
+            18
+          ],
+          "result": "A flock of birds darkens the sky overhead."
+        },
+        {
+          "range": [
+            19,
+            19
+          ],
+          "result": "You discover an unmarked grave."
+        },
+        {
+          "range": [
+            20,
+            20
+          ],
+          "result": "A fallen meteorite sizzles near the path."
+        }
       ]
     },
     {
       "name": "weather",
       "dice": "d12",
       "entries": [
-        {"range": [1,1], "result": "Clear and sunny"},
-        {"range": [2,2], "result": "Partly cloudy"},
-        {"range": [3,3], "result": "Light drizzle"},
-        {"range": [4,4], "result": "Heavy rain"},
-        {"range": [5,5], "result": "Thunderstorm"},
-        {"range": [6,6], "result": "Foggy"},
-        {"range": [7,7], "result": "Snow flurries"},
-        {"range": [8,8], "result": "Blizzard"},
-        {"range": [9,9], "result": "Gusty winds"},
-        {"range": [10,10], "result": "Humid heat"},
-        {"range": [11,11], "result": "Freezing rain"},
-        {"range": [12,12], "result": "Unnatural aurora lighting the sky"}
+        {
+          "range": [
+            1,
+            1
+          ],
+          "result": "Clear and sunny"
+        },
+        {
+          "range": [
+            2,
+            2
+          ],
+          "result": "Partly cloudy"
+        },
+        {
+          "range": [
+            3,
+            3
+          ],
+          "result": "Light drizzle"
+        },
+        {
+          "range": [
+            4,
+            4
+          ],
+          "result": "Heavy rain"
+        },
+        {
+          "range": [
+            5,
+            5
+          ],
+          "result": "Thunderstorm"
+        },
+        {
+          "range": [
+            6,
+            6
+          ],
+          "result": "Foggy"
+        },
+        {
+          "range": [
+            7,
+            7
+          ],
+          "result": "Snow flurries"
+        },
+        {
+          "range": [
+            8,
+            8
+          ],
+          "result": "Blizzard"
+        },
+        {
+          "range": [
+            9,
+            9
+          ],
+          "result": "Gusty winds"
+        },
+        {
+          "range": [
+            10,
+            10
+          ],
+          "result": "Humid heat"
+        },
+        {
+          "range": [
+            11,
+            11
+          ],
+          "result": "Freezing rain"
+        },
+        {
+          "range": [
+            12,
+            12
+          ],
+          "result": "Unnatural aurora lighting the sky"
+        }
       ]
     },
     {
       "name": "rumor",
       "dice": "d20",
       "entries": [
-        {"range": [1,1], "result": "Whispers of a ghost haunting the old mill."},
-        {"range": [2,2], "result": "Rumours of a secret treasure beneath the tavern."},
-        {"range": [3,3], "result": "Talk of a stranger who never casts a shadow."},
-        {"range": [4,4], "result": "Gossip about the mayor’s mysterious visitors at night."},
-        {"range": [5,5], "result": "Legends of a lake monster seen on moonless nights."},
-        {"range": [6,6], "result": "Old stories of a dragon sleeping under the hills."},
-        {"range": [7,7], "result": "A prophecy mentions the party by name."},
-        {"range": [8,8], "result": "A farmer found a strange metallic egg."},
-        {"range": [9,9], "result": "Merchants speak of bandits with a noble’s ring."},
-        {"range": [10,10], "result": "Children say a fairy granted them a wish."},
-        {"range": [11,11], "result": "A recent eclipse brought bad omens."},
-        {"range": [12,12], "result": "Fishermen have been disappearing near the cliffs."},
-        {"range": [13,13], "result": "A traveler overheard plans to steal a crown."},
-        {"range": [14,14], "result": "Miners unearthed a glowing crystal."},
-        {"range": [15,15], "result": "A once-dead deity has been heard whispering."},
-        {"range": [16,16], "result": "A healer’s herbs have turned foul."},
-        {"range": [17,17], "result": "A lost city has resurfaced after centuries."},
-        {"range": [18,18], "result": "An outlaw has a price on their head."},
-        {"range": [19,19], "result": "A new festival is being celebrated to hide something."},
-        {"range": [20,20], "result": "A famous hero faked their death."}
+        {
+          "range": [
+            1,
+            1
+          ],
+          "result": "Whispers of a ghost haunting the old mill."
+        },
+        {
+          "range": [
+            2,
+            2
+          ],
+          "result": "Rumours of a secret treasure beneath the tavern."
+        },
+        {
+          "range": [
+            3,
+            3
+          ],
+          "result": "Talk of a stranger who never casts a shadow."
+        },
+        {
+          "range": [
+            4,
+            4
+          ],
+          "result": "Gossip about the mayor’s mysterious visitors at night."
+        },
+        {
+          "range": [
+            5,
+            5
+          ],
+          "result": "Legends of a lake monster seen on moonless nights."
+        },
+        {
+          "range": [
+            6,
+            6
+          ],
+          "result": "Old stories of a dragon sleeping under the hills."
+        },
+        {
+          "range": [
+            7,
+            7
+          ],
+          "result": "A prophecy mentions the party by name."
+        },
+        {
+          "range": [
+            8,
+            8
+          ],
+          "result": "A farmer found a strange metallic egg."
+        },
+        {
+          "range": [
+            9,
+            9
+          ],
+          "result": "Merchants speak of bandits with a noble’s ring."
+        },
+        {
+          "range": [
+            10,
+            10
+          ],
+          "result": "Children say a fairy granted them a wish."
+        },
+        {
+          "range": [
+            11,
+            11
+          ],
+          "result": "A recent eclipse brought bad omens."
+        },
+        {
+          "range": [
+            12,
+            12
+          ],
+          "result": "Fishermen have been disappearing near the cliffs."
+        },
+        {
+          "range": [
+            13,
+            13
+          ],
+          "result": "A traveler overheard plans to steal a crown."
+        },
+        {
+          "range": [
+            14,
+            14
+          ],
+          "result": "Miners unearthed a glowing crystal."
+        },
+        {
+          "range": [
+            15,
+            15
+          ],
+          "result": "A once-dead deity has been heard whispering."
+        },
+        {
+          "range": [
+            16,
+            16
+          ],
+          "result": "A healer’s herbs have turned foul."
+        },
+        {
+          "range": [
+            17,
+            17
+          ],
+          "result": "A lost city has resurfaced after centuries."
+        },
+        {
+          "range": [
+            18,
+            18
+          ],
+          "result": "An outlaw has a price on their head."
+        },
+        {
+          "range": [
+            19,
+            19
+          ],
+          "result": "A new festival is being celebrated to hide something."
+        },
+        {
+          "range": [
+            20,
+            20
+          ],
+          "result": "A famous hero faked their death."
+        }
       ]
     },
     {
       "name": "faction",
       "dice": "d15",
       "entries": [
-        {"range": [1,1], "result": "Order of the Silent Blade – spies and assassins."},
-        {"range": [2,2], "result": "Shepherds of Dawn – healers and missionaries."},
-        {"range": [3,3], "result": "Iron Syndicate – mercenaries and traders."},
-        {"range": [4,4], "result": "Emerald Circle – druids and protectors of nature."},
-        {"range": [5,5], "result": "Crimson Court – decadent vampires and their servants."},
-        {"range": [6,6], "result": "Seers of the Veil – diviners and secret-keepers."},
-        {"range": [7,7], "result": "Guild of Tinkerers – inventors and artificers."},
-        {"range": [8,8], "result": "Steelborn Legion – disciplined soldiers sworn to a tyrant."},
-        {"range": [9,9], "result": "Wandering Bards’ Consortium – storytellers and spies."},
-        {"range": [10,10], "result": "Coalition of Freefolk – rebels and freedom fighters."},
-        {"range": [11,11], "result": "Twilight Coven – shadowy witches and warlocks."},
-        {"range": [12,12], "result": "Brotherhood of the Coin – bankers and lenders."},
-        {"range": [13,13], "result": "Silver Order – knights sworn to protect the weak."},
-        {"range": [14,14], "result": "Inkweavers’ Guild – scribes and knowledge hoarders."},
-        {"range": [15,15], "result": "Children of the Dragon – zealots seeking draconic power."}
+        {
+          "range": [
+            1,
+            1
+          ],
+          "result": "Order of the Silent Blade – spies and assassins."
+        },
+        {
+          "range": [
+            2,
+            2
+          ],
+          "result": "Shepherds of Dawn – healers and missionaries."
+        },
+        {
+          "range": [
+            3,
+            3
+          ],
+          "result": "Iron Syndicate – mercenaries and traders."
+        },
+        {
+          "range": [
+            4,
+            4
+          ],
+          "result": "Emerald Circle – druids and protectors of nature."
+        },
+        {
+          "range": [
+            5,
+            5
+          ],
+          "result": "Crimson Court – decadent vampires and their servants."
+        },
+        {
+          "range": [
+            6,
+            6
+          ],
+          "result": "Seers of the Veil – diviners and secret-keepers."
+        },
+        {
+          "range": [
+            7,
+            7
+          ],
+          "result": "Guild of Tinkerers – inventors and artificers."
+        },
+        {
+          "range": [
+            8,
+            8
+          ],
+          "result": "Steelborn Legion – disciplined soldiers sworn to a tyrant."
+        },
+        {
+          "range": [
+            9,
+            9
+          ],
+          "result": "Wandering Bards’ Consortium – storytellers and spies."
+        },
+        {
+          "range": [
+            10,
+            10
+          ],
+          "result": "Coalition of Freefolk – rebels and freedom fighters."
+        },
+        {
+          "range": [
+            11,
+            11
+          ],
+          "result": "Twilight Coven – shadowy witches and warlocks."
+        },
+        {
+          "range": [
+            12,
+            12
+          ],
+          "result": "Brotherhood of the Coin – bankers and lenders."
+        },
+        {
+          "range": [
+            13,
+            13
+          ],
+          "result": "Silver Order – knights sworn to protect the weak."
+        },
+        {
+          "range": [
+            14,
+            14
+          ],
+          "result": "Inkweavers’ Guild – scribes and knowledge hoarders."
+        },
+        {
+          "range": [
+            15,
+            15
+          ],
+          "result": "Children of the Dragon – zealots seeking draconic power."
+        }
       ]
     },
     {
       "name": "faction_activity",
       "dice": "d20",
       "entries": [
-        {"range": [1,1], "result": "Recruiting new members from disenfranchised groups."},
-        {"range": [2,2], "result": "Stealing valuable secrets from rivals."},
-        {"range": [3,3], "result": "Holding clandestine meetings in hidden locations."},
-        {"range": [4,4], "result": "Bribing officials to gain influence."},
-        {"range": [5,5], "result": "Funding a public festival to improve reputation."},
-        {"range": [6,6], "result": "Sabotaging an enemy’s trade route."},
-        {"range": [7,7], "result": "Seeking ancient artifacts for power."},
-        {"range": [8,8], "result": "Offering protection services for a fee."},
-        {"range": [9,9], "result": "Spreading misinformation through rumor networks."},
-        {"range": [10,10], "result": "Assassinating a key figure covertly."},
-        {"range": [11,11], "result": "Training recruits in secret camps."},
-        {"range": [12,12], "result": "Performing a public act of charity."},
-        {"range": [13,13], "result": "Harassing travelers on the roads."},
-        {"range": [14,14], "result": "Plundering a remote settlement."},
-        {"range": [15,15], "result": "Seeking alliances with another faction."},
-        {"range": [16,16], "result": "Investigating rumours about the party."},
-        {"range": [17,17], "result": "Collecting taxes above lawful rates."},
-        {"range": [18,18], "result": "Performing a dark ritual in secret."},
-        {"range": [19,19], "result": "Expanding into new territory."},
-        {"range": [20,20], "result": "Hiding from recent defeats and regrouping."}
+        {
+          "range": [
+            1,
+            1
+          ],
+          "result": "Recruiting new members from disenfranchised groups."
+        },
+        {
+          "range": [
+            2,
+            2
+          ],
+          "result": "Stealing valuable secrets from rivals."
+        },
+        {
+          "range": [
+            3,
+            3
+          ],
+          "result": "Holding clandestine meetings in hidden locations."
+        },
+        {
+          "range": [
+            4,
+            4
+          ],
+          "result": "Bribing officials to gain influence."
+        },
+        {
+          "range": [
+            5,
+            5
+          ],
+          "result": "Funding a public festival to improve reputation."
+        },
+        {
+          "range": [
+            6,
+            6
+          ],
+          "result": "Sabotaging an enemy’s trade route."
+        },
+        {
+          "range": [
+            7,
+            7
+          ],
+          "result": "Seeking ancient artifacts for power."
+        },
+        {
+          "range": [
+            8,
+            8
+          ],
+          "result": "Offering protection services for a fee."
+        },
+        {
+          "range": [
+            9,
+            9
+          ],
+          "result": "Spreading misinformation through rumor networks."
+        },
+        {
+          "range": [
+            10,
+            10
+          ],
+          "result": "Assassinating a key figure covertly."
+        },
+        {
+          "range": [
+            11,
+            11
+          ],
+          "result": "Training recruits in secret camps."
+        },
+        {
+          "range": [
+            12,
+            12
+          ],
+          "result": "Performing a public act of charity."
+        },
+        {
+          "range": [
+            13,
+            13
+          ],
+          "result": "Harassing travelers on the roads."
+        },
+        {
+          "range": [
+            14,
+            14
+          ],
+          "result": "Plundering a remote settlement."
+        },
+        {
+          "range": [
+            15,
+            15
+          ],
+          "result": "Seeking alliances with another faction."
+        },
+        {
+          "range": [
+            16,
+            16
+          ],
+          "result": "Investigating rumours about the party."
+        },
+        {
+          "range": [
+            17,
+            17
+          ],
+          "result": "Collecting taxes above lawful rates."
+        },
+        {
+          "range": [
+            18,
+            18
+          ],
+          "result": "Performing a dark ritual in secret."
+        },
+        {
+          "range": [
+            19,
+            19
+          ],
+          "result": "Expanding into new territory."
+        },
+        {
+          "range": [
+            20,
+            20
+          ],
+          "result": "Hiding from recent defeats and regrouping."
+        }
       ]
     },
     {
       "name": "relationship",
       "dice": "d15",
       "entries": [
-        {"range": [1,1], "result": "Owes a great debt to…"},
-        {"range": [2,2], "result": "Secretly admires…"},
-        {"range": [3,3], "result": "Harbours resentment toward…"},
-        {"range": [4,4], "result": "Is a former mentor of…"},
-        {"range": [5,5], "result": "Is bound by blood oath to…"},
-        {"range": [6,6], "result": "Seeks vengeance against…"},
-        {"range": [7,7], "result": "Is in a forbidden romance with…"},
-        {"range": [8,8], "result": "Is secretly related to…"},
-        {"range": [9,9], "result": "Is indebted to…"},
-        {"range": [10,10], "result": "Is childhood friends with…"},
-        {"range": [11,11], "result": "Is sworn enemy of…"},
-        {"range": [12,12], "result": "Is professional rival to…"},
-        {"range": [13,13], "result": "Is magically bonded to…"},
-        {"range": [14,14], "result": "Is blackmailing…"},
-        {"range": [15,15], "result": "Is sworn protector of…"}
+        {
+          "range": [
+            1,
+            1
+          ],
+          "result": "Owes a great debt to…"
+        },
+        {
+          "range": [
+            2,
+            2
+          ],
+          "result": "Secretly admires…"
+        },
+        {
+          "range": [
+            3,
+            3
+          ],
+          "result": "Harbours resentment toward…"
+        },
+        {
+          "range": [
+            4,
+            4
+          ],
+          "result": "Is a former mentor of…"
+        },
+        {
+          "range": [
+            5,
+            5
+          ],
+          "result": "Is bound by blood oath to…"
+        },
+        {
+          "range": [
+            6,
+            6
+          ],
+          "result": "Seeks vengeance against…"
+        },
+        {
+          "range": [
+            7,
+            7
+          ],
+          "result": "Is in a forbidden romance with…"
+        },
+        {
+          "range": [
+            8,
+            8
+          ],
+          "result": "Is secretly related to…"
+        },
+        {
+          "range": [
+            9,
+            9
+          ],
+          "result": "Is indebted to…"
+        },
+        {
+          "range": [
+            10,
+            10
+          ],
+          "result": "Is childhood friends with…"
+        },
+        {
+          "range": [
+            11,
+            11
+          ],
+          "result": "Is sworn enemy of…"
+        },
+        {
+          "range": [
+            12,
+            12
+          ],
+          "result": "Is professional rival to…"
+        },
+        {
+          "range": [
+            13,
+            13
+          ],
+          "result": "Is magically bonded to…"
+        },
+        {
+          "range": [
+            14,
+            14
+          ],
+          "result": "Is blackmailing…"
+        },
+        {
+          "range": [
+            15,
+            15
+          ],
+          "result": "Is sworn protector of…"
+        }
       ]
     },
     {
       "name": "magic_item_name",
       "dice": "d20",
       "entries": [
-        {"range": [1,1], "result": "Whispering Blade"},
-        {"range": [2,2], "result": "Stormcaller’s Ring"},
-        {"range": [3,3], "result": "Mantle of Shadows"},
-        {"range": [4,4], "result": "Lightbringer’s Lantern"},
-        {"range": [5,5], "result": "Frostfire Amulet"},
-        {"range": [6,6], "result": "Wand of Echoes"},
-        {"range": [7,7], "result": "Helm of the Serpent"},
-        {"range": [8,8], "result": "Boots of Zephyrs"},
-        {"range": [9,9], "result": "Cloak of Seasons"},
-        {"range": [10,10], "result": "Gauntlet of Cinders"},
-        {"range": [11,11], "result": "Tome of Whispers"},
-        {"range": [12,12], "result": "Belt of Giants"},
-        {"range": [13,13], "result": "Staff of Mirrors"},
-        {"range": [14,14], "result": "Ring of Tides"},
-        {"range": [15,15], "result": "Sash of the Phoenix"},
-        {"range": [16,16], "result": "Pendant of Echoing Dreams"},
-        {"range": [17,17], "result": "Crown of Midnight"},
-        {"range": [18,18], "result": "Armbands of the Aurora"},
-        {"range": [19,19], "result": "Seal of Runes"},
-        {"range": [20,20], "result": "Mirror of the Void"}
+        {
+          "range": [
+            1,
+            1
+          ],
+          "result": "Whispering Blade"
+        },
+        {
+          "range": [
+            2,
+            2
+          ],
+          "result": "Stormcaller’s Ring"
+        },
+        {
+          "range": [
+            3,
+            3
+          ],
+          "result": "Mantle of Shadows"
+        },
+        {
+          "range": [
+            4,
+            4
+          ],
+          "result": "Lightbringer’s Lantern"
+        },
+        {
+          "range": [
+            5,
+            5
+          ],
+          "result": "Frostfire Amulet"
+        },
+        {
+          "range": [
+            6,
+            6
+          ],
+          "result": "Wand of Echoes"
+        },
+        {
+          "range": [
+            7,
+            7
+          ],
+          "result": "Helm of the Serpent"
+        },
+        {
+          "range": [
+            8,
+            8
+          ],
+          "result": "Boots of Zephyrs"
+        },
+        {
+          "range": [
+            9,
+            9
+          ],
+          "result": "Cloak of Seasons"
+        },
+        {
+          "range": [
+            10,
+            10
+          ],
+          "result": "Gauntlet of Cinders"
+        },
+        {
+          "range": [
+            11,
+            11
+          ],
+          "result": "Tome of Whispers"
+        },
+        {
+          "range": [
+            12,
+            12
+          ],
+          "result": "Belt of Giants"
+        },
+        {
+          "range": [
+            13,
+            13
+          ],
+          "result": "Staff of Mirrors"
+        },
+        {
+          "range": [
+            14,
+            14
+          ],
+          "result": "Ring of Tides"
+        },
+        {
+          "range": [
+            15,
+            15
+          ],
+          "result": "Sash of the Phoenix"
+        },
+        {
+          "range": [
+            16,
+            16
+          ],
+          "result": "Pendant of Echoing Dreams"
+        },
+        {
+          "range": [
+            17,
+            17
+          ],
+          "result": "Crown of Midnight"
+        },
+        {
+          "range": [
+            18,
+            18
+          ],
+          "result": "Armbands of the Aurora"
+        },
+        {
+          "range": [
+            19,
+            19
+          ],
+          "result": "Seal of Runes"
+        },
+        {
+          "range": [
+            20,
+            20
+          ],
+          "result": "Mirror of the Void"
+        }
       ]
     },
     {
       "name": "injury",
       "dice": "d10",
       "entries": [
-        {"range": [1,1], "result": "Sprained ankle – rest required for a day."},
-        {"range": [2,2], "result": "Minor cut – bandage and continue."},
-        {"range": [3,3], "result": "Concussion – disadvantage on checks until rest."},
-        {"range": [4,4], "result": "Broken arm – cannot wield two-handed weapons."},
-        {"range": [5,5], "result": "Deep gash – slow bleeding without care."},
-        {"range": [6,6], "result": "Poisoned – suffer weakness until treated."},
-        {"range": [7,7], "result": "Fever – halved travel speed."},
-        {"range": [8,8], "result": "Bruised ribs – pain when breathing hard."},
-        {"range": [9,9], "result": "Frostbite – disadvantage in cold environments."},
-        {"range": [10,10], "result": "Exhaustion – require two days of rest."}
+        {
+          "range": [
+            1,
+            1
+          ],
+          "result": "Sprained ankle – rest required for a day."
+        },
+        {
+          "range": [
+            2,
+            2
+          ],
+          "result": "Minor cut – bandage and continue."
+        },
+        {
+          "range": [
+            3,
+            3
+          ],
+          "result": "Concussion – disadvantage on checks until rest."
+        },
+        {
+          "range": [
+            4,
+            4
+          ],
+          "result": "Broken arm – cannot wield two-handed weapons."
+        },
+        {
+          "range": [
+            5,
+            5
+          ],
+          "result": "Deep gash – slow bleeding without care."
+        },
+        {
+          "range": [
+            6,
+            6
+          ],
+          "result": "Poisoned – suffer weakness until treated."
+        },
+        {
+          "range": [
+            7,
+            7
+          ],
+          "result": "Fever – halved travel speed."
+        },
+        {
+          "range": [
+            8,
+            8
+          ],
+          "result": "Bruised ribs – pain when breathing hard."
+        },
+        {
+          "range": [
+            9,
+            9
+          ],
+          "result": "Frostbite – disadvantage in cold environments."
+        },
+        {
+          "range": [
+            10,
+            10
+          ],
+          "result": "Exhaustion – require two days of rest."
+        }
       ]
     },
     {
       "name": "carousing_event",
       "dice": "d10",
       "entries": [
-        {"range": [1,1], "result": "You wake up with a mysterious tattoo."},
-        {"range": [2,2], "result": "You win a game of chance and make a new enemy."},
-        {"range": [3,3], "result": "You lose track of a valuable item."},
-        {"range": [4,4], "result": "You overhear a lucrative rumor."},
-        {"range": [5,5], "result": "You befriend a band of traveling performers."},
-        {"range": [6,6], "result": "You offend a local noble."},
-        {"range": [7,7], "result": "You discover a hidden gambling den."},
-        {"range": [8,8], "result": "You wake up in a stranger’s house."},
-        {"range": [9,9], "result": "You help break up a tavern brawl."},
-        {"range": [10,10], "result": "You accidentally join a cult’s initiation ceremony."}
+        {
+          "range": [
+            1,
+            1
+          ],
+          "result": "You wake up with a mysterious tattoo."
+        },
+        {
+          "range": [
+            2,
+            2
+          ],
+          "result": "You win a game of chance and make a new enemy."
+        },
+        {
+          "range": [
+            3,
+            3
+          ],
+          "result": "You lose track of a valuable item."
+        },
+        {
+          "range": [
+            4,
+            4
+          ],
+          "result": "You overhear a lucrative rumor."
+        },
+        {
+          "range": [
+            5,
+            5
+          ],
+          "result": "You befriend a band of traveling performers."
+        },
+        {
+          "range": [
+            6,
+            6
+          ],
+          "result": "You offend a local noble."
+        },
+        {
+          "range": [
+            7,
+            7
+          ],
+          "result": "You discover a hidden gambling den."
+        },
+        {
+          "range": [
+            8,
+            8
+          ],
+          "result": "You wake up in a stranger’s house."
+        },
+        {
+          "range": [
+            9,
+            9
+          ],
+          "result": "You help break up a tavern brawl."
+        },
+        {
+          "range": [
+            10,
+            10
+          ],
+          "result": "You accidentally join a cult’s initiation ceremony."
+        }
       ]
     },
     {
       "name": "shop_availability",
       "dice": "d20",
       "entries": [
-        {"range": [1,4], "result": "Common goods only – rope, torches, rations."},
-        {"range": [5,8], "result": "Basic adventuring gear – healing herbs, tools, simple weapons."},
-        {"range": [9,12], "result": "Specialty items – alchemical supplies, crafted armor pieces."},
-        {"range": [13,15], "result": "Uncommon magic items – minor scrolls, potions."},
-        {"range": [16,18], "result": "Rare curiosities – enchanted trinkets, maps to treasure."},
-        {"range": [19,20], "result": "Exotic wares – unique relics, items of significant power."}
+        {
+          "range": [
+            1,
+            4
+          ],
+          "result": "Common goods only – rope, torches, rations."
+        },
+        {
+          "range": [
+            5,
+            8
+          ],
+          "result": "Basic adventuring gear – healing herbs, tools, simple weapons."
+        },
+        {
+          "range": [
+            9,
+            12
+          ],
+          "result": "Specialty items – alchemical supplies, crafted armor pieces."
+        },
+        {
+          "range": [
+            13,
+            15
+          ],
+          "result": "Uncommon magic items – minor scrolls, potions."
+        },
+        {
+          "range": [
+            16,
+            18
+          ],
+          "result": "Rare curiosities – enchanted trinkets, maps to treasure."
+        },
+        {
+          "range": [
+            19,
+            20
+          ],
+          "result": "Exotic wares – unique relics, items of significant power."
+        }
       ]
     },
     {
       "name": "merchant_archetype",
       "dice": "d15",
       "entries": [
-        {"range": [1,1], "result": "Honest blacksmith"},
-        {"range": [2,2], "result": "Wily trader with shifting prices"},
-        {"range": [3,3], "result": "Generous herbalist"},
-        {"range": [4,4], "result": "Gruff armorer"},
-        {"range": [5,5], "result": "Charismatic jeweler"},
-        {"range": [6,6], "result": "Nervous fence dealing in stolen goods"},
-        {"range": [7,7], "result": "Enigmatic book dealer"},
-        {"range": [8,8], "result": "Obsessive collector of curios"},
-        {"range": [9,9], "result": "Weathered caravan master"},
-        {"range": [10,10], "result": "Flirtatious tailor"},
-        {"range": [11,11], "result": "Stoic stone mason"},
-        {"range": [12,12], "result": "Cheerful baker"},
-        {"range": [13,13], "result": "Practical potter"},
-        {"range": [14,14], "result": "Smooth-talking innkeeper"},
-        {"range": [15,15], "result": "Calm apothecary"}
+        {
+          "range": [
+            1,
+            1
+          ],
+          "result": "Honest blacksmith"
+        },
+        {
+          "range": [
+            2,
+            2
+          ],
+          "result": "Wily trader with shifting prices"
+        },
+        {
+          "range": [
+            3,
+            3
+          ],
+          "result": "Generous herbalist"
+        },
+        {
+          "range": [
+            4,
+            4
+          ],
+          "result": "Gruff armorer"
+        },
+        {
+          "range": [
+            5,
+            5
+          ],
+          "result": "Charismatic jeweler"
+        },
+        {
+          "range": [
+            6,
+            6
+          ],
+          "result": "Nervous fence dealing in stolen goods"
+        },
+        {
+          "range": [
+            7,
+            7
+          ],
+          "result": "Enigmatic book dealer"
+        },
+        {
+          "range": [
+            8,
+            8
+          ],
+          "result": "Obsessive collector of curios"
+        },
+        {
+          "range": [
+            9,
+            9
+          ],
+          "result": "Weathered caravan master"
+        },
+        {
+          "range": [
+            10,
+            10
+          ],
+          "result": "Flirtatious tailor"
+        },
+        {
+          "range": [
+            11,
+            11
+          ],
+          "result": "Stoic stone mason"
+        },
+        {
+          "range": [
+            12,
+            12
+          ],
+          "result": "Cheerful baker"
+        },
+        {
+          "range": [
+            13,
+            13
+          ],
+          "result": "Practical potter"
+        },
+        {
+          "range": [
+            14,
+            14
+          ],
+          "result": "Smooth-talking innkeeper"
+        },
+        {
+          "range": [
+            15,
+            15
+          ],
+          "result": "Calm apothecary"
+        }
       ]
     },
     {
       "name": "moral_dilemma",
       "dice": "d10",
       "entries": [
-        {"range": [1,1], "result": "You can save a villager at the cost of letting the villain escape."},
-        {"range": [2,2], "result": "A friend asks you to lie for them, risking your integrity."},
-        {"range": [3,3], "result": "You must choose between your duty and your personal beliefs."},
-        {"range": [4,4], "result": "You can take a treasure but it is cursed and could harm others."},
-        {"range": [5,5], "result": "You must sacrifice your safety to protect an innocent."},
-        {"range": [6,6], "result": "Helping one side will harm another equally deserving side."},
-        {"range": [7,7], "result": "You must decide whether to reveal a damaging truth."},
-        {"range": [8,8], "result": "You can enrich yourself at the cost of someone’s livelihood."},
-        {"range": [9,9], "result": "You must choose between loyalty to a friend and justice."},
-        {"range": [10,10], "result": "You can obey the law or do what you believe is right."}
+        {
+          "range": [
+            1,
+            1
+          ],
+          "result": "You can save a villager at the cost of letting the villain escape."
+        },
+        {
+          "range": [
+            2,
+            2
+          ],
+          "result": "A friend asks you to lie for them, risking your integrity."
+        },
+        {
+          "range": [
+            3,
+            3
+          ],
+          "result": "You must choose between your duty and your personal beliefs."
+        },
+        {
+          "range": [
+            4,
+            4
+          ],
+          "result": "You can take a treasure but it is cursed and could harm others."
+        },
+        {
+          "range": [
+            5,
+            5
+          ],
+          "result": "You must sacrifice your safety to protect an innocent."
+        },
+        {
+          "range": [
+            6,
+            6
+          ],
+          "result": "Helping one side will harm another equally deserving side."
+        },
+        {
+          "range": [
+            7,
+            7
+          ],
+          "result": "You must decide whether to reveal a damaging truth."
+        },
+        {
+          "range": [
+            8,
+            8
+          ],
+          "result": "You can enrich yourself at the cost of someone’s livelihood."
+        },
+        {
+          "range": [
+            9,
+            9
+          ],
+          "result": "You must choose between loyalty to a friend and justice."
+        },
+        {
+          "range": [
+            10,
+            10
+          ],
+          "result": "You can obey the law or do what you believe is right."
+        }
+      ]
+    },
+    {
+      "name": "encounter_frequency_reference",
+      "dice": "d5",
+      "entries": [
+        {
+          "range": [
+            1,
+            1
+          ],
+          "result": "Road or well-travelled path - d20 every 4 hours; encounter on 18-20. Lower chance due to safety."
+        },
+        {
+          "range": [
+            2,
+            2
+          ],
+          "result": "Forest, hills or plains - d20 every 3 hours; encounter on 15-20. Standard overland travel."
+        },
+        {
+          "range": [
+            3,
+            3
+          ],
+          "result": "Jungles, swamps or hostile wilds - d12 every 2 hours; encounter on 8-12. Denser terrain increases chances."
+        },
+        {
+          "range": [
+            4,
+            4
+          ],
+          "result": "Underground dungeon or ruin - d12 every hour; encounter on 7-12. Frequent checks reflect confined danger."
+        },
+        {
+          "range": [
+            5,
+            5
+          ],
+          "result": "City streets - d20 every 6 hours; encounter on 19-20. Rare encounters in civilized areas."
+        }
+      ]
+    },
+    {
+      "name": "encounter_time_modifiers",
+      "dice": "d6",
+      "entries": [
+        {
+          "range": [
+            1,
+            2
+          ],
+          "result": "Daytime: -1 to encounter check (slightly less likely)."
+        },
+        {
+          "range": [
+            3,
+            4
+          ],
+          "result": "Night/Darkness: +1 to encounter check (slightly more likely)."
+        },
+        {
+          "range": [
+            5,
+            6
+          ],
+          "result": "Bad Weather: +2 to encounter check (storms/blizzards increase danger)."
+        }
+      ]
+    },
+    {
+      "name": "travel_obstacle",
+      "dice": "d12",
+      "entries": [
+        {
+          "range": [
+            1,
+            1
+          ],
+          "result": "Fallen tree or rockfall blocking the path."
+        },
+        {
+          "range": [
+            2,
+            2
+          ],
+          "result": "Washed-out bridge or impassable ford."
+        },
+        {
+          "range": [
+            3,
+            3
+          ],
+          "result": "Mudslide or loose soil causing a detour."
+        },
+        {
+          "range": [
+            4,
+            4
+          ],
+          "result": "Dense thicket or brambles that halve movement."
+        },
+        {
+          "range": [
+            5,
+            5
+          ],
+          "result": "Steep incline or cliff edge requiring a check."
+        },
+        {
+          "range": [
+            6,
+            6
+          ],
+          "result": "Quicksand, bog or sucking mud."
+        },
+        {
+          "range": [
+            7,
+            7
+          ],
+          "result": "Narrow gorge or ravine to be crossed."
+        },
+        {
+          "range": [
+            8,
+            8
+          ],
+          "result": "Swarm of insects or bats hindering vision."
+        },
+        {
+          "range": [
+            9,
+            9
+          ],
+          "result": "Hidden pit or sinkhole."
+        },
+        {
+          "range": [
+            10,
+            10
+          ],
+          "result": "Thick fog or obscuring smoke."
+        },
+        {
+          "range": [
+            11,
+            11
+          ],
+          "result": "Ice or slippery path."
+        },
+        {
+          "range": [
+            12,
+            12
+          ],
+          "result": "Collapsed tunnel (for underground travel)."
+        }
+      ]
+    },
+    {
+      "name": "weather_conditions",
+      "dice": "d20",
+      "entries": [
+        {
+          "range": [
+            1,
+            3
+          ],
+          "result": "Clear sky."
+        },
+        {
+          "range": [
+            4,
+            5
+          ],
+          "result": "Partly cloudy."
+        },
+        {
+          "range": [
+            6,
+            6
+          ],
+          "result": "Overcast."
+        },
+        {
+          "range": [
+            7,
+            8
+          ],
+          "result": "Light rain or drizzle."
+        },
+        {
+          "range": [
+            9,
+            10
+          ],
+          "result": "Heavy rain."
+        },
+        {
+          "range": [
+            11,
+            11
+          ],
+          "result": "Thunderstorm (lightning and strong wind)."
+        },
+        {
+          "range": [
+            12,
+            12
+          ],
+          "result": "Fog or mist."
+        },
+        {
+          "range": [
+            13,
+            14
+          ],
+          "result": "Light snow."
+        },
+        {
+          "range": [
+            15,
+            15
+          ],
+          "result": "Blizzard or heavy snowstorm."
+        },
+        {
+          "range": [
+            16,
+            16
+          ],
+          "result": "Heat wave."
+        },
+        {
+          "range": [
+            17,
+            17
+          ],
+          "result": "Cold snap."
+        },
+        {
+          "range": [
+            18,
+            18
+          ],
+          "result": "Strong winds or dust storm."
+        },
+        {
+          "range": [
+            19,
+            19
+          ],
+          "result": "Magical weather (illusory rain, glittering lights)."
+        },
+        {
+          "range": [
+            20,
+            20
+          ],
+          "result": "Extreme event (meteor shower, aurora)."
+        }
+      ]
+    },
+    {
+      "name": "exploration_feature",
+      "dice": "d20",
+      "entries": [
+        {
+          "range": [
+            1,
+            1
+          ],
+          "result": "Small chamber with simple furnishings."
+        },
+        {
+          "range": [
+            2,
+            2
+          ],
+          "result": "Corridor ending in a locked door."
+        },
+        {
+          "range": [
+            3,
+            3
+          ],
+          "result": "Secret door or hidden alcove."
+        },
+        {
+          "range": [
+            4,
+            4
+          ],
+          "result": "Stairs ascending or descending."
+        },
+        {
+          "range": [
+            5,
+            5
+          ],
+          "result": "Crumbled wall revealing another room."
+        },
+        {
+          "range": [
+            6,
+            6
+          ],
+          "result": "Statue or fountain (may hide a trap)."
+        },
+        {
+          "range": [
+            7,
+            7
+          ],
+          "result": "Puzzle inscription or riddle."
+        },
+        {
+          "range": [
+            8,
+            8
+          ],
+          "result": "Arcane sigil or rune (magical effect)."
+        },
+        {
+          "range": [
+            9,
+            9
+          ],
+          "result": "Underground stream or pool."
+        },
+        {
+          "range": [
+            10,
+            10
+          ],
+          "result": "Collapsed ceiling and rubble."
+        },
+        {
+          "range": [
+            11,
+            11
+          ],
+          "result": "Mural telling an ancient story."
+        },
+        {
+          "range": [
+            12,
+            12
+          ],
+          "result": "Strange noises (whispers, footsteps)."
+        },
+        {
+          "range": [
+            13,
+            13
+          ],
+          "result": "Flickering light or phantom image."
+        },
+        {
+          "range": [
+            14,
+            14
+          ],
+          "result": "Treasure chest (possibly trapped)."
+        },
+        {
+          "range": [
+            15,
+            15
+          ],
+          "result": "Elevated platform or balcony."
+        },
+        {
+          "range": [
+            16,
+            16
+          ],
+          "result": "Web-filled corner with spiders."
+        },
+        {
+          "range": [
+            17,
+            17
+          ],
+          "result": "Fresco hiding a compartment."
+        },
+        {
+          "range": [
+            18,
+            18
+          ],
+          "result": "Item of interest (weapon, relic)."
+        },
+        {
+          "range": [
+            19,
+            19
+          ],
+          "result": "Bones or skeleton hinting at danger."
+        },
+        {
+          "range": [
+            20,
+            20
+          ],
+          "result": "Portal or gateway to another area."
+        }
+      ]
+    },
+    {
+      "name": "phenomenon",
+      "dice": "d20",
+      "entries": [
+        {
+          "range": [
+            1,
+            1
+          ],
+          "result": "Sudden drop in temperature."
+        },
+        {
+          "range": [
+            2,
+            2
+          ],
+          "result": "Eerie silence; natural sounds cease."
+        },
+        {
+          "range": [
+            3,
+            3
+          ],
+          "result": "Flicker of strange lights or will-o-wisps."
+        },
+        {
+          "range": [
+            4,
+            4
+          ],
+          "result": "Wild magic zone; spells behave unpredictably."
+        },
+        {
+          "range": [
+            5,
+            5
+          ],
+          "result": "Ghostly apparition or whispering voices."
+        },
+        {
+          "range": [
+            6,
+            6
+          ],
+          "result": "Temporal distortion; time flows oddly."
+        },
+        {
+          "range": [
+            7,
+            7
+          ],
+          "result": "Gravity shift changes orientation."
+        },
+        {
+          "range": [
+            8,
+            8
+          ],
+          "result": "Magnetic pull interferes with metal."
+        },
+        {
+          "range": [
+            9,
+            9
+          ],
+          "result": "Hallucinogenic spores causing visions."
+        },
+        {
+          "range": [
+            10,
+            10
+          ],
+          "result": "Anti-magic zone suppresses spells."
+        },
+        {
+          "range": [
+            11,
+            11
+          ],
+          "result": "Strange scent triggering memories."
+        },
+        {
+          "range": [
+            12,
+            12
+          ],
+          "result": "Shifting walls create a labyrinth."
+        },
+        {
+          "range": [
+            13,
+            13
+          ],
+          "result": "Illusory duplicates or mirages."
+        },
+        {
+          "range": [
+            14,
+            14
+          ],
+          "result": "Spatial loop; exits lead back inside."
+        },
+        {
+          "range": [
+            15,
+            15
+          ],
+          "result": "Unstable portal flickers open."
+        },
+        {
+          "range": [
+            16,
+            16
+          ],
+          "result": "Planar bleed (elemental energy seeps through)."
+        },
+        {
+          "range": [
+            17,
+            17
+          ],
+          "result": "Resonant hum that saps energy."
+        },
+        {
+          "range": [
+            18,
+            18
+          ],
+          "result": "Independent shadows acting strangely."
+        },
+        {
+          "range": [
+            19,
+            19
+          ],
+          "result": "Memory fog; recent events forgotten."
+        },
+        {
+          "range": [
+            20,
+            20
+          ],
+          "result": "Reality glitch; object or creature duplicates."
+        }
+      ]
+    },
+    {
+      "name": "npc_reaction",
+      "dice": "d100",
+      "entries": [
+        {
+          "range": [
+            1,
+            20
+          ],
+          "result": "Hostile - wishes harm; may attack or hinder."
+        },
+        {
+          "range": [
+            21,
+            50
+          ],
+          "result": "Unfriendly - dislikes the party; offers no help."
+        },
+        {
+          "range": [
+            51,
+            80
+          ],
+          "result": "Neutral - indifferent; needs persuasion."
+        },
+        {
+          "range": [
+            81,
+            95
+          ],
+          "result": "Friendly - will assist if treated well."
+        },
+        {
+          "range": [
+            96,
+            100
+          ],
+          "result": "Helpful - goes out of the way to aid."
+        }
+      ]
+    },
+    {
+      "name": "animal_encounter",
+      "dice": "d12",
+      "entries": [
+        {
+          "range": [
+            1,
+            1
+          ],
+          "result": "Herd of deer or wild horses."
+        },
+        {
+          "range": [
+            2,
+            2
+          ],
+          "result": "Flock of birds overhead."
+        },
+        {
+          "range": [
+            3,
+            3
+          ],
+          "result": "Curious fox, raccoon or badger."
+        },
+        {
+          "range": [
+            4,
+            4
+          ],
+          "result": "Pack of wolves observing from a distance."
+        },
+        {
+          "range": [
+            5,
+            5
+          ],
+          "result": "Giant insect (beetle or firefly)."
+        },
+        {
+          "range": [
+            6,
+            6
+          ],
+          "result": "Snake or reptile basking."
+        },
+        {
+          "range": [
+            7,
+            7
+          ],
+          "result": "Boar rooting through undergrowth."
+        },
+        {
+          "range": [
+            8,
+            8
+          ],
+          "result": "Bear or large predator (non-aggressive unless provoked)."
+        },
+        {
+          "range": [
+            9,
+            9
+          ],
+          "result": "Swarm of bats or birds startled."
+        },
+        {
+          "range": [
+            10,
+            10
+          ],
+          "result": "Exotic creature (owlbear cub, miniature dragon)."
+        },
+        {
+          "range": [
+            11,
+            11
+          ],
+          "result": "Dire animal or magically altered beast."
+        },
+        {
+          "range": [
+            12,
+            12
+          ],
+          "result": "Mythical creature glimpsed briefly."
+        }
+      ]
+    },
+    {
+      "name": "quest_hook",
+      "dice": "d12",
+      "entries": [
+        {
+          "range": [
+            1,
+            1
+          ],
+          "result": "Missing villager; tracks lead into wilderness."
+        },
+        {
+          "range": [
+            2,
+            2
+          ],
+          "result": "Map fragment pointing to hidden treasure."
+        },
+        {
+          "range": [
+            3,
+            3
+          ],
+          "result": "Merchant seeking escort to next town."
+        },
+        {
+          "range": [
+            4,
+            4
+          ],
+          "result": "Monster menacing local farms."
+        },
+        {
+          "range": [
+            5,
+            5
+          ],
+          "result": "Strange illness requires cure ingredients."
+        },
+        {
+          "range": [
+            6,
+            6
+          ],
+          "result": "Noble requests discreet investigation."
+        },
+        {
+          "range": [
+            7,
+            7
+          ],
+          "result": "Evidence of a recent battle; survivors missing."
+        },
+        {
+          "range": [
+            8,
+            8
+          ],
+          "result": "Magical anomaly drawing arcane attention."
+        },
+        {
+          "range": [
+            9,
+            9
+          ],
+          "result": "Locked chest with a plea for help attached."
+        },
+        {
+          "range": [
+            10,
+            10
+          ],
+          "result": "Creature escaping captivity seeks aid."
+        },
+        {
+          "range": [
+            11,
+            11
+          ],
+          "result": "Portal to another plane leaking energy."
+        },
+        {
+          "range": [
+            12,
+            12
+          ],
+          "result": "Cryptic prophecy found on parchment."
+        }
+      ]
+    },
+    {
+      "name": "combat_encounter_intensity",
+      "dice": "d6",
+      "entries": [
+        {
+          "range": [
+            1,
+            2
+          ],
+          "result": "Minor encounter."
+        },
+        {
+          "range": [
+            3,
+            4
+          ],
+          "result": "Moderate encounter."
+        },
+        {
+          "range": [
+            5,
+            6
+          ],
+          "result": "Major encounter."
+        }
       ]
     }
   ]
