@@ -99,6 +99,9 @@ Current stage: persistent locations, scene chat loop, skill checks, and content 
 Dev tooling: optional DEV_FIXTURES build flag adds a developer test runner with scripted scenarios and a quick smoke test. A local-only supplemental rules data loader can merge extra data at build time when enabled (not included in release builds).
 SRD integration: structured item and creature records are parsed for engine use (equipment/magic items and monsters/creatures) and surfaced in SRD detail views and inventory pickers.
 Content tables: travel/exploration/encounter tables are now bundled in `rpg_tables.json` for TableEngine use.
+Encounter pacing + travel/exploration hooks: the engine can now roll encounter checks, travel events, and exploration features from the bundled tables.
+Loot selection: magic item rarity logic uses SRD item lists (no separate treasure tables).
+Social/encounter seeding: NPC reactions can update attitudes and travel events can seed encounter entities on the current node.
 
 Work-in-progress task list (engine expansion):
 - **Architecture**: define module boundaries (engine, narrator, world state, tables) and plan a Swift package split without breaking current UI.
@@ -112,10 +115,7 @@ Work-in-progress task list (engine expansion):
 - **Skill checks**: contested checks, passive checks, and check-to-oracle modifiers.
 - **Encounters**: encounter clocks and repeatable encounter state.
 - **Campaign tools**: import/export, duplicate campaigns, and per-campaign rulesets.
-- **Queued**: encounter pacing integration (SRD guidance + engine hooks).
-- **Queued**: exploration and travel integration (SRD guidance + engine hooks).
-- **Queued**: complete ruleset integration.
-- **Queued**: character mechanics implementation (proficiency, saves, skills, level progression).
+- **Character mechanics**: proficiency bonus by level, saves, skills, and level progression tracking.
 
 ### SRD Mechanics Roadmap (Outline)
 This is the mechanical task list for bringing the engine up to SRD parity. The narrator should only render outcomes supplied by these systems.
@@ -130,7 +130,6 @@ This is the mechanical task list for bringing the engine up to SRD parity. The n
 - **Encounter pacing**: difficulty estimation and activity clocks tied to party size/level.
 
 Known gaps that will need dedicated tables or research:
-- **Treasure & loot**: distribution tables for mundane and magic items (including rarity bands).
 - **Shop availability**: market checks and item sourcing logic per settlement size.
 - **Downtime activities**: structured options and consequences.
 - **Environmental hazards**: regional/weather hazard tables and effects.

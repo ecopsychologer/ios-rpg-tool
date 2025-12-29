@@ -84,16 +84,19 @@ final class SoloSceneCoordinator: ObservableObject {
 
     var engine = SoloCampaignEngine()
     var locationEngine = SoloLocationEngine()
+    var travelEngine = TravelEncounterEngine()
 
     private var autoRollEnabled = false
     private var gmRunsCompanionsEnabled = false
 
     init(
         engine: SoloCampaignEngine = SoloCampaignEngine(),
-        locationEngine: SoloLocationEngine = SoloLocationEngine()
+        locationEngine: SoloLocationEngine = SoloLocationEngine(),
+        travelEngine: TravelEncounterEngine = TravelEncounterEngine()
     ) {
         self.engine = engine
         self.locationEngine = locationEngine
+        self.travelEngine = travelEngine
     }
 
     func resetConversation() {
@@ -571,6 +574,26 @@ final class SoloSceneCoordinator: ObservableObject {
                     return gmText
                 }
 
+                if let travelOutcome = resolveTravelEventIfNeeded(
+                    playerText: trimmed,
+                    intentSummary: intentDraft.content.summary,
+                    campaign: campaign,
+                    modelContext: modelContext
+                ) {
+                    let gmText = try await generateNormalGMResponse(
+                        session: session,
+                        context: context,
+                        playerText: trimmed,
+                        isMeta: false,
+                        playerInputKind: .playerIntent,
+                        tableRoll: travelOutcome,
+                        srdLookup: nil,
+                        campaign: campaign
+                    )
+                    interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
+                    return gmText
+                }
+
                 let requestedMode = PlayerRequestedMode.from(name: intentDraft.content.requestedMode) ?? .askBeforeRolling
                 if try await resolveSkillCheckProposal(
                     session: session,
@@ -585,12 +608,23 @@ final class SoloSceneCoordinator: ObservableObject {
             }
 
             if intentCategory == .roleplayDialogue {
-                let tableRoll = try await resolveTableRollIfNeeded(
-                    session: session,
-                    context: context,
+                let travelOutcome = resolveTravelEventIfNeeded(
                     playerText: trimmed,
-                    campaign: campaign
+                    intentSummary: lastPlayerIntentSummary,
+                    campaign: campaign,
+                    modelContext: modelContext
                 )
+                let tableRoll: TableRollOutcome?
+                if let travelOutcome {
+                    tableRoll = travelOutcome
+                } else {
+                    tableRoll = try await resolveTableRollIfNeeded(
+                        session: session,
+                        context: context,
+                        playerText: trimmed,
+                        campaign: campaign
+                    )
+                }
                 let srdLookup = try await resolveSrdLookupIfNeeded(
                     session: session,
                     context: context,
@@ -610,12 +644,23 @@ final class SoloSceneCoordinator: ObservableObject {
                 return gmText
             }
 
-            let tableRoll = try await resolveTableRollIfNeeded(
-                session: session,
-                context: context,
+            let travelOutcome = resolveTravelEventIfNeeded(
                 playerText: trimmed,
-                campaign: campaign
+                intentSummary: lastPlayerIntentSummary,
+                campaign: campaign,
+                modelContext: modelContext
             )
+            let tableRoll: TableRollOutcome?
+            if let travelOutcome {
+                tableRoll = travelOutcome
+            } else {
+                tableRoll = try await resolveTableRollIfNeeded(
+                    session: session,
+                    context: context,
+                    playerText: trimmed,
+                    campaign: campaign
+                )
+            }
             let srdLookup = try await resolveSrdLookupIfNeeded(
                 session: session,
                 context: context,
@@ -967,6 +1012,210 @@ final class SoloSceneCoordinator: ObservableObject {
             return inverse
         }
         return nil
+    }
+
+    private func resolveTravelEventIfNeeded(
+        playerText: String,
+        intentSummary: String?,
+        campaign: Campaign,
+        modelContext: ModelContext
+    ) -> TableRollOutcome? {
+        guard shouldProcessTravelEvent(playerText: playerText, intentSummary: intentSummary, campaign: campaign) else {
+            return nil
+        }
+
+        let environment = travelEnvironment(for: playerText, campaign: campaign)
+        let conditions = travelConditions(for: playerText)
+        let resolution = travelEngine.resolveTravelEvent(
+            campaign: campaign,
+            environment: environment,
+            conditions: conditions
+        )
+
+        let summary = encounterCheckSummary(from: resolution.check)
+        if let event = resolution.event {
+            applyNpcReactionIfNeeded(from: event, campaign: campaign, modelContext: modelContext)
+            createEncounterIfNeeded(from: event, campaign: campaign, modelContext: modelContext)
+            var parts = ["Travel event: \(event.event)"]
+            if let intensity = event.encounterIntensity {
+                parts.append("Encounter intensity: \(intensity)")
+            }
+            if !event.followUps.isEmpty {
+                parts.append("Follow-ups: \(event.followUps.joined(separator: " | "))")
+            }
+            return TableRollOutcome(
+                tableId: "travel_event",
+                result: parts.joined(separator: " "),
+                reason: summary
+            )
+        }
+
+        return TableRollOutcome(
+            tableId: "encounter_check",
+            result: "Travel continues without incident.",
+            reason: summary
+        )
+    }
+
+    private func encounterCheckSummary(from outcome: EncounterCheckOutcome) -> String {
+        let modifierText = outcome.modifier == 0 ? "" : (outcome.modifier > 0 ? "+\(outcome.modifier)" : "\(outcome.modifier)")
+        let range = "\(outcome.encounterRange.lowerBound)-\(outcome.encounterRange.upperBound)"
+        let resultText = outcome.triggered ? "Encounter triggered." : "No encounter."
+        return "Encounter check \(outcome.dieSpec)\(modifierText): \(outcome.roll) -> \(outcome.modifiedRoll) vs \(range). \(resultText)"
+    }
+
+    private func applyNpcReactionIfNeeded(
+        from event: TravelEventOutcome,
+        campaign: Campaign,
+        modelContext: ModelContext
+    ) {
+        guard let reaction = event.followUps.first(where: { $0.lowercased().contains("hostile") || $0.lowercased().contains("friendly") || $0.lowercased().contains("neutral") || $0.lowercased().contains("unfriendly") || $0.lowercased().contains("helpful") }) else {
+            return
+        }
+        guard let locationId = campaign.activeLocationId else { return }
+        guard let npc = campaign.npcs.first(where: { $0.currentLocationId == locationId }) else { return }
+
+        let attitude = attitudeFromReaction(reaction)
+        npc.attitudeToParty = attitude.rawValue
+        npc.updatedAt = Date()
+
+        let logEntry = EventLogEntry(
+            summary: "NPC reaction set: \(npc.name) is now \(attitude.rawValue).",
+            sceneId: campaign.activeSceneId,
+            rollIds: nil,
+            entityIds: [npc.id],
+            origin: "system"
+        )
+        if campaign.eventLog == nil {
+            campaign.eventLog = [logEntry]
+        } else {
+            campaign.eventLog?.append(logEntry)
+        }
+        try? modelContext.save()
+    }
+
+    private func createEncounterIfNeeded(
+        from event: TravelEventOutcome,
+        campaign: Campaign,
+        modelContext: ModelContext
+    ) {
+        guard let intensity = event.encounterIntensity else { return }
+        guard let location = activeLocation(in: campaign) else { return }
+        let node = activeNode(in: campaign, location: location)
+
+        let encounter = EncounterEntity(
+            type: "combat",
+            difficulty: intensity,
+            participantsSummary: event.event,
+            hooks: event.followUps.isEmpty ? nil : event.followUps,
+            resolved: false,
+            origin: "system",
+            locationNodeId: node?.id
+        )
+
+        if let node {
+            if node.encounters == nil {
+                node.encounters = [encounter]
+            } else {
+                node.encounters?.append(encounter)
+            }
+        }
+
+        let logEntry = EventLogEntry(
+            summary: "Generated encounter: \(intensity) — \(event.event)",
+            sceneId: campaign.activeSceneId,
+            rollIds: nil,
+            entityIds: [encounter.id],
+            origin: "system"
+        )
+        if campaign.eventLog == nil {
+            campaign.eventLog = [logEntry]
+        } else {
+            campaign.eventLog?.append(logEntry)
+        }
+        try? modelContext.save()
+    }
+
+    private func attitudeFromReaction(_ reaction: String) -> NPCAttitude {
+        let lower = reaction.lowercased()
+        if lower.contains("hostile") {
+            return .hostile
+        }
+        if lower.contains("unfriendly") {
+            return .wary
+        }
+        if lower.contains("helpful") {
+            return .friendly
+        }
+        if lower.contains("friendly") {
+            return .friendly
+        }
+        return .neutral
+    }
+
+    private func shouldProcessTravelEvent(
+        playerText: String,
+        intentSummary: String?,
+        campaign: Campaign
+    ) -> Bool {
+        let lower = playerText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !lower.isEmpty else { return false }
+
+        let travelKeywords = [
+            "travel", "journey", "road", "path", "trail", "march", "ride", "sail",
+            "set out", "head out", "continue", "keep going", "overland", "make camp", "camp"
+        ]
+        let encounterKeywords = ["encounter", "meet anyone", "anyone on the road", "ambush", "bandit", "patrol"]
+        let summaryLower = intentSummary?.lowercased() ?? ""
+
+        let hasTravelCue = travelKeywords.contains(where: { lower.contains($0) || summaryLower.contains($0) })
+        let hasEncounterCue = encounterKeywords.contains(where: { lower.contains($0) })
+        guard hasTravelCue || hasEncounterCue else { return false }
+
+        if let location = activeLocation(in: campaign),
+           location.type.lowercased() == "dungeon" {
+            let dungeonMoveWords = ["door", "doorway", "hall", "hallway", "corridor", "room", "stair", "stairs", "passage"]
+            if dungeonMoveWords.contains(where: { lower.contains($0) }) {
+                return false
+            }
+        }
+
+        return true
+    }
+
+    private func travelEnvironment(for playerText: String, campaign: Campaign) -> TravelEnvironment {
+        let lower = playerText.lowercased()
+        if lower.contains("road") || lower.contains("trail") || lower.contains("path") {
+            return .road
+        }
+        if lower.contains("city") || lower.contains("street") || lower.contains("market") {
+            return .city
+        }
+        if lower.contains("swamp") || lower.contains("jungle") || lower.contains("wilds") || lower.contains("hostile") {
+            return .wilds
+        }
+        if lower.contains("dungeon") || lower.contains("ruin") || lower.contains("cave") || lower.contains("tunnel") {
+            return .underground
+        }
+        if let location = activeLocation(in: campaign) {
+            let type = location.type.lowercased()
+            if type.contains("dungeon") || type.contains("ruin") {
+                return .underground
+            }
+            if type.contains("settlement") || type.contains("city") || type.contains("urban") {
+                return .city
+            }
+        }
+        return .wilderness
+    }
+
+    private func travelConditions(for playerText: String) -> TravelConditions {
+        let lower = playerText.lowercased()
+        let nightWords = ["night", "dark", "evening", "midnight"]
+        let badWeatherWords = ["storm", "rain", "blizzard", "snow", "gale", "fog", "heat wave"]
+        let timeOfDay: TravelTimeOfDay = nightWords.contains(where: { lower.contains($0) }) ? .night : .day
+        let badWeather = badWeatherWords.contains(where: { lower.contains($0) })
+        return TravelConditions(timeOfDay: timeOfDay, badWeather: badWeather)
     }
 
     private func itemDetailLines(for name: String, index: SrdContentIndex) -> [String]? {
