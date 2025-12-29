@@ -215,6 +215,7 @@ final class DevTestRunner: ObservableObject {
     private var pendingFateQuestions: [FateQuestionRecord] = []
     private var pendingRollHighlights: [String] = []
     private var pendingPlayerText: String?
+    private var agencyLogCursor = 0
 
     init(coordinator: SoloSceneCoordinator) {
         self.coordinator = coordinator
@@ -228,6 +229,7 @@ final class DevTestRunner: ObservableObject {
         defer { isRunning = false }
 
         coordinator.resetConversation()
+        agencyLogCursor = 0
         append("Running: \(scenario.title)")
         for action in scenario.actions {
             await execute(action, modelContext: modelContext)
@@ -832,6 +834,17 @@ final class DevTestRunner: ObservableObject {
         pendingInteractions.append(interaction)
         pendingPlayerText = nil
         append("GM: \(text)")
+        appendAgencyLogsIfNeeded()
+    }
+
+    @MainActor
+    private func appendAgencyLogsIfNeeded() {
+        guard agencyLogCursor < coordinator.agencyLogs.count else { return }
+        let newLogs = coordinator.agencyLogs[agencyLogCursor...]
+        for entry in newLogs {
+            append("Engine [\(entry.stage)]: \(entry.message)")
+        }
+        agencyLogCursor = coordinator.agencyLogs.count
     }
 
     private func makeCheckProposalPrompt(playerText: String, context: NarrationContextPacket) -> String {
@@ -1198,6 +1211,9 @@ final class DevTestRunner: ObservableObject {
         updateField(character, key: "wis", intValue: abilities.wisdom)
         updateField(character, key: "cha", intValue: abilities.charisma)
         updateField(character, key: "skills", listValue: proficiencies)
+        updateField(character, key: "hp_max", intValue: 15)
+        updateField(character, key: "hp_current", intValue: 15)
+        updateField(character, key: "ac", intValue: 13)
         return character
     }
 

@@ -1043,6 +1043,7 @@ final class SoloSceneCoordinator: ObservableObject {
             if !event.followUps.isEmpty {
                 parts.append("Follow-ups: \(event.followUps.joined(separator: " | "))")
             }
+            logAgency(stage: "travel_event", message: "\(parts.joined(separator: " ")) [\(summary)]")
             return TableRollOutcome(
                 tableId: "travel_event",
                 result: parts.joined(separator: " "),
@@ -1050,6 +1051,7 @@ final class SoloSceneCoordinator: ObservableObject {
             )
         }
 
+        logAgency(stage: "travel_event", message: "No travel event. \(summary)")
         return TableRollOutcome(
             tableId: "encounter_check",
             result: "Travel continues without incident.",
@@ -1350,23 +1352,54 @@ final class SoloSceneCoordinator: ObservableObject {
         let lower = playerText.lowercased()
         let searchKeywords = ["check for traps", "search for traps", "look for traps", "scan for traps", "inspect for traps"]
         guard searchKeywords.contains(where: { lower.contains($0) }) else { return nil }
-        guard let trap = currentHiddenTrap(in: campaign) else { return nil }
+        if let trap = currentHiddenTrap(in: campaign) {
+            let skillName = normalizedSkillName(trap.detectionSkill)
+            let tuned = tunedCheckRequest(
+                CheckRequest(
+                    checkType: .skillCheck,
+                    skillName: skillName,
+                    abilityOverride: nil,
+                    dc: trap.detectionDC,
+                    opponentSkill: nil,
+                    opponentDC: nil,
+                    advantageState: .normal,
+                    stakes: "You miss the trap and remain at risk of triggering it.",
+                    partialSuccessDC: max(5, trap.detectionDC - 5),
+                    partialSuccessOutcome: "You notice hints but not the exact trigger.",
+                    reason: "Hidden \(trap.category) trap: \(trap.trigger)."
+                ),
+                campaign: campaign
+            )
+            return SkillCheckDraft(
+                playerAction: playerText,
+                request: tuned,
+                roll: nil,
+                modifier: nil,
+                total: nil,
+                outcome: nil,
+                consequence: nil,
+                sourceTrapId: trap.id,
+                sourceKind: "trap_detection"
+            )
+        }
 
-        let skillName = normalizedSkillName(trap.detectionSkill)
-        let request = CheckRequest(
-            checkType: .skillCheck,
-            skillName: skillName,
-            abilityOverride: nil,
-            dc: trap.detectionDC,
-            opponentSkill: nil,
-            opponentDC: nil,
-            advantageState: .normal,
-            stakes: "You miss the trap and remain at risk of triggering it.",
-            partialSuccessDC: max(5, trap.detectionDC - 5),
-            partialSuccessOutcome: "You notice hints but not the exact trigger.",
-            reason: "Hidden \(trap.category) trap: \(trap.trigger)."
+        let baseDC = defaultTrapSearchDC(campaign: campaign)
+        let request = tunedCheckRequest(
+            CheckRequest(
+                checkType: .skillCheck,
+                skillName: normalizedSkillName("Investigation"),
+                abilityOverride: nil,
+                dc: baseDC,
+                opponentSkill: nil,
+                opponentDC: nil,
+                advantageState: .normal,
+                stakes: "You could miss a hidden danger and remain at risk of triggering it.",
+                partialSuccessDC: max(5, baseDC - 5),
+                partialSuccessOutcome: "You notice something off but can’t confirm a specific trigger.",
+                reason: "You are deliberately searching the area for traps."
+            ),
+            campaign: campaign
         )
-
         return SkillCheckDraft(
             playerAction: playerText,
             request: request,
@@ -1375,8 +1408,8 @@ final class SoloSceneCoordinator: ObservableObject {
             total: nil,
             outcome: nil,
             consequence: nil,
-            sourceTrapId: trap.id,
-            sourceKind: "trap_detection"
+            sourceTrapId: nil,
+            sourceKind: "trap_search"
         )
     }
 
@@ -1553,8 +1586,10 @@ final class SoloSceneCoordinator: ObservableObject {
            let node = activeNode(in: campaign, location: location),
            let edge = edgeForExitLabel(trimmedExit, location: location, node: node) {
             _ = locationEngine.advanceAlongEdge(campaign: campaign, edge: edge, reason: reason)
+            logAgency(stage: "movement", message: "Advance via edge: \(edge.type) (\(edge.label ?? "")) reason=\(reason)")
         } else {
             _ = locationEngine.advanceToNextNode(campaign: campaign, reason: reason)
+            logAgency(stage: "movement", message: "Advance to next node reason=\(reason)")
         }
         try? modelContext.save()
         return true
@@ -1614,6 +1649,71 @@ final class SoloSceneCoordinator: ObservableObject {
         let pcs = campaign.playerCharacters.filter { !$0.displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
         let consentingNpcs = campaign.npcs.filter { $0.partyStatus == "consented" }
         return pcs.count + consentingNpcs.count
+    }
+
+    private func currentPartyAverageLevel(campaign: Campaign) -> Int {
+        if let party = campaign.party, party.averageLevel > 0 {
+            return party.averageLevel
+        }
+        if let members = campaign.party?.members, !members.isEmpty {
+            let total = members.map { max(1, $0.level) }.reduce(0, +)
+            return max(1, Int(round(Double(total) / Double(members.count))))
+        }
+        let levels = campaign.playerCharacters.compactMap { characterLevel(for: $0) }
+        if !levels.isEmpty {
+            let total = levels.reduce(0, +)
+            return max(1, Int(round(Double(total) / Double(levels.count))))
+        }
+        return 1
+    }
+
+    private func maxDcForPartyLevel(_ level: Int) -> Int {
+        switch level {
+        case ...4:
+            return 20
+        case 5...10:
+            return 25
+        case 11...16:
+            return 30
+        default:
+            return 30
+        }
+    }
+
+    private func tunedCheckRequest(_ request: CheckRequest, campaign: Campaign) -> CheckRequest {
+        let partyLevel = currentPartyAverageLevel(campaign: campaign)
+        let maxDc = maxDcForPartyLevel(partyLevel)
+        let adjustedDC = request.dc.map { min($0, maxDc) }
+        let adjustedOpp = request.opponentDC.map { min($0, maxDc) }
+        let baseDC = adjustedDC ?? adjustedOpp
+        let adjustedPartial: Int?
+        if baseDC != nil {
+            adjustedPartial = max(5, (baseDC ?? 10) - 5)
+        } else {
+            adjustedPartial = request.partialSuccessDC
+        }
+        var reason = request.reason
+        if adjustedDC != request.dc || adjustedOpp != request.opponentDC {
+            reason = reason.isEmpty ? "Adjusted for party level." : "\(reason) Adjusted for party level."
+        }
+        return CheckRequest(
+            checkType: request.checkType,
+            skillName: request.skillName,
+            abilityOverride: request.abilityOverride,
+            dc: adjustedDC,
+            opponentSkill: request.opponentSkill,
+            opponentDC: adjustedOpp,
+            advantageState: request.advantageState,
+            stakes: request.stakes,
+            partialSuccessDC: adjustedPartial,
+            partialSuccessOutcome: request.partialSuccessOutcome,
+            reason: reason
+        )
+    }
+
+    private func defaultTrapSearchDC(campaign: Campaign) -> Int {
+        let base = 10 + (activeLocation(in: campaign)?.dangerModifier ?? 0)
+        return min(max(base, 5), maxDcForPartyLevel(currentPartyAverageLevel(campaign: campaign)))
     }
 
     private func edgeForExitLabel(
@@ -2016,9 +2116,10 @@ final class SoloSceneCoordinator: ObservableObject {
 
         if checkDraft.content.requiresRoll == false {
             if shouldForceSkillCheck(for: playerText), let forcedRequest = forcedCheckRequest(for: playerText) {
+                let tunedRequest = tunedCheckRequest(forcedRequest, campaign: campaign)
                 let draft = SkillCheckDraft(
                     playerAction: playerText,
-                    request: forcedRequest,
+                    request: tunedRequest,
                     roll: nil,
                     modifier: nil,
                     total: nil,
@@ -2030,7 +2131,7 @@ final class SoloSceneCoordinator: ObservableObject {
                 checkDrafts.append(draft)
                 pendingCheckID = draft.id
                 let preface = intentSummary.map { "Got it: \($0). " } ?? ""
-                let gmText = preface + gmLineForCheck(forcedRequest)
+                let gmText = preface + gmLineForCheck(tunedRequest)
                 interactionDrafts.append(InteractionDraft(playerText: playerText, gmText: gmText, turnSignal: "gm_response"))
                 return true
             }
@@ -2046,12 +2147,14 @@ final class SoloSceneCoordinator: ObservableObject {
             interactionDrafts.append(InteractionDraft(playerText: playerText, gmText: gmText, turnSignal: "gm_response"))
             return true
         }
+        let tunedRequest = tunedCheckRequest(request, campaign: campaign)
         if shouldForceSkillCheck(for: playerText),
            shouldOverrideTrapSkill(proposedSkill: request.skillName),
            let forcedRequest = forcedCheckRequest(for: playerText) {
+            let tunedForced = tunedCheckRequest(forcedRequest, campaign: campaign)
             let draft = SkillCheckDraft(
                 playerAction: playerText,
-                request: forcedRequest,
+                request: tunedForced,
                 roll: nil,
                 modifier: nil,
                 total: nil,
@@ -2063,15 +2166,15 @@ final class SoloSceneCoordinator: ObservableObject {
             checkDrafts.append(draft)
             pendingCheckID = draft.id
             let preface = intentSummary.map { "Got it: \($0). " } ?? ""
-            let gmText = preface + gmLineForCheck(forcedRequest)
+            let gmText = preface + gmLineForCheck(tunedForced)
             interactionDrafts.append(InteractionDraft(playerText: playerText, gmText: gmText, turnSignal: "gm_response"))
             return true
         }
-        logAgency(stage: "adjudication_request", message: "\(request.skillName) dc=\(request.dc ?? request.opponentDC ?? 0) reason=\(request.reason)")
+        logAgency(stage: "adjudication_request", message: "\(tunedRequest.skillName) dc=\(tunedRequest.dc ?? tunedRequest.opponentDC ?? 0) reason=\(tunedRequest.reason)")
 
         let draft = SkillCheckDraft(
             playerAction: playerText,
-            request: request,
+            request: tunedRequest,
             roll: nil,
             modifier: nil,
             total: nil,
@@ -2088,11 +2191,11 @@ final class SoloSceneCoordinator: ObservableObject {
             let modifier = computedSkillBonus(for: checkDrafts[checkDrafts.count - 1], campaign: campaign) ?? 0
             checkDrafts[checkDrafts.count - 1].roll = roll
             checkDrafts[checkDrafts.count - 1].modifier = modifier
-            let result = engine.evaluateCheck(request: request, roll: roll, modifier: modifier)
+            let result = engine.evaluateCheck(request: tunedRequest, roll: roll, modifier: modifier)
             checkDrafts[checkDrafts.count - 1].total = result.total
             checkDrafts[checkDrafts.count - 1].outcome = result.outcome
             appendRollHighlight(for: checkDrafts[checkDrafts.count - 1], outcome: result.outcome, total: result.total)
-            logAgency(stage: "resolution", message: "Auto-roll check \(request.skillName) => \(result.outcome) total \(result.total)")
+            logAgency(stage: "resolution", message: "Auto-roll check \(tunedRequest.skillName) => \(result.outcome) total \(result.total)")
             let consequence = try await generateCheckConsequence(
                 session: session,
                 context: context,
@@ -2457,6 +2560,16 @@ final class SoloSceneCoordinator: ObservableObject {
         check: SkillCheckDraft,
         result: CheckResult
     ) async throws -> String {
+        if check.sourceKind == "trap_search", check.sourceTrapId == nil {
+            switch result.outcome {
+            case "success":
+                return "You don’t spot any traps or tripwires here."
+            case "partial_success":
+                return "You notice a few suspicious details, but you can’t confirm any specific trap."
+            default:
+                return "You don’t find anything, but you can’t be sure the area is safe."
+            }
+        }
         var prompt = """
         Provide a brief consequence (1-2 sentences) based on the check outcome.
         Keep the story moving and stay grounded.
@@ -2464,6 +2577,7 @@ final class SoloSceneCoordinator: ObservableObject {
         If the d20 roll is a natural 1, make it a significant failure.
         Do not advance the player into a new location or scene unless they explicitly said so.
         Do not describe the player taking actions they did not state.
+        Include a short reference to the reason and the stakes in your response.
 
         Scene #\(context.sceneNumber)
         Player action: \(check.playerAction)

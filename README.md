@@ -112,6 +112,7 @@ Work-in-progress task list (engine expansion):
 - **Narrator**: stricter tool-based contract (engine decides outcomes, narrator only interprets).
 - **Scene control**: end-of-scene detection and next-scene drafting based on last action.
 - **UI**: add a lightweight pending-check reminder chip in the scene view (non-blocking).
+- **Scene flow**: reinforce pending-check reminders when the player asks unrelated questions mid-check.
 - **Skill checks**: contested checks, passive checks, and check-to-oracle modifiers.
 - **Encounters**: encounter clocks and repeatable encounter state.
 - **Campaign tools**: import/export, duplicate campaigns, and per-campaign rulesets.
