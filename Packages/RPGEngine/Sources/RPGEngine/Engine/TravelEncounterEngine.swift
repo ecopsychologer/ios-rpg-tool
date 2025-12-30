@@ -113,10 +113,12 @@ public struct TravelEncounterEngine {
     public mutating func resolveTravelEvent(
         campaign: Campaign,
         environment: TravelEnvironment,
-        conditions: TravelConditions
+        conditions: TravelConditions,
+        travelModifier: Int = 0
     ) -> TravelEventResolution {
         let freq = frequency(for: environment)
-        let modifier = encounterModifier(for: conditions)
+        let baseModifier = encounterModifier(for: conditions)
+        let modifier = baseModifier + travelModifier
         let roll = rollEncounterCheck(campaign: campaign, dieSpec: freq.dieSpec, modifier: modifier, environment: environment)
         let modified = roll + modifier
         let check = EncounterCheckOutcome(

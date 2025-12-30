@@ -268,6 +268,21 @@ final class SoloSceneCoordinator: ObservableObject {
                         checkDrafts[index].roll = roll
                         checkDrafts[index].modifier = modifier
 
+                        if checkDrafts[index].sourceKind == "travel_check" {
+                            let gmText = try await resolveTravelCheck(
+                                session: session,
+                                context: context,
+                                draftIndex: index,
+                                roll: roll,
+                                modifier: modifier,
+                                campaign: campaign,
+                                modelContext: modelContext
+                            )
+                            interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
+                            pendingCheckID = nil
+                            return gmText
+                        }
+
                         let result = engine.evaluateCheck(request: checkDrafts[index].request, roll: roll, modifier: modifier)
                         checkDrafts[index].total = result.total
                         checkDrafts[index].outcome = result.outcome
@@ -294,6 +309,21 @@ final class SoloSceneCoordinator: ObservableObject {
                         let modifier = fallback.modifier ?? (wantsAutoBonus(trimmed) ? computedSkillBonus(for: checkDrafts[index], campaign: campaign) : nil) ?? 0
                         checkDrafts[index].roll = roll
                         checkDrafts[index].modifier = modifier
+
+                        if checkDrafts[index].sourceKind == "travel_check" {
+                            let gmText = try await resolveTravelCheck(
+                                session: session,
+                                context: context,
+                                draftIndex: index,
+                                roll: roll,
+                                modifier: modifier,
+                                campaign: campaign,
+                                modelContext: modelContext
+                            )
+                            interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
+                            pendingCheckID = nil
+                            return gmText
+                        }
 
                         let result = engine.evaluateCheck(request: checkDrafts[index].request, roll: roll, modifier: modifier)
                         checkDrafts[index].total = result.total
@@ -376,6 +406,21 @@ final class SoloSceneCoordinator: ObservableObject {
                     checkDrafts[index].roll = roll
                     checkDrafts[index].modifier = modifier
 
+                    if checkDrafts[index].sourceKind == "travel_check" {
+                        let gmText = try await resolveTravelCheck(
+                            session: session,
+                            context: context,
+                            draftIndex: index,
+                            roll: roll,
+                            modifier: modifier,
+                            campaign: campaign,
+                            modelContext: modelContext
+                        )
+                        interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
+                        pendingCheckID = nil
+                        return gmText
+                    }
+
                     let result = engine.evaluateCheck(request: checkDrafts[index].request, roll: roll, modifier: modifier)
                     checkDrafts[index].total = result.total
                     checkDrafts[index].outcome = result.outcome
@@ -411,6 +456,21 @@ final class SoloSceneCoordinator: ObservableObject {
 
                 checkDrafts[index].roll = roll
                 checkDrafts[index].modifier = modifier
+
+                if checkDrafts[index].sourceKind == "travel_check" {
+                    let gmText = try await resolveTravelCheck(
+                        session: session,
+                        context: context,
+                        draftIndex: index,
+                        roll: roll,
+                        modifier: modifier,
+                        campaign: campaign,
+                        modelContext: modelContext
+                    )
+                    interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
+                    pendingCheckID = nil
+                    return gmText
+                }
 
                 let result = engine.evaluateCheck(request: checkDrafts[index].request, roll: roll, modifier: modifier)
                 checkDrafts[index].total = result.total
@@ -472,11 +532,15 @@ final class SoloSceneCoordinator: ObservableObject {
                 return gmText
             }
 
-            if isAcknowledgementMessage(trimmed) {
-                let gmText = "Got it. What do you do next?"
-                interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
-                return gmText
-            }
+                if isAcknowledgementMessage(trimmed) {
+                    let gmText = try await generateAcknowledgementResponse(
+                        session: session,
+                        context: context,
+                        playerText: trimmed
+                    )
+                    interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
+                    return gmText
+                }
 
             if actionKind != .auto {
                 recordIntentLabel(actionKind, playerText: trimmed, campaign: campaign, modelContext: modelContext)
@@ -568,6 +632,15 @@ final class SoloSceneCoordinator: ObservableObject {
                     srdLookup: srdLookup,
                     campaign: campaign
                 )
+                interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
+                return gmText
+            }
+
+            if actionKind == .travel {
+                let travelDraft = travelCheckDraft(for: trimmed, campaign: campaign)
+                checkDrafts.append(travelDraft)
+                pendingCheckID = travelDraft.id
+                let gmText = gmLineForTravelCheck(travelDraft.request)
                 interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
                 return gmText
             }
@@ -1047,6 +1120,21 @@ final class SoloSceneCoordinator: ObservableObject {
         return line
     }
 
+    private func gmLineForTravelCheck(_ request: CheckRequest) -> String {
+        let skillName = request.skillName
+        let ability = request.abilityOverride ?? engine.ruleset.defaultAbility(for: skillName) ?? "Ability"
+        let abilityLine = "\(ability) (\(skillName))"
+        var line = "Travel check: Who’s leading the journey? Give me a \(abilityLine) roll (or another skill you can justify)."
+        line += " Higher rolls reduce the odds of trouble; low rolls increase risk."
+        line += " Include your modifier in the roll total, or say \"use my bonus\" if you want me to add it."
+        if autoRollEnabled {
+            line += " Roll it, or say \"auto\" if you want me to roll."
+        } else {
+            line += " Want to attempt it?"
+        }
+        return line
+    }
+
     private func pendingCheckReminder(for request: CheckRequest) -> String {
         let skillName = request.skillName
         if let dc = request.dc {
@@ -1064,6 +1152,51 @@ final class SoloSceneCoordinator: ObservableObject {
         let lower = text.lowercased()
         let phrases = ["use my bonus", "add my bonus", "use my modifier", "add my modifier", "apply my bonus", "with my bonus", "with my modifier"]
         return phrases.contains(where: { lower.contains($0) })
+    }
+
+    private func travelCheckDraft(for playerText: String, campaign: Campaign) -> SkillCheckDraft {
+        let skillName = normalizedSkillName("Survival")
+        let request = CheckRequest(
+            checkType: .skillCheck,
+            skillName: skillName,
+            abilityOverride: nil,
+            dc: nil,
+            opponentSkill: nil,
+            opponentDC: nil,
+            advantageState: .normal,
+            stakes: "This roll shapes the odds of trouble on the journey.",
+            partialSuccessDC: nil,
+            partialSuccessOutcome: nil,
+            reason: "Travel leadership check."
+        )
+        return SkillCheckDraft(
+            playerAction: playerText,
+            request: request,
+            roll: nil,
+            modifier: nil,
+            total: nil,
+            outcome: nil,
+            consequence: nil,
+            sourceTrapId: nil,
+            sourceKind: "travel_check"
+        )
+    }
+
+    private func travelOutcome(for total: Int) -> (outcome: String, modifier: Int) {
+        switch total {
+        case 20...:
+            return ("success", -3)
+        case 16...19:
+            return ("success", -2)
+        case 12...15:
+            return ("partial_success", -1)
+        case 8...11:
+            return ("partial_success", 0)
+        case 4...7:
+            return ("failure", 1)
+        default:
+            return ("failure", 2)
+        }
     }
 
     private func isBonusInquiry(_ text: String) -> Bool {
@@ -1319,7 +1452,8 @@ final class SoloSceneCoordinator: ObservableObject {
         playerText: String,
         intentSummary: String?,
         campaign: Campaign,
-        modelContext: ModelContext
+        modelContext: ModelContext,
+        travelModifier: Int? = nil
     ) -> TableRollOutcome? {
         guard shouldProcessTravelEvent(playerText: playerText, intentSummary: intentSummary, campaign: campaign) else {
             return nil
@@ -1327,16 +1461,19 @@ final class SoloSceneCoordinator: ObservableObject {
 
         let environment = travelEnvironment(for: playerText, campaign: campaign)
         let conditions = travelConditions(for: playerText)
+        let travelMod = travelModifier ?? 0
         let resolution = travelEngine.resolveTravelEvent(
             campaign: campaign,
             environment: environment,
-            conditions: conditions
+            conditions: conditions,
+            travelModifier: travelMod
         )
 
         let summary = encounterCheckSummary(from: resolution.check)
         if let event = resolution.event {
             applyNpcReactionIfNeeded(from: event, campaign: campaign, modelContext: modelContext)
             createEncounterIfNeeded(from: event, campaign: campaign, modelContext: modelContext)
+            spawnNpcIfNeeded(from: event, campaign: campaign, modelContext: modelContext)
             var parts = ["Travel event: \(event.event)"]
             if let intensity = event.encounterIntensity {
                 parts.append("Encounter intensity: \(intensity)")
@@ -1344,7 +1481,8 @@ final class SoloSceneCoordinator: ObservableObject {
             if !event.followUps.isEmpty {
                 parts.append("Follow-ups: \(event.followUps.joined(separator: " | "))")
             }
-            logAgency(stage: "travel_event", message: "\(parts.joined(separator: " ")) [\(summary)]")
+            let modInfo = travelMod == 0 ? "" : " travel_mod=\(travelMod)"
+            logAgency(stage: "travel_event", message: "\(parts.joined(separator: " ")) [\(summary)]\(modInfo)")
             return TableRollOutcome(
                 tableId: "travel_event",
                 result: parts.joined(separator: " "),
@@ -1352,7 +1490,8 @@ final class SoloSceneCoordinator: ObservableObject {
             )
         }
 
-        logAgency(stage: "travel_event", message: "No travel event. \(summary)")
+        let modInfo = travelMod == 0 ? "" : " travel_mod=\(travelMod)"
+        logAgency(stage: "travel_event", message: "No travel event. \(summary)\(modInfo)")
         return TableRollOutcome(
             tableId: "encounter_check",
             result: "Travel continues without incident.",
@@ -1437,6 +1576,51 @@ final class SoloSceneCoordinator: ObservableObject {
             campaign.eventLog?.append(logEntry)
         }
         try? modelContext.save()
+    }
+
+    private func spawnNpcIfNeeded(
+        from event: TravelEventOutcome,
+        campaign: Campaign,
+        modelContext: ModelContext
+    ) {
+        guard let locationId = campaign.activeLocationId else { return }
+        let present = campaign.npcs.first(where: { $0.currentLocationId == locationId })
+        guard present == nil else { return }
+
+        let lower = ([event.event] + event.followUps).joined(separator: " ").lowercased()
+        let role: String?
+        if lower.contains("scout") {
+            role = "Scout"
+        } else if lower.contains("merchant") || lower.contains("traveler") || lower.contains("travellers") || lower.contains("caravan") {
+            role = "Traveler"
+        } else if lower.contains("patrol") || lower.contains("guard") || lower.contains("watch") || lower.contains("authorities") {
+            role = "Guard"
+        } else if lower.contains("bandit") || lower.contains("raider") {
+            role = "Bandit"
+        } else {
+            role = nil
+        }
+        guard let roleTag = role else { return }
+
+        var npcEngine = SoloNpcEngine()
+        let options = NpcGenerationOptions(name: nil, species: nil, roleTag: roleTag, importance: .minor)
+        if let npc = npcEngine.generateNPC(campaign: campaign, options: options) {
+            npc.currentLocationId = locationId
+            campaign.npcs.append(npc)
+            let logEntry = EventLogEntry(
+                summary: "Spawned NPC: \(npc.name) (\(npc.roleTag))",
+                sceneId: campaign.activeSceneId,
+                rollIds: nil,
+                entityIds: [npc.id],
+                origin: "system"
+            )
+            if campaign.eventLog == nil {
+                campaign.eventLog = [logEntry]
+            } else {
+                campaign.eventLog?.append(logEntry)
+            }
+            try? modelContext.save()
+        }
     }
 
     private func attitudeFromReaction(_ reaction: String) -> NPCAttitude {
@@ -2645,6 +2829,18 @@ final class SoloSceneCoordinator: ObservableObject {
             prompt += "\nActive Threads: \(names)"
         }
 
+        let presentNpcs = campaign.npcs.filter { $0.currentLocationId == campaign.activeLocationId }
+        if !presentNpcs.isEmpty {
+            let names = presentNpcs.map { "\($0.name) (\($0.roleTag))" }.joined(separator: ", ")
+            prompt += "\nPresent NPCs: \(names)"
+            prompt += "\nIf you refer to a present NPC again, use their name or \"the <role>\" rather than introducing \"a <role>\"."
+        }
+        let knownNpcs = campaign.npcs.filter { $0.currentLocationId != campaign.activeLocationId }
+        if !knownNpcs.isEmpty {
+            let names = knownNpcs.prefix(5).map { "\($0.name) (\($0.roleTag))" }.joined(separator: ", ")
+            prompt += "\nKnown NPCs (not present): \(names)"
+        }
+
         if let location = activeLocation(in: campaign) {
             prompt += "\nLocation: \(location.name) (\(location.type))"
             if let node = activeNode(in: campaign, location: location) {
@@ -2723,6 +2919,26 @@ final class SoloSceneCoordinator: ObservableObject {
         Answer the fate question with the given outcome in 1-2 sentences.
         Question: \(question)
         Outcome: \(outcome.uppercased())
+        """
+        let response = try await session.respond(to: Prompt(prompt))
+        return response.content.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func generateAcknowledgementResponse(
+        session: LanguageModelSession,
+        context: NarrationContextPacket,
+        playerText: String
+    ) async throws -> String {
+        let lastGM = interactionDrafts.last?.gmText ?? ""
+        let prompt = """
+        Respond to the player's acknowledgement in 1-2 sentences.
+        Stay in character as the GM. Do not advance the scene or assume new actions.
+        Keep it grounded in the current moment. Do not ask \"what do you do next\".
+
+        Scene #\(context.sceneNumber)
+        Expected Scene: \(context.expectedScene)
+        Last GM response: \(lastGM)
+        Player: \(playerText)
         """
         let response = try await session.respond(to: Prompt(prompt))
         return response.content.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -2903,11 +3119,84 @@ final class SoloSceneCoordinator: ObservableObject {
         return response.content.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    private func resolveTravelCheck(
+        session: LanguageModelSession,
+        context: NarrationContextPacket,
+        draftIndex: Int,
+        roll: Int,
+        modifier: Int,
+        campaign: Campaign,
+        modelContext: ModelContext
+    ) async throws -> String {
+        let total = roll + modifier
+        let outcome = travelOutcome(for: total)
+        checkDrafts[draftIndex].total = total
+        checkDrafts[draftIndex].outcome = outcome.outcome
+        logAgency(stage: "resolution", message: "Travel check => \(outcome.outcome) total \(total) travel_mod=\(outcome.modifier)")
+
+        let travelOutcomeResult = resolveTravelEventIfNeeded(
+            playerText: checkDrafts[draftIndex].playerAction,
+            intentSummary: lastPlayerIntentSummary,
+            campaign: campaign,
+            modelContext: modelContext,
+            travelModifier: outcome.modifier
+        )
+
+        let consequence = try await generateTravelOutcomeNarration(
+            session: session,
+            context: context,
+            roll: roll,
+            modifier: modifier,
+            total: total,
+            outcome: outcome.outcome,
+            travelEvent: travelOutcomeResult
+        )
+        checkDrafts[draftIndex].consequence = consequence
+
+        let outcomeText = outcome.outcome.replacingOccurrences(of: "_", with: " ")
+        return "Travel check: \(roll) + \(modifier) = \(total). \(outcomeText.capitalized). \(consequence)"
+    }
+
+    private func generateTravelOutcomeNarration(
+        session: LanguageModelSession,
+        context: NarrationContextPacket,
+        roll: Int,
+        modifier: Int,
+        total: Int,
+        outcome: String,
+        travelEvent: TableRollOutcome?
+    ) async throws -> String {
+        var prompt = """
+        Summarize the travel check outcome in 1-3 sentences.
+        Higher rolls mean safer travel; lower rolls increase risk.
+        Do not mention DCs, modifiers, or internal table rolls.
+        If the roll is a natural 20, make it an extraordinary outcome.
+        If the roll is a natural 1, make it a significant failure.
+        """
+        if let travelEvent {
+            prompt += "\nTravel result: \(travelEvent.result)"
+        } else {
+            prompt += "\nTravel result: No encounter."
+        }
+        prompt += """
+
+        Scene #\(context.sceneNumber)
+        Expected Scene: \(context.expectedScene)
+        Outcome: \(outcome)
+        Roll: \(roll) (total \(total))
+        """
+        let response = try await session.respond(to: Prompt(prompt))
+        return response.content.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     private func parseCommaList(_ input: String) -> [String] {
         input.split(separator: ",").map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
     }
 
     private func appendRollHighlight(for check: SkillCheckDraft, outcome: String, total: Int?) {
+        if check.sourceKind == "travel_check" {
+            return
+        }
         let dc = check.request.dc ?? check.request.opponentDC ?? 10
         let totalText = total.map { " (Total \($0))" } ?? ""
         let cleanedOutcome = outcome.replacingOccurrences(of: "_", with: " ")

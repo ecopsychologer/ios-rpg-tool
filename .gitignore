@@ -79,3 +79,5 @@ info/
 testing/
 DevAssets/
 .github/copilot-instructions.md
+PROJECT_STATE.md
+AGENTS.md
