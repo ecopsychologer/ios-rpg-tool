@@ -61,9 +61,14 @@ struct SoloScenesView: View {
     @State private var narration = ""
     @State private var narrationError: String?
     @State private var isNarrating = false
+    @State private var selectedActionKind: PlayerActionKind = .other
 
     private var alteredMode: AlteredMode {
         AlteredMode(rawValue: alteredModeRaw) ?? .guided
+    }
+
+    private var actionKindOptions: [PlayerActionKind] {
+        PlayerActionKind.allCases.filter { $0 != .auto }
     }
 
     @MainActor init(coordinator: SoloSceneCoordinator) {
@@ -580,6 +585,13 @@ struct SoloScenesView: View {
                     .font(.callout)
                     .foregroundColor(.secondary)
             }
+
+            Picker("Action Type", selection: $selectedActionKind) {
+                ForEach(actionKindOptions) { kind in
+                    Text(kind.label).tag(kind)
+                }
+            }
+            .pickerStyle(.menu)
 
             TextField("Ask a question or describe your action...", text: $sceneInput, axis: .vertical)
                 .textFieldStyle(.roundedBorder)
@@ -1123,6 +1135,7 @@ struct SoloScenesView: View {
                 campaign: campaign,
                 scene: scene,
                 playerText: trimmed,
+                actionKind: selectedActionKind,
                 autoRollEnabled: autoRollEnabled,
                 gmRunsCompanionsEnabled: gmRunsCompanionsEnabled,
                 modelContext: modelContext

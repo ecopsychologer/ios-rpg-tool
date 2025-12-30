@@ -33,6 +33,7 @@ enum TestAction: Codable {
     case setWorldLore(title: String, description: String)
     case startScene(expected: String)
     case playerInput(text: String)
+    case playerInputKind(kind: String, text: String)
     case gmResponse(text: String)
     case recordSkillCheck(skill: String, dc: Int, roll: Int, outcome: String, consequence: String)
     case endScene(summary: String, pcsInControl: Bool, concluded: Bool)
@@ -78,6 +79,10 @@ enum TestAction: Codable {
         case "playerInput":
             let text = try container.decode(String.self, forKey: .value1)
             self = .playerInput(text: text)
+        case "playerInputKind":
+            let kind = try container.decode(String.self, forKey: .value1)
+            let text = try container.decode(String.self, forKey: .value2)
+            self = .playerInputKind(kind: kind, text: text)
         case "gmResponse":
             let text = try container.decode(String.self, forKey: .value1)
             self = .gmResponse(text: text)
@@ -148,6 +153,10 @@ enum TestAction: Codable {
         case .playerInput(let text):
             try container.encode("playerInput", forKey: .type)
             try container.encode(text, forKey: .value1)
+        case .playerInputKind(let kind, let text):
+            try container.encode("playerInputKind", forKey: .type)
+            try container.encode(kind, forKey: .value1)
+            try container.encode(text, forKey: .value2)
         case .gmResponse(let text):
             try container.encode("gmResponse", forKey: .type)
             try container.encode(text, forKey: .value1)
@@ -288,7 +297,10 @@ final class DevTestRunner: ObservableObject {
             coordinator.resetConversation()
             append("Scene setup: \(expected)")
         case .playerInput(let text):
-            await handlePlayerInput(text, modelContext: modelContext)
+            await handlePlayerInput(text, actionKind: .auto, modelContext: modelContext)
+        case .playerInputKind(let kind, let text):
+            let actionKind = PlayerActionKind(rawValue: kind) ?? .auto
+            await handlePlayerInput(text, actionKind: actionKind, modelContext: modelContext)
         case .gmResponse(let text):
             let playerText = coordinator.interactionDrafts.last?.playerText ?? ""
             coordinator.interactionDrafts.append(InteractionDraft(playerText: playerText, gmText: text, turnSignal: "gm_response"))
@@ -440,8 +452,12 @@ final class DevTestRunner: ObservableObject {
     }
 
     @MainActor
-    private func handlePlayerInput(_ text: String, modelContext: ModelContext) async {
-        append("Player: \(text)")
+    private func handlePlayerInput(_ text: String, actionKind: PlayerActionKind, modelContext: ModelContext) async {
+        if actionKind == .auto {
+            append("Player: \(text)")
+        } else {
+            append("Player [\(actionKind.label)]: \(text)")
+        }
         let campaign = ensureDevCampaign(modelContext)
         guard let sceneRecord = pendingScene else {
             append("GM: No active scene. Start a scene first.")
@@ -451,16 +467,20 @@ final class DevTestRunner: ObservableObject {
             campaign: campaign,
             scene: sceneRecord,
             playerText: text,
+            actionKind: actionKind,
             autoRollEnabled: UserDefaults.standard.bool(forKey: "soloAutoRollEnabled"),
             gmRunsCompanionsEnabled: UserDefaults.standard.bool(forKey: "soloGMRunsCompanions"),
             modelContext: modelContext
         )
         if let gmText {
             append("GM: \(gmText)")
+            appendAgencyLogsIfNeeded()
         } else if let error = coordinator.gmResponseError {
             append("GM: \(error)")
+            appendAgencyLogsIfNeeded()
         } else {
             append("GM: (no response)")
+            appendAgencyLogsIfNeeded()
         }
     }
 
@@ -1344,9 +1364,9 @@ struct DevTestScenariosView: View {
                 ForEach(scenarios) { scenario in
                     Button(scenario.title) {
                         selectedScenario = scenario
+                        showLog = true
                         Task {
                             await runner.run(scenario, modelContext: modelContext)
-                            showLog = true
                         }
                     }
                     .buttonStyle(.plain)
@@ -1390,17 +1410,17 @@ struct DevTestScenariosView: View {
                 ),
                 .moveToLocation(label: "Dungeon Entrance"),
                 .startScene(expected: "Arrive at the fog-choked station as the ghost train hisses to a stop."),
-                .playerInput(text: "I scan the platform for traps or tripwires."),
+                .playerInputKind(kind: PlayerActionKind.search.rawValue, text: "I scan the platform for traps or tripwires."),
                 .playerInput(text: "Natural 20."),
                 .playerInput(text: "Yes! Glad that worked."),
                 .endScene(summary: "", pcsInControl: true, concluded: false),
                 .startScene(expected: "The platform opens into a shadowy concourse with murmuring travelers."),
-                .playerInput(text: "I try to persuade a dockworker to share the ghost train schedule."),
+                .playerInputKind(kind: PlayerActionKind.skillCheck.rawValue, text: "I try to persuade a dockworker to share the ghost train schedule."),
                 .playerInput(text: "Natural 1."),
                 .playerInput(text: "Oof. That went badly."),
                 .endScene(summary: "", pcsInControl: false, concluded: false),
                 .startScene(expected: "A service door stands ajar beside a humming generator."),
-                .playerInput(text: "I head through the adjoining doorway."),
+                .playerInputKind(kind: PlayerActionKind.movement.rawValue, text: "I head through the adjoining doorway."),
                 .endScene(summary: "", pcsInControl: true, concluded: false)
             ]
         )
@@ -1422,19 +1442,19 @@ struct DevTestScenariosView: View {
                 ),
                 .moveToLocation(label: "Roadside Camp"),
                 .startScene(expected: "Traveling the road at dusk, the party keeps an eye out for trouble."),
-                .playerInput(text: "We travel the road at night in a storm for the next few hours."),
-                .playerInput(text: "Do we encounter anyone on the road?"),
-                .playerInput(text: "We push deeper into the wilds through the storm."),
-                .playerInput(text: "I check the path for hazards or traps."),
+                .playerInputKind(kind: PlayerActionKind.travel.rawValue, text: "We travel the road at night in a storm for the next few hours."),
+                .playerInputKind(kind: PlayerActionKind.question.rawValue, text: "Do we encounter anyone on the road?"),
+                .playerInputKind(kind: PlayerActionKind.travel.rawValue, text: "We push deeper into the wilds through the storm."),
+                .playerInputKind(kind: PlayerActionKind.search.rawValue, text: "I check the path for hazards or traps."),
                 .playerInput(text: "Natural 15."),
                 .endScene(summary: "", pcsInControl: true, concluded: false),
                 .startScene(expected: "A small ruin appears off the path."),
-                .playerInput(text: "I search the ruin for anything unusual."),
+                .playerInputKind(kind: PlayerActionKind.search.rawValue, text: "I search the ruin for anything unusual."),
                 .playerInput(text: "Natural 10."),
-                .playerInput(text: "GM, is there a hidden door here?"),
+                .playerInputKind(kind: PlayerActionKind.question.rawValue, text: "GM, is there a hidden door here?"),
                 .endScene(summary: "", pcsInControl: false, concluded: false),
                 .startScene(expected: "The night grows colder as you make camp."),
-                .playerInput(text: "We make camp and keep watch."),
+                .playerInputKind(kind: PlayerActionKind.rest.rawValue, text: "We make camp and keep watch."),
                 .endScene(summary: "", pcsInControl: true, concluded: false)
             ]
         )
@@ -1476,17 +1496,17 @@ struct DevSmokeTestView: View {
                 ),
                 .moveToLocation(label: "Dungeon Entrance"),
                 .startScene(expected: "Arrive at the fog-choked station as the ghost train hisses to a stop."),
-                .playerInput(text: "I scan the platform for traps or tripwires."),
+                .playerInputKind(kind: PlayerActionKind.search.rawValue, text: "I scan the platform for traps or tripwires."),
                 .playerInput(text: "Natural 20."),
                 .playerInput(text: "Yes! Glad that worked."),
                 .endScene(summary: "", pcsInControl: true, concluded: false),
                 .startScene(expected: "The platform opens into a shadowy concourse with murmuring travelers."),
-                .playerInput(text: "I try to persuade a dockworker to share the ghost train schedule."),
+                .playerInputKind(kind: PlayerActionKind.skillCheck.rawValue, text: "I try to persuade a dockworker to share the ghost train schedule."),
                 .playerInput(text: "Natural 1."),
                 .playerInput(text: "Oof. That went badly."),
                 .endScene(summary: "", pcsInControl: false, concluded: false),
                 .startScene(expected: "A service door stands ajar beside a humming generator."),
-                .playerInput(text: "I head through the adjoining doorway."),
+                .playerInputKind(kind: PlayerActionKind.movement.rawValue, text: "I head through the adjoining doorway."),
                 .endScene(summary: "", pcsInControl: true, concluded: false)
             ]
         )

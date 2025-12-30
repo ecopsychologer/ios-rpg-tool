@@ -66,6 +66,113 @@ struct PendingLocationFeature: Identifiable {
     let summary: String
 }
 
+enum PlayerActionKind: String, CaseIterable, Identifiable {
+    case auto
+    case question
+    case dialogue
+    case movement
+    case skillCheck
+    case search
+    case interact
+    case explore
+    case travel
+    case rest
+    case combatAttack
+    case combatDash
+    case combatDisengage
+    case combatDodge
+    case combatHelp
+    case combatHide
+    case combatReady
+    case combatUseObject
+    case castSpell
+    case useItem
+    case gmCommand
+    case other
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .auto:
+            return "Auto (GM infers)"
+        case .question:
+            return "Question / Perceive"
+        case .dialogue:
+            return "Dialogue (in character)"
+        case .movement:
+            return "Move / Change location"
+        case .skillCheck:
+            return "Skill Check"
+        case .search:
+            return "Search / Investigate"
+        case .interact:
+            return "Interact / Manipulate"
+        case .explore:
+            return "Explore / Observe"
+        case .travel:
+            return "Travel / Journey"
+        case .rest:
+            return "Rest / Downtime"
+        case .combatAttack:
+            return "Combat: Attack"
+        case .combatDash:
+            return "Combat: Dash"
+        case .combatDisengage:
+            return "Combat: Disengage"
+        case .combatDodge:
+            return "Combat: Dodge"
+        case .combatHelp:
+            return "Combat: Help"
+        case .combatHide:
+            return "Combat: Hide"
+        case .combatReady:
+            return "Combat: Ready"
+        case .combatUseObject:
+            return "Combat: Use Object"
+        case .castSpell:
+            return "Cast Spell / Power"
+        case .useItem:
+            return "Use Item / Inventory"
+        case .gmCommand:
+            return "GM / Meta"
+        case .other:
+            return "Other"
+        }
+    }
+
+    var intentCategoryOverride: IntentCategory? {
+        switch self {
+        case .question:
+            return .playerQuestion
+        case .dialogue:
+            return .roleplayDialogue
+        case .gmCommand:
+            return .gmCommand
+        case .auto:
+            return nil
+        default:
+            return .playerIntent
+        }
+    }
+
+    var forcesMovement: Bool {
+        self == .movement || self == .travel
+    }
+
+    var shouldProposeCheck: Bool {
+        switch self {
+        case .skillCheck, .search, .interact, .explore,
+             .combatAttack, .combatDash, .combatDisengage, .combatDodge,
+             .combatHelp, .combatHide, .combatReady, .combatUseObject,
+             .castSpell, .useItem:
+            return true
+        default:
+            return false
+        }
+    }
+}
+
 @MainActor
 final class SoloSceneCoordinator: ObservableObject {
 
@@ -118,6 +225,7 @@ final class SoloSceneCoordinator: ObservableObject {
         campaign: Campaign,
         scene: SceneRecord,
         playerText: String,
+        actionKind: PlayerActionKind = .auto,
         autoRollEnabled: Bool,
         gmRunsCompanionsEnabled: Bool,
         modelContext: ModelContext
@@ -370,7 +478,101 @@ final class SoloSceneCoordinator: ObservableObject {
                 return gmText
             }
 
-            if isMetaMessage(trimmed) {
+            if actionKind != .auto {
+                recordIntentLabel(actionKind, playerText: trimmed, campaign: campaign, modelContext: modelContext)
+                logAgency(stage: "intent_override", message: "\(actionKind.rawValue): \(trimmed)")
+            }
+
+            if actionKind == .gmCommand {
+                let tableRoll = try await resolveTableRollIfNeeded(
+                    session: session,
+                    context: context,
+                    playerText: trimmed,
+                    campaign: campaign
+                )
+                let srdLookup = try await resolveSrdLookupIfNeeded(
+                    session: session,
+                    context: context,
+                    playerText: trimmed
+                )
+                let gmText = try await generateNormalGMResponse(
+                    session: session,
+                    context: context,
+                    playerText: trimmed,
+                    isMeta: true,
+                    playerInputKind: .gmCommand,
+                    tableRoll: tableRoll,
+                    srdLookup: srdLookup,
+                    campaign: campaign
+                )
+                interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
+                return gmText
+            }
+
+            if actionKind == .question {
+                let tableRoll = try await resolveTableRollIfNeeded(
+                    session: session,
+                    context: context,
+                    playerText: trimmed,
+                    campaign: campaign
+                )
+                let srdLookup = try await resolveSrdLookupIfNeeded(
+                    session: session,
+                    context: context,
+                    playerText: trimmed
+                )
+                let gmText = try await generateNormalGMResponse(
+                    session: session,
+                    context: context,
+                    playerText: trimmed,
+                    isMeta: false,
+                    playerInputKind: .playerQuestion,
+                    tableRoll: tableRoll,
+                    srdLookup: srdLookup,
+                    campaign: campaign
+                )
+                interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
+                return gmText
+            }
+
+            if actionKind == .dialogue {
+                let travelOutcome = resolveTravelEventIfNeeded(
+                    playerText: trimmed,
+                    intentSummary: lastPlayerIntentSummary,
+                    campaign: campaign,
+                    modelContext: modelContext
+                )
+                let tableRoll: TableRollOutcome?
+                if let travelOutcome {
+                    tableRoll = travelOutcome
+                } else {
+                    tableRoll = try await resolveTableRollIfNeeded(
+                        session: session,
+                        context: context,
+                        playerText: trimmed,
+                        campaign: campaign
+                    )
+                }
+                let srdLookup = try await resolveSrdLookupIfNeeded(
+                    session: session,
+                    context: context,
+                    playerText: trimmed
+                )
+                let gmText = try await generateNormalGMResponse(
+                    session: session,
+                    context: context,
+                    playerText: trimmed,
+                    isMeta: false,
+                    playerInputKind: .roleplayDialogue,
+                    tableRoll: tableRoll,
+                    srdLookup: srdLookup,
+                    campaign: campaign
+                )
+                interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
+                return gmText
+            }
+
+            if actionKind == .auto, isMetaMessage(trimmed) {
                 let tableRoll = try await resolveTableRollIfNeeded(
                     session: session,
                     context: context,
@@ -417,18 +619,34 @@ final class SoloSceneCoordinator: ObservableObject {
                 return joinResponse
             }
 
-            let didAdvance = try await resolveMovementIntent(
-                session: session,
-                context: context,
-                playerText: trimmed,
-                campaign: campaign,
-                modelContext: modelContext
-            )
-            if didAdvance {
-                context = engine.buildNarrationContext(campaign: campaign, scene: scene)
+            let shouldAttemptMovement = actionKind == .auto || actionKind.forcesMovement
+            if shouldAttemptMovement {
+                let didAdvance = try await resolveMovementIntent(
+                    session: session,
+                    context: context,
+                    playerText: trimmed,
+                    campaign: campaign,
+                    modelContext: modelContext
+                )
+                if didAdvance {
+                    context = engine.buildNarrationContext(campaign: campaign, scene: scene)
+                }
             }
 
-            if shouldForceSkillCheck(for: trimmed) {
+            if actionKind.shouldProposeCheck {
+                if try await resolveSkillCheckProposal(
+                    session: session,
+                    context: context,
+                    playerText: trimmed,
+                    intentSummary: trimmed,
+                    requestedMode: .askBeforeRolling,
+                    campaign: campaign
+                ) {
+                    return interactionDrafts.last?.gmText
+                }
+            }
+
+            if actionKind == .auto, shouldForceSkillCheck(for: trimmed) {
                 if try await resolveSkillCheckProposal(
                     session: session,
                     context: context,
@@ -441,6 +659,73 @@ final class SoloSceneCoordinator: ObservableObject {
                 }
             }
 
+            if actionKind != .auto {
+                let travelOutcome = resolveTravelEventIfNeeded(
+                    playerText: trimmed,
+                    intentSummary: lastPlayerIntentSummary,
+                    campaign: campaign,
+                    modelContext: modelContext
+                )
+                let tableRoll: TableRollOutcome?
+                if let travelOutcome {
+                    tableRoll = travelOutcome
+                } else {
+                    tableRoll = try await resolveTableRollIfNeeded(
+                        session: session,
+                        context: context,
+                        playerText: trimmed,
+                        campaign: campaign
+                    )
+                }
+                let srdLookup = try await resolveSrdLookupIfNeeded(
+                    session: session,
+                    context: context,
+                    playerText: trimmed
+                )
+                let gmText = try await generateNormalGMResponse(
+                    session: session,
+                    context: context,
+                    playerText: trimmed,
+                    isMeta: false,
+                    playerInputKind: actionKind.intentCategoryOverride ?? .playerIntent,
+                    tableRoll: tableRoll,
+                    srdLookup: srdLookup,
+                    campaign: campaign
+                )
+                await captureLocationFeatures(from: gmText, session: session, campaign: campaign)
+
+                if shouldSkipCanonization(for: trimmed) {
+                    interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
+                    return gmText
+                }
+
+                let canonDraft = try await session.respond(
+                    to: Prompt(makeCanonizationPrompt(playerText: trimmed, context: context, campaign: campaign)),
+                    generating: CanonizationDraft.self
+                )
+
+                if canonDraft.content.shouldCanonize,
+                   let likelihood = FateLikelihood.from(name: canonDraft.content.likelihood) {
+                    let state = CanonizationDraftState(
+                        assumption: canonDraft.content.assumption,
+                        likelihood: likelihood,
+                        chaosFactor: campaign.chaosFactor,
+                        roll: nil,
+                        target: nil,
+                        outcome: nil
+                    )
+                    canonizationDrafts.append(state)
+                    pendingCanonizationId = state.id
+                    let gmTextWithCanon = gmText + "\nCanonize: \(canonDraft.content.assumption). Roll fate to confirm? (y/n)"
+                    interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmTextWithCanon, turnSignal: "gm_response"))
+                    return gmTextWithCanon
+                }
+
+                interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
+                return gmText
+            }
+
+            // Legacy auto intent classification path (used only when actionKind == .auto).
             let intentCategoryDraft = try await session.respond(
                 to: Prompt(makeIntentCategoryPrompt(playerText: trimmed, context: context)),
                 generating: IntentCategoryDraft.self
@@ -892,6 +1177,22 @@ final class SoloSceneCoordinator: ObservableObject {
 
     private func logAgency(stage: String, message: String) {
         agencyLogs.append(AgencyLogEntry(stage: stage, message: message))
+    }
+
+    private func recordIntentLabel(
+        _ actionKind: PlayerActionKind,
+        playerText: String,
+        campaign: Campaign,
+        modelContext: ModelContext
+    ) {
+        guard actionKind != .auto else { return }
+        let summary = "Intent label: \(actionKind.rawValue) | \(playerText)"
+        let entry = EventLogEntry(summary: summary, sceneId: campaign.activeSceneId, origin: "intent_label")
+        if campaign.eventLog == nil {
+            campaign.eventLog = []
+        }
+        campaign.eventLog?.append(entry)
+        try? modelContext.save()
     }
 
     private func availableTableIds() -> [String] {
