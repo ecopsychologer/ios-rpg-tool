@@ -14,6 +14,11 @@ let package = Package(
             resources: [
                 .process("Resources")
             ]
+        ),
+        .testTarget(
+            name: "TableEngineTests",
+            dependencies: ["TableEngine"],
+            path: "Tests"
         )
     ]
 )

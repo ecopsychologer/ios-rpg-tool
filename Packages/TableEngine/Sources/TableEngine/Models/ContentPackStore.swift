@@ -8,7 +8,14 @@ public struct ContentPackStore {
     public func loadDefaultPack() throws -> ContentPack {
         let url = try ensureDefaultPackExists()
         let data = try Data(contentsOf: url)
-        return try JSONDecoder().decode(ContentPack.self, from: data)
+        let basePack = try JSONDecoder().decode(ContentPack.self, from: data)
+        let supplemental = loadSupplementalTables()
+        if supplemental.isEmpty {
+            return basePack
+        }
+        let existingIds = Set(basePack.tables.map { $0.id })
+        let mergedTables = basePack.tables + supplemental.filter { !existingIds.contains($0.id) }
+        return ContentPack(id: basePack.id, version: basePack.version, tables: mergedTables)
     }
 
     public func ensureDefaultPackExists() throws -> URL {
@@ -41,6 +48,12 @@ public struct ContentPackStore {
     }
 
     private func loadSupplementalTables() -> [TableDefinition] {
+        let bundled = loadBundledSupplementalTables()
+        let userTables = loadUserTables()
+        return bundled + userTables
+    }
+
+    private func loadBundledSupplementalTables() -> [TableDefinition] {
         guard let url = Bundle.module.url(forResource: "rpg_tables", withExtension: "json"),
               let data = try? Data(contentsOf: url),
               let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -86,6 +99,30 @@ public struct ContentPackStore {
             definitions.append(TableDefinition(id: name, name: name, scope: "general", diceSpec: dice, entries: tableEntries))
         }
         return definitions
+    }
+
+    private func loadUserTables() -> [TableDefinition] {
+        guard let dataURL = userDataDirectoryURL() else { return [] }
+        let tablesURL = dataURL.appendingPathComponent("tables.json")
+        guard FileManager.default.fileExists(atPath: tablesURL.path),
+              let data = try? Data(contentsOf: tablesURL) else { return [] }
+        return UserTableImporter().importTables(from: data, scope: "user")
+    }
+
+    private func userDataDirectoryURL() -> URL? {
+        guard let documents = try? FileManager.default.url(
+            for: .documentDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: true
+        ) else {
+            return nil
+        }
+        let dataURL = documents.appendingPathComponent("data", isDirectory: true)
+        if !FileManager.default.fileExists(atPath: dataURL.path) {
+            try? FileManager.default.createDirectory(at: dataURL, withIntermediateDirectories: true)
+        }
+        return dataURL
     }
 
     private var defaultPackJSON: String {

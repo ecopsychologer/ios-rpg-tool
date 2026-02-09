@@ -3,6 +3,7 @@ import Foundation
 public struct SrdContentIndex: Sendable {
     public let abilities: [String]
     public let skills: [SkillDefinition]
+    public let senses: [String]
     public let species: [String]
     public let classes: [String]
     public let backgrounds: [String]
@@ -13,6 +14,12 @@ public struct SrdContentIndex: Sendable {
     public let magicItems: [String]
     public let creatures: [String]
     public let conditions: [String]
+    public let actions: [String]
+    public let encounters: [String]
+    public let objects: [String]
+    public let loot: [String]
+    public let baseItems: [String]
+    public let tables: [String]
     public let classDetails: [String: [String]]
     public let backgroundDetails: [String: [String]]
     public let subclassDetails: [String: [String]]
@@ -34,6 +41,7 @@ public struct SrdContentIndex: Sendable {
     public init(
         abilities: [String],
         skills: [SkillDefinition],
+        senses: [String],
         species: [String],
         classes: [String],
         backgrounds: [String],
@@ -44,6 +52,12 @@ public struct SrdContentIndex: Sendable {
         magicItems: [String],
         creatures: [String],
         conditions: [String],
+        actions: [String],
+        encounters: [String],
+        objects: [String],
+        loot: [String],
+        baseItems: [String],
+        tables: [String],
         classDetails: [String: [String]],
         backgroundDetails: [String: [String]],
         subclassDetails: [String: [String]],
@@ -64,6 +78,7 @@ public struct SrdContentIndex: Sendable {
     ) {
         self.abilities = abilities
         self.skills = skills
+        self.senses = senses
         self.species = species
         self.classes = classes
         self.backgrounds = backgrounds
@@ -74,6 +89,12 @@ public struct SrdContentIndex: Sendable {
         self.magicItems = magicItems
         self.creatures = creatures
         self.conditions = conditions
+        self.actions = actions
+        self.encounters = encounters
+        self.objects = objects
+        self.loot = loot
+        self.baseItems = baseItems
+        self.tables = tables
         self.classDetails = classDetails
         self.backgroundDetails = backgroundDetails
         self.subclassDetails = subclassDetails
@@ -103,19 +124,27 @@ public struct SrdContentStore {
         guard let (data, source) = loadDataAndSource() else { return nil }
         if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
             let baseIndex = buildIndex(from: json, source: source)
-            if let supplemental = loadDevSupplementalContent() {
-                return merge(base: baseIndex, supplemental: supplemental)
+            var mergedIndex = baseIndex
+            if let userSupplemental = loadUserSupplementalContent() {
+                mergedIndex = merge(base: mergedIndex, supplemental: userSupplemental, sourceSuffix: "user")
             }
-            return baseIndex
+            if let devSupplemental = loadDevSupplementalContent() {
+                mergedIndex = merge(base: mergedIndex, supplemental: devSupplemental, sourceSuffix: "dev")
+            }
+            return mergedIndex
         }
         if source == "imported",
            let bundledData = loadBundledData(),
            let json = try? JSONSerialization.jsonObject(with: bundledData) as? [String: Any] {
             let baseIndex = buildIndex(from: json, source: "bundled")
-            if let supplemental = loadDevSupplementalContent() {
-                return merge(base: baseIndex, supplemental: supplemental)
+            var mergedIndex = baseIndex
+            if let userSupplemental = loadUserSupplementalContent() {
+                mergedIndex = merge(base: mergedIndex, supplemental: userSupplemental, sourceSuffix: "user")
             }
-            return baseIndex
+            if let devSupplemental = loadDevSupplementalContent() {
+                mergedIndex = merge(base: mergedIndex, supplemental: devSupplemental, sourceSuffix: "dev")
+            }
+            return mergedIndex
         }
         return nil
     }
@@ -123,6 +152,7 @@ public struct SrdContentStore {
     private func buildIndex(from json: [String: Any], source: String) -> SrdContentIndex {
         let abilities = parseAbilities(from: json)
         let skills = parseSkills(from: json, abilities: abilities)
+        let senses: [String] = []
         let species = parseSpecies(from: json)
         let classDetails = parseClassDetails(from: json)
         let classes = classDetails.keys.sorted()
@@ -134,6 +164,12 @@ public struct SrdContentStore {
         let (magicItems, magicItemDetails, magicItemRarities) = parseMagicItems(from: json)
         let (creatures, creatureDetails) = parseCreatures()
         let (conditions, conditionDetails) = parseConditions(from: json)
+        let actions: [String] = []
+        let encounters: [String] = []
+        let objects: [String] = []
+        let loot: [String] = []
+        let baseItems: [String] = []
+        let tables: [String] = []
         let itemRecords = parseItemRecords(from: json, source: source)
         let creatureRecords = parseCreatureRecords(from: json, source: source)
         let sections = json.keys.sorted()
@@ -142,6 +178,7 @@ public struct SrdContentStore {
         return SrdContentIndex(
             abilities: abilities,
             skills: skills,
+            senses: senses,
             species: species,
             classes: classes,
             backgrounds: backgrounds,
@@ -152,6 +189,12 @@ public struct SrdContentStore {
             magicItems: magicItems,
             creatures: creatures,
             conditions: conditions,
+            actions: actions,
+            encounters: encounters,
+            objects: objects,
+            loot: loot,
+            baseItems: baseItems,
+            tables: tables,
             classDetails: classDetails,
             backgroundDetails: backgroundDetails,
             subclassDetails: subclassDetails,
@@ -1016,6 +1059,14 @@ private struct SupplementalContent {
     var equipment: [String] = []
     var magicItems: [String] = []
     var creatures: [String] = []
+    var skills: [SkillDefinition] = []
+    var senses: [String] = []
+    var actions: [String] = []
+    var encounters: [String] = []
+    var objects: [String] = []
+    var loot: [String] = []
+    var baseItems: [String] = []
+    var tables: [String] = []
     var classDetails: [String: [String]] = [:]
     var subclassDetails: [String: [String]] = [:]
     var backgroundDetails: [String: [String]] = [:]
@@ -1028,13 +1079,70 @@ private struct SupplementalContent {
     var subclassesByClass: [String: [String]] = [:]
 }
 
+private extension SupplementalContent {
+    var isEmpty: Bool {
+        species.isEmpty &&
+        classes.isEmpty &&
+        subclasses.isEmpty &&
+        backgrounds.isEmpty &&
+        feats.isEmpty &&
+        spells.isEmpty &&
+        equipment.isEmpty &&
+        magicItems.isEmpty &&
+        creatures.isEmpty &&
+        skills.isEmpty &&
+        senses.isEmpty &&
+        actions.isEmpty &&
+        encounters.isEmpty &&
+        objects.isEmpty &&
+        loot.isEmpty &&
+        baseItems.isEmpty &&
+        tables.isEmpty &&
+        classDetails.isEmpty &&
+        subclassDetails.isEmpty &&
+        backgroundDetails.isEmpty &&
+        featDetails.isEmpty &&
+        spellDetails.isEmpty &&
+        equipmentDetails.isEmpty &&
+        magicItemDetails.isEmpty &&
+        creatureDetails.isEmpty &&
+        magicItemRarities.isEmpty &&
+        subclassesByClass.isEmpty
+    }
+}
+
 extension SrdContentStore {
+    public func ensureUserDataDirectory() -> URL? {
+        guard let documents = try? FileManager.default.url(
+            for: .documentDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: true
+        ) else {
+            return nil
+        }
+        let dataURL = documents.appendingPathComponent("data", isDirectory: true)
+        if !FileManager.default.fileExists(atPath: dataURL.path) {
+            try? FileManager.default.createDirectory(at: dataURL, withIntermediateDirectories: true)
+        }
+        return dataURL
+    }
+
+    private func loadUserSupplementalContent() -> SupplementalContent? {
+        guard let rootURL = ensureUserDataDirectory() else { return nil }
+        return loadSupplementalContent(from: rootURL)
+    }
+
     private func loadDevSupplementalContent() -> SupplementalContent? {
         guard UserDefaults.standard.bool(forKey: devSupplementalFlagKey) else { return nil }
-        guard let rootURL = dev5eToolsDataURL() else { return nil }
+        guard let rootURL = devContentDataURL() else { return nil }
+        return loadSupplementalContent(from: rootURL)
+    }
+
+    private func loadSupplementalContent(from rootURL: URL) -> SupplementalContent? {
+        let parser = UserContentParser()
 
         var content = SupplementalContent()
-        let parser = Dev5eToolsParser()
 
         if let (names, details) = parser.loadBackgrounds(from: rootURL) {
             content.backgrounds = names
@@ -1076,20 +1184,49 @@ extension SrdContentStore {
             content.creatureDetails = creatureDetails
         }
 
-        return content
+        if let skills = parser.loadSkills(from: rootURL) {
+            content.skills = skills
+        }
+
+        if let senses = parser.loadSenses(from: rootURL) {
+            content.senses = senses
+        }
+
+        if let actions = parser.loadActions(from: rootURL) {
+            content.actions = actions
+        }
+
+        if let encounters = parser.loadEncounters(from: rootURL) {
+            content.encounters = encounters
+        }
+
+        if let objects = parser.loadObjects(from: rootURL) {
+            content.objects = objects
+        }
+
+        if let loot = parser.loadLoot(from: rootURL) {
+            content.loot = loot
+        }
+
+        if let baseItems = parser.loadBaseItems(from: rootURL) {
+            content.baseItems = baseItems
+        }
+
+        if let tables = parser.loadTables(from: rootURL) {
+            content.tables = tables
+        }
+
+        return content.isEmpty ? nil : content
     }
 
-    private func dev5eToolsDataURL() -> URL? {
-        if let url = Bundle.main.url(forResource: "data", withExtension: nil, subdirectory: "DevAssets/5etools") {
-            return url
-        }
-        if let url = Bundle.main.url(forResource: "data", withExtension: nil, subdirectory: "DevAssets/5etools-v2.14.1") {
+    private func devContentDataURL() -> URL? {
+        if let url = Bundle.main.url(forResource: "data", withExtension: nil, subdirectory: "DevAssets/data") {
             return url
         }
         return nil
     }
 
-    private func merge(base: SrdContentIndex, supplemental: SupplementalContent) -> SrdContentIndex {
+    private func merge(base: SrdContentIndex, supplemental: SupplementalContent, sourceSuffix: String) -> SrdContentIndex {
         let mergedSpecies = mergeStrings(base.species, supplemental.species)
         let mergedClasses = mergeStrings(base.classes, supplemental.classes)
         let mergedSubclasses = mergeStrings(base.subclasses, supplemental.subclasses)
@@ -1099,6 +1236,14 @@ extension SrdContentStore {
         let mergedEquipment = mergeStrings(base.equipment, supplemental.equipment)
         let mergedMagicItems = mergeStrings(base.magicItems, supplemental.magicItems)
         let mergedCreatures = mergeStrings(base.creatures, supplemental.creatures)
+        let mergedSkills = mergeSkills(base.skills, supplemental.skills)
+        let mergedSenses = mergeStrings(base.senses, supplemental.senses)
+        let mergedActions = mergeStrings(base.actions, supplemental.actions)
+        let mergedEncounters = mergeStrings(base.encounters, supplemental.encounters)
+        let mergedObjects = mergeStrings(base.objects, supplemental.objects)
+        let mergedLoot = mergeStrings(base.loot, supplemental.loot)
+        let mergedBaseItems = mergeStrings(base.baseItems, supplemental.baseItems)
+        let mergedTables = mergeStrings(base.tables, supplemental.tables)
 
         let classDetails = mergeDetails(base.classDetails, supplemental.classDetails)
         let subclassDetails = mergeDetails(base.subclassDetails, supplemental.subclassDetails)
@@ -1112,11 +1257,12 @@ extension SrdContentStore {
         let magicItemRarities = mergeRarities(base.magicItemRarities, supplemental.magicItemRarities)
         let subclassesByClass = mergeStringMap(base.subclassesByClass, supplemental.subclassesByClass)
 
-        let sourceSuffix = base.source.contains("dev") ? base.source : "\(base.source) + dev"
+        let mergedSource = appendSource(base.source, suffix: sourceSuffix)
 
         return SrdContentIndex(
             abilities: base.abilities,
-            skills: base.skills,
+            skills: mergedSkills,
+            senses: mergedSenses,
             species: mergedSpecies,
             classes: mergedClasses,
             backgrounds: mergedBackgrounds,
@@ -1127,6 +1273,12 @@ extension SrdContentStore {
             magicItems: mergedMagicItems,
             creatures: mergedCreatures,
             conditions: base.conditions,
+            actions: mergedActions,
+            encounters: mergedEncounters,
+            objects: mergedObjects,
+            loot: mergedLoot,
+            baseItems: mergedBaseItems,
+            tables: mergedTables,
             classDetails: classDetails,
             backgroundDetails: backgroundDetails,
             subclassDetails: subclassDetails,
@@ -1143,7 +1295,7 @@ extension SrdContentStore {
             creatureRecords: base.creatureRecords,
             sections: base.sections,
             sectionDetails: base.sectionDetails,
-            source: sourceSuffix
+            source: mergedSource
         )
     }
 
@@ -1162,6 +1314,33 @@ extension SrdContentStore {
             }
         }
         return seen.values.sorted()
+    }
+
+    private func mergeSkills(_ base: [SkillDefinition], _ extra: [SkillDefinition]) -> [SkillDefinition] {
+        var seen: [String: SkillDefinition] = [:]
+        for skill in base {
+            let key = skill.name.lowercased()
+            if seen[key] == nil {
+                seen[key] = skill
+            }
+        }
+        for skill in extra {
+            let key = skill.name.lowercased()
+            if seen[key] == nil {
+                seen[key] = skill
+            }
+        }
+        return seen.values.sorted { $0.name < $1.name }
+    }
+
+    private func appendSource(_ base: String, suffix: String) -> String {
+        let tokens = base
+            .split(separator: "+")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
+        if tokens.contains(suffix.lowercased()) {
+            return base
+        }
+        return "\(base) + \(suffix)"
     }
 
     private func mergeDetails(_ base: [String: [String]], _ extra: [String: [String]]) -> [String: [String]] {
@@ -1204,7 +1383,7 @@ extension SrdContentStore {
     }
 }
 
-private struct Dev5eToolsParser {
+private struct UserContentParser {
     func loadBackgrounds(from root: URL) -> ([String], [String: [String]])? {
         guard let data = loadJSON(from: root.appendingPathComponent("backgrounds.json")),
               let list = data["background"] as? [[String: Any]] else { return nil }
@@ -1328,6 +1507,72 @@ private struct Dev5eToolsParser {
             details.merge(parsed.details) { current, _ in current }
         }
         return (uniqueSorted(names), details)
+    }
+
+    func loadSkills(from root: URL) -> [SkillDefinition]? {
+        guard let data = loadJSON(from: root.appendingPathComponent("skills.json")),
+              let list = data["skill"] as? [[String: Any]] else { return nil }
+        var definitions: [SkillDefinition] = []
+        for entry in list {
+            guard let name = entry["name"] as? String else { continue }
+            let abilityCode = entry["ability"] as? String
+            guard let abilityName = abilityName(from: abilityCode) else { continue }
+            definitions.append(SkillDefinition(name: name, defaultAbility: abilityName))
+        }
+        return uniqueSortedSkills(definitions)
+    }
+
+    func loadSenses(from root: URL) -> [String]? {
+        guard let data = loadJSON(from: root.appendingPathComponent("senses.json")),
+              let list = data["sense"] as? [[String: Any]] else { return nil }
+        return parseEntries(list, detailBuilder: simpleDetail).names
+    }
+
+    func loadActions(from root: URL) -> [String]? {
+        guard let data = loadJSON(from: root.appendingPathComponent("actions.json")),
+              let list = data["action"] as? [[String: Any]] else { return nil }
+        return parseEntries(list, detailBuilder: simpleDetail).names
+    }
+
+    func loadEncounters(from root: URL) -> [String]? {
+        guard let data = loadJSON(from: root.appendingPathComponent("encounters.json")),
+              let list = data["encounter"] as? [[String: Any]] else { return nil }
+        return parseEntries(list, detailBuilder: simpleDetail).names
+    }
+
+    func loadObjects(from root: URL) -> [String]? {
+        guard let data = loadJSON(from: root.appendingPathComponent("objects.json")),
+              let list = data["object"] as? [[String: Any]] else { return nil }
+        return parseEntries(list, detailBuilder: simpleDetail).names
+    }
+
+    func loadLoot(from root: URL) -> [String]? {
+        guard let data = loadJSON(from: root.appendingPathComponent("loot.json")) else { return nil }
+        var names: [String] = []
+        let keys = ["individual", "hoard", "dragon", "gems", "artObjects", "magicItems", "dragonMundaneItems"]
+        for key in keys {
+            guard let list = data[key] as? [[String: Any]] else { continue }
+            for entry in list {
+                if let name = entry["name"] as? String {
+                    names.append(name)
+                } else if let item = entry["item"] as? String {
+                    names.append(item)
+                }
+            }
+        }
+        return uniqueSorted(names)
+    }
+
+    func loadBaseItems(from root: URL) -> [String]? {
+        guard let data = loadJSON(from: root.appendingPathComponent("items-base.json")),
+              let list = data["baseitem"] as? [[String: Any]] else { return nil }
+        return parseEntries(list, detailBuilder: simpleDetail).names
+    }
+
+    func loadTables(from root: URL) -> [String]? {
+        guard let data = loadJSON(from: root.appendingPathComponent("tables.json")),
+              let list = data["table"] as? [[String: Any]] else { return nil }
+        return parseEntries(list, detailBuilder: simpleDetail).names
     }
 
     private func parseEntries(
@@ -1496,6 +1741,37 @@ private struct Dev5eToolsParser {
             }
         }
         return seen.values.sorted()
+    }
+
+    private func uniqueSortedSkills(_ values: [SkillDefinition]) -> [SkillDefinition] {
+        var seen: [String: SkillDefinition] = [:]
+        for value in values {
+            let key = value.name.lowercased()
+            if seen[key] == nil {
+                seen[key] = value
+            }
+        }
+        return seen.values.sorted { $0.name < $1.name }
+    }
+
+    private func abilityName(from code: String?) -> String? {
+        guard let code else { return nil }
+        switch code.lowercased() {
+        case "str":
+            return "Strength"
+        case "dex":
+            return "Dexterity"
+        case "con":
+            return "Constitution"
+        case "int":
+            return "Intelligence"
+        case "wis":
+            return "Wisdom"
+        case "cha":
+            return "Charisma"
+        default:
+            return nil
+        }
     }
 
     private func sanitize(_ values: [String]) -> [String] {

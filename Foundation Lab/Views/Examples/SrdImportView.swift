@@ -46,6 +46,7 @@ struct SrdImportView: View {
                         .foregroundColor(.secondary)
                     Text("Abilities: \(index.abilities.count)")
                     Text("Skills: \(index.skills.count)")
+                    Text("Senses: \(index.senses.count)")
                     Text("Species: \(index.species.count)")
                     Text("Classes: \(index.classes.count)")
                     Text("Backgrounds: \(index.backgrounds.count)")
@@ -56,6 +57,12 @@ struct SrdImportView: View {
                     Text("Magic Items: \(index.magicItems.count)")
                     Text("Creatures: \(index.creatures.count)")
                     Text("Conditions: \(index.conditions.count)")
+                    Text("Actions: \(index.actions.count)")
+                    Text("Encounters: \(index.encounters.count)")
+                    Text("Objects: \(index.objects.count)")
+                    Text("Loot: \(index.loot.count)")
+                    Text("Base Items: \(index.baseItems.count)")
+                    Text("Tables: \(index.tables.count)")
                     Text("Sections: \(index.sections.count)")
                 } else if isLoadingIndex {
                     Text("Loading SRD index...")
@@ -80,6 +87,13 @@ struct SrdImportView: View {
                     DisclosureGroup("Skills (\(filteredSkills.count))") {
                         ForEach(filteredSkills, id: \.name) { skill in
                             Text("\(skill.name) (\(skill.defaultAbility))")
+                                .textSelection(.enabled)
+                        }
+                    }
+
+                    DisclosureGroup("Senses (\(filtered(index.senses).count))") {
+                        ForEach(filtered(index.senses), id: \.self) { sense in
+                            Text(sense)
                                 .textSelection(.enabled)
                         }
                     }
@@ -152,6 +166,48 @@ struct SrdImportView: View {
                                 Text(item)
                             }
                             .textSelection(.enabled)
+                        }
+                    }
+
+                    DisclosureGroup("Actions (\(filtered(index.actions).count))") {
+                        ForEach(filtered(index.actions), id: \.self) { item in
+                            Text(item)
+                                .textSelection(.enabled)
+                        }
+                    }
+
+                    DisclosureGroup("Encounters (\(filtered(index.encounters).count))") {
+                        ForEach(filtered(index.encounters), id: \.self) { item in
+                            Text(item)
+                                .textSelection(.enabled)
+                        }
+                    }
+
+                    DisclosureGroup("Objects (\(filtered(index.objects).count))") {
+                        ForEach(filtered(index.objects), id: \.self) { item in
+                            Text(item)
+                                .textSelection(.enabled)
+                        }
+                    }
+
+                    DisclosureGroup("Loot (\(filtered(index.loot).count))") {
+                        ForEach(filtered(index.loot), id: \.self) { item in
+                            Text(item)
+                                .textSelection(.enabled)
+                        }
+                    }
+
+                    DisclosureGroup("Base Items (\(filtered(index.baseItems).count))") {
+                        ForEach(filtered(index.baseItems), id: \.self) { item in
+                            Text(item)
+                                .textSelection(.enabled)
+                        }
+                    }
+
+                    DisclosureGroup("Tables (\(filtered(index.tables).count))") {
+                        ForEach(filtered(index.tables), id: \.self) { item in
+                            Text(item)
+                                .textSelection(.enabled)
                         }
                     }
 

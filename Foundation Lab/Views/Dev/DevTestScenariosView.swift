@@ -42,6 +42,9 @@ enum TestAction: Codable {
     case moveToLocation(label: String)
     case advanceLocation(reason: String)
     case importTables(filename: String)
+    case loadCreativeKeywords
+    case logReferenceData
+    case logTableData
 
     private enum CodingKeys: String, CodingKey { case type, value1, value2, value3, value4, value5 }
 
@@ -115,6 +118,12 @@ enum TestAction: Codable {
         case "importTables":
             let filename = try container.decode(String.self, forKey: .value1)
             self = .importTables(filename: filename)
+        case "loadCreativeKeywords":
+            self = .loadCreativeKeywords
+        case "logReferenceData":
+            self = .logReferenceData
+        case "logTableData":
+            self = .logTableData
         default:
             throw DecodingError.dataCorruptedError(forKey: .type, in: container, debugDescription: "Unknown TestAction type")
         }
@@ -191,6 +200,12 @@ enum TestAction: Codable {
         case .importTables(let filename):
             try container.encode("importTables", forKey: .type)
             try container.encode(filename, forKey: .value1)
+        case .loadCreativeKeywords:
+            try container.encode("loadCreativeKeywords", forKey: .type)
+        case .logReferenceData:
+            try container.encode("logReferenceData", forKey: .type)
+        case .logTableData:
+            try container.encode("logTableData", forKey: .type)
         }
     }
 }
@@ -437,6 +452,34 @@ final class DevTestRunner: ObservableObject {
             }
             let node = coordinator.locationEngine.advanceToNextNode(campaign: campaign, reason: reason)
             append("Advance location: \(node?.summary ?? "Unknown")")
+        case .loadCreativeKeywords:
+            let store = CreativeKeywordStore()
+            let keywords = store.loadBundledKeywords()
+            append("Creative keywords loaded: \(keywords.count)")
+            let sample = store.drawKeywords(count: 2, from: keywords, seed: 42).map { $0.word }
+            if !sample.isEmpty {
+                append("Creative keywords sample: \(sample.joined(separator: ", "))")
+            }
+        case .logReferenceData:
+            let store = SrdContentStore()
+            if let dataURL = store.ensureUserDataDirectory() {
+                append("User data folder: \(dataURL.path)")
+            }
+            if let index = store.loadIndex() {
+                append("Reference data: source=\(index.source)")
+                append("Counts: skills=\(index.skills.count) senses=\(index.senses.count) actions=\(index.actions.count) encounters=\(index.encounters.count)")
+                append("Counts: objects=\(index.objects.count) loot=\(index.loot.count) baseItems=\(index.baseItems.count) tables=\(index.tables.count)")
+            } else {
+                append("Reference data unavailable")
+            }
+        case .logTableData:
+            do {
+                let pack = try ContentPackStore().loadDefaultPack()
+                let userTables = pack.tables.filter { $0.scope == "user" }
+                append("Tables loaded: \(pack.tables.count) (user \(userTables.count))")
+            } catch {
+                append("Tables load failed: \(error.localizedDescription)")
+            }
         case .importTables(let filename):
             append("Importing tables: \(filename)")
             if let text = loadTextAsset(named: filename, subdirectory: "DevAssets/fixtures") {
@@ -1399,6 +1442,9 @@ struct DevTestScenariosView: View {
             id: "smoke_test",
             title: "Smoke Test",
             actions: [
+                .loadCreativeKeywords,
+                .logReferenceData,
+                .logTableData,
                 .createCampaign(name: "Dev Smoke Test"),
                 .setPartySize(1),
                 .setWorldLore(title: "Ethereal Steam", description: "A fog-drenched city with ghost trains and hidden elites."),
@@ -1431,6 +1477,9 @@ struct DevTestScenariosView: View {
             id: "thorough_test",
             title: "Thorough Dev Test",
             actions: [
+                .loadCreativeKeywords,
+                .logReferenceData,
+                .logTableData,
                 .createCampaign(name: "Dev Thorough Test"),
                 .setPartySize(1),
                 .setWorldLore(title: "Windward Expanse", description: "Rolling plains, lonely roads, and ruins half-swallowed by grass."),
@@ -1485,6 +1534,9 @@ struct DevSmokeTestView: View {
             id: "smoke_test",
             title: "Smoke Test",
             actions: [
+                .loadCreativeKeywords,
+                .logReferenceData,
+                .logTableData,
                 .createCampaign(name: "Dev Smoke Test"),
                 .setPartySize(1),
                 .setWorldLore(title: "Ethereal Steam", description: "A fog-drenched city with ghost trains and hidden elites."),

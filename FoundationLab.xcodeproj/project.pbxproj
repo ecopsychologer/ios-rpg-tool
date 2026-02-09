@@ -208,7 +208,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "if [[ \"$SWIFT_ACTIVE_COMPILATION_CONDITIONS\" != *DEV_FIXTURES* ]]; then\n  exit 0\nfi\n\nDEV_ASSETS_ROOT=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/DevAssets\"\nmkdir -p \"${DEV_ASSETS_ROOT}\"\n\nTOOLS_SOURCE=\"${SRCROOT}/testing/5etools-src/data\"\nif [[ -d \"${TOOLS_SOURCE}\" && -r \"${TOOLS_SOURCE}\" ]]; then\n  mkdir -p \"${DEV_ASSETS_ROOT}/5etools/data\"\n  rsync -a --delete \"${TOOLS_SOURCE}/\" \"${DEV_ASSETS_ROOT}/5etools/data/\" 2>/dev/null || true\nfi\n\nLOCAL_DEV_ASSETS=\"${SRCROOT}/DevAssets\"\nif [[ -d \"${LOCAL_DEV_ASSETS}\" ]]; then\n  rsync -a --delete \"${LOCAL_DEV_ASSETS}/\" \"${DEV_ASSETS_ROOT}/\" 2>/dev/null || true\nfi\n\ntouch \"${DEV_ASSETS_ROOT}/.dev_assets_stamp\"\n";
+			shellScript = "if [[ \"$SWIFT_ACTIVE_COMPILATION_CONDITIONS\" != *DEV_FIXTURES* ]]; then\n  exit 0\nfi\n\nDEV_ASSETS_ROOT=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/DevAssets\"\nmkdir -p \"${DEV_ASSETS_ROOT}\"\n\nTOOLS_SOURCE=\"\"\nif [[ -d \"${SRCROOT}/testing\" ]]; then\n  TOOLS_SOURCE=$(find \"${SRCROOT}/testing\" -maxdepth 3 -type d -name data | sort | head -n 1)\nfi\nif [[ -n \"${TOOLS_SOURCE}\" && -d \"${TOOLS_SOURCE}\" && -r \"${TOOLS_SOURCE}\" ]]; then\n  mkdir -p \"${DEV_ASSETS_ROOT}/data\"\n  rsync -a --delete \"${TOOLS_SOURCE}/\" \"${DEV_ASSETS_ROOT}/data/\" 2>/dev/null || true\nfi\n\nLOCAL_DEV_ASSETS=\"${SRCROOT}/DevAssets\"\nif [[ -d \"${LOCAL_DEV_ASSETS}\" ]]; then\n  rsync -a --delete \"${LOCAL_DEV_ASSETS}/\" \"${DEV_ASSETS_ROOT}/\" 2>/dev/null || true\nfi\n\ntouch \"${DEV_ASSETS_ROOT}/.dev_assets_stamp\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

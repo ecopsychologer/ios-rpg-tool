@@ -102,6 +102,7 @@ Content tables: travel/exploration/encounter tables are now bundled in `rpg_tabl
 Encounter pacing + travel/exploration hooks: the engine can now roll encounter checks, travel events, and exploration features from the bundled tables.
 Loot selection: magic item rarity logic uses SRD item lists (no separate treasure tables).
 Social/encounter seeding: NPC reactions can update attitudes and travel events can seed encounter entities on the current node.
+User content import: the engine creates `Documents/data/` and merges user-owned JSON for actions, encounters, objects, loot, base items, tables, senses, and skills. TableEngine also merges `Documents/data/tables.json` into the tables pack. Creative keywords are bundled and surfaced in the Tables module.
 
 Work-in-progress task list (engine expansion):
 - **Architecture**: define module boundaries (engine, narrator, world state, tables) and plan a Swift package split without breaking current UI.

@@ -14,6 +14,7 @@ struct TablesView: View {
 
     private let store = ContentPackStore()
     private let importer = TableImporter()
+    private let keywordImporter = CreativeKeywordImporter()
 
     var body: some View {
         ScrollView {
@@ -22,6 +23,7 @@ struct TablesView: View {
                 fileSection
                 importSection
                 tableListSection
+                creativeKeywordsSection
                 editorSection
             }
             .padding(.horizontal, Spacing.medium)
@@ -188,13 +190,40 @@ struct TablesView: View {
         }
     }
 
+    private var creativeKeywordsSection: some View {
+        let keywords = keywordImporter.loadBundledKeywords()
+        return VStack(alignment: .leading, spacing: Spacing.small) {
+            Text("CREATIVE KEYWORDS")
+                .font(.footnote)
+                .fontWeight(.medium)
+                .foregroundColor(.secondary)
+
+            Text("Loaded keywords: \(keywords.count)")
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            if keywords.isEmpty {
+                Text("No keywords loaded.")
+                    .font(.callout)
+                    .foregroundColor(.secondary)
+            } else {
+                Text(keywords.prefix(32).joined(separator: ", "))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .padding(Spacing.medium)
+        .background(Color.gray.opacity(0.08))
+        .cornerRadius(14)
+    }
+
     private func loadPack() {
         do {
             let url = try store.ensureDefaultPackExists()
             fileURL = url
             let data = try Data(contentsOf: url)
             rawJSON = String(decoding: data, as: UTF8.self)
-            pack = try JSONDecoder().decode(ContentPack.self, from: data)
+            pack = try store.loadDefaultPack()
             errorMessage = nil
             importMessage = nil
         } catch {
