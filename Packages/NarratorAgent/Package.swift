@@ -3,7 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "NarratorAgent",
-    platforms: [.iOS("26.0")],
+    platforms: [.iOS("26.0"), .macOS("26.0")],
     products: [
         .library(name: "NarratorAgent", targets: ["NarratorAgent"])
     ],

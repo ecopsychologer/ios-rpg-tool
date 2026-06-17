@@ -3,7 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "RPGEngine",
-    platforms: [.iOS("26.0")],
+    platforms: [.iOS("26.0"), .macOS("26.0")],
     products: [
         .library(name: "RPGEngine", targets: ["RPGEngine"])
     ],
@@ -22,6 +22,14 @@ let package = Package(
             resources: [
                 .process("Resources")
             ]
+        ),
+        .testTarget(
+            name: "RPGEngineTests",
+            dependencies: [
+                "RPGEngine",
+                "WorldState"
+            ],
+            path: "Tests"
         )
     ]
 )

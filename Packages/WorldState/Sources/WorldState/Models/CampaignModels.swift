@@ -13,6 +13,8 @@ public final class Campaign {
     public var characters: [CharacterEntry]
     public var threads: [ThreadEntry]
     public var npcs: [NPCEntry] = []
+    public var items: [ItemEntry] = []
+    public var creatures: [CreatureEntry] = []
     public var worldLore: [WorldLoreEntry] = []
     public var playerCharacters: [PlayerCharacter] = []
     public var rulesetName: String?
@@ -41,6 +43,8 @@ public final class Campaign {
         self.characters = []
         self.threads = []
         self.npcs = []
+        self.items = []
+        self.creatures = []
         self.worldLore = []
         self.playerCharacters = []
         self.rulesetName = nil

@@ -2900,14 +2900,99 @@ final class SoloSceneCoordinator: ObservableObject {
         let content = renderNarrationPlan(response.content)
         if violatesAgencyBoundary(content) {
             logAgency(stage: "agency_violation", message: "Rewriting narration to avoid assumed player action.")
-            return try await rewriteForAgency(
+            let rewritten = try await rewriteForAgency(
                 session: session,
                 context: context,
                 playerText: playerText,
                 draft: content
             )
+            if !isMeta {
+                await captureWorldDelta(from: rewritten, session: session, context: context, playerText: playerText, campaign: campaign)
+            }
+            return rewritten
+        }
+        if !isMeta {
+            await captureWorldDelta(from: content, session: session, context: context, playerText: playerText, campaign: campaign)
         }
         return content
+    }
+
+    private func makeWorldDeltaPrompt(
+        playerText: String,
+        gmText: String,
+        context: NarrationContextPacket,
+        campaign: Campaign
+    ) -> String {
+        var prompt = """
+        Extract durable world-state changes from the GM narration.
+        The narrator may invent flavor, but only stable facts should become state.
+        Return create or update changes for concrete NPCs, locations, location features, objects, creatures, or lore.
+        Return reference for entities merely mentioned, remembered, hypothetical, or already known without a new durable fact.
+        Do not store player intent, player emotions, questions, rules explanations, dice results, prompts, or temporary action beats.
+        Set needsClarification true if the narration depends on an ambiguous interpretation of the player's input.
+        Use confidence below 65 for uncertain or decorative details so the engine will reject them.
+
+        Scene #\(context.sceneNumber)
+        Expected Scene: \(context.expectedScene)
+        Player: \(playerText)
+        GM narration: \(gmText)
+        """
+
+        if let location = context.currentLocation {
+            prompt += "\nCurrent Location: \(location)"
+        }
+        if let node = context.currentNode {
+            prompt += "\nCurrent Node: \(node)"
+        }
+
+        let existingNpcNames = campaign.npcs.prefix(10).map(\.name).joined(separator: ", ")
+        if !existingNpcNames.isEmpty {
+            prompt += "\nKnown NPCs: \(existingNpcNames)"
+        }
+        let existingLocationNames = (campaign.locations ?? []).prefix(10).map(\.name).joined(separator: ", ")
+        if !existingLocationNames.isEmpty {
+            prompt += "\nKnown Locations: \(existingLocationNames)"
+        }
+        let existingItemNames = campaign.items.prefix(10).map(\.name).joined(separator: ", ")
+        if !existingItemNames.isEmpty {
+            prompt += "\nKnown Objects: \(existingItemNames)"
+        }
+        let existingCreatureNames = campaign.creatures.prefix(10).map(\.name).joined(separator: ", ")
+        if !existingCreatureNames.isEmpty {
+            prompt += "\nKnown Creatures: \(existingCreatureNames)"
+        }
+
+        prompt += "\nReturn a WorldDeltaDraft."
+        return prompt
+    }
+
+    private func captureWorldDelta(
+        from gmText: String,
+        session: LanguageModelSession,
+        context: NarrationContextPacket,
+        playerText: String,
+        campaign: Campaign
+    ) async {
+        do {
+            let response = try await session.respond(
+                to: Prompt(makeWorldDeltaPrompt(playerText: playerText, gmText: gmText, context: context, campaign: campaign)),
+                generating: WorldDeltaDraft.self
+            )
+            let result = WorldDeltaEngine().applyWorldDelta(response.content, to: campaign, sceneId: campaign.activeSceneId)
+            if !result.accepted.isEmpty {
+                let names = result.accepted.map { "\($0.entityType.rawValue):\($0.name)" }.joined(separator: ", ")
+                logAgency(stage: "world_delta", message: "stored \(names)")
+            }
+            if let question = result.clarificationQuestion, !question.isEmpty {
+                logAgency(stage: "world_delta_clarification", message: question)
+            }
+            if !result.rejected.isEmpty {
+                let names = result.rejected.prefix(3).map { "\($0.name) (\($0.reason))" }.joined(separator: ", ")
+                logAgency(stage: "world_delta_rejected", message: names)
+            }
+        } catch {
+            logAgency(stage: "world_delta_error", message: error.localizedDescription)
+        }
     }
 
     private func generateFateNarration(
@@ -3062,6 +3147,22 @@ final class SoloSceneCoordinator: ObservableObject {
 
         if !context.currentExits.isEmpty {
             lines.append("Exits: \(context.currentExits.joined(separator: " · "))")
+        }
+
+        if !context.relevantLore.isEmpty {
+            lines.append("Relevant Lore: \(context.relevantLore.prefix(3).joined(separator: " | "))")
+        }
+        if !context.relevantNPCs.isEmpty {
+            lines.append("Relevant NPCs: \(context.relevantNPCs.prefix(3).joined(separator: " | "))")
+        }
+        if !context.relevantLocations.isEmpty {
+            lines.append("Relevant Locations: \(context.relevantLocations.prefix(3).joined(separator: " | "))")
+        }
+        if !context.relevantItems.isEmpty {
+            lines.append("Relevant Objects: \(context.relevantItems.prefix(3).joined(separator: " | "))")
+        }
+        if !context.relevantCreatures.isEmpty {
+            lines.append("Relevant Creatures: \(context.relevantCreatures.prefix(3).joined(separator: " | "))")
         }
 
         if let lastPlayerIntentSummary, !lastPlayerIntentSummary.isEmpty {

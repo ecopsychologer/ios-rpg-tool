@@ -19,6 +19,11 @@ public struct NarrationContextPacket {
     public let currentLocation: String?
     public let currentNode: String?
     public let currentExits: [String]
+    public let relevantLore: [String]
+    public let relevantNPCs: [String]
+    public let relevantLocations: [String]
+    public let relevantItems: [String]
+    public let relevantCreatures: [String]
 }
 
 public struct BookkeepingInput {
@@ -155,6 +160,14 @@ public struct SoloCampaignEngine {
         let locationSummary = activeLocationSummary(in: campaign)
         let nodeSummary = activeNodeSummary(in: campaign)
         let exits = activeExitSummaries(in: campaign)
+        let focusText = [
+            scene.expectedScene,
+            locationSummary ?? "",
+            nodeSummary ?? "",
+            recentPlaces.joined(separator: " "),
+            recentCuriosities.joined(separator: " ")
+        ].joined(separator: " ")
+        let relevant = WorldDeltaEngine().relevantContext(for: campaign, focusText: focusText)
 
         return NarrationContextPacket(
             sceneNumber: scene.sceneNumber,
@@ -173,7 +186,12 @@ public struct SoloCampaignEngine {
             recentRollHighlights: recentRollHighlights,
             currentLocation: locationSummary,
             currentNode: nodeSummary,
-            currentExits: exits
+            currentExits: exits,
+            relevantLore: relevant.lore,
+            relevantNPCs: relevant.npcs,
+            relevantLocations: relevant.locations,
+            relevantItems: relevant.items,
+            relevantCreatures: relevant.creatures
         )
     }
 
