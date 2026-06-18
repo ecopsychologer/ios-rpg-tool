@@ -20,6 +20,7 @@ struct CampaignDataView: View {
                     scenesSection(campaign)
                     locationsSection(campaign)
                     npcsSection(campaign)
+                    generatedEntitiesSection(campaign)
                     playerCharactersSection(campaign)
                     worldLoreSection(campaign)
                     rollsSection(campaign)
@@ -256,6 +257,83 @@ struct CampaignDataView: View {
                         .font(.callout)
                     } label: {
                         Text(npc.name.isEmpty ? "Unnamed NPC" : npc.name)
+                            .font(.callout)
+                    }
+                    .padding(Spacing.medium)
+                    .background(Color.gray.opacity(0.08))
+                    .cornerRadius(12)
+                }
+            }
+        }
+    }
+
+    private func generatedEntitiesSection(_ campaign: Campaign) -> some View {
+        VStack(alignment: .leading, spacing: Spacing.small) {
+            Text("GENERATED ENTITIES")
+                .font(.footnote)
+                .fontWeight(.medium)
+                .foregroundColor(.secondary)
+
+            if campaign.items.isEmpty && campaign.creatures.isEmpty {
+                Text("No narrator-generated objects or creatures recorded yet.")
+                    .font(.callout)
+                    .foregroundColor(.secondary)
+            }
+
+            if !campaign.items.isEmpty {
+                Text("Objects")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                ForEach(campaign.items) { item in
+                    DisclosureGroup {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Category: \(item.category) · Source: \(item.source)")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            if !item.properties.isEmpty {
+                                Text("Tags: \(item.properties.joined(separator: ", "))")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            if !item.detailLines.isEmpty {
+                                Text(item.detailLines.joined(separator: " "))
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    } label: {
+                        Text(item.name)
+                            .font(.callout)
+                    }
+                    .padding(Spacing.medium)
+                    .background(Color.gray.opacity(0.08))
+                    .cornerRadius(12)
+                }
+            }
+
+            if !campaign.creatures.isEmpty {
+                Text("Creatures")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                ForEach(campaign.creatures) { creature in
+                    DisclosureGroup {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Type: \(creature.creatureType ?? "Unknown") · Origin: \(creature.origin)")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            if !creature.traits.isEmpty {
+                                Text("Traits: \(creature.traits.joined(separator: " "))")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            if !creature.actions.isEmpty {
+                                Text("Actions: \(creature.actions.joined(separator: ", "))")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    } label: {
+                        Text(creature.name)
                             .font(.callout)
                     }
                     .padding(Spacing.medium)

@@ -95,6 +95,7 @@ struct SoloScenesView: View {
 
                     narrationSection(scene)
                     sceneConversationSection(scene)
+                    worldMemorySection
                     playOutSection
                 }
 
@@ -645,6 +646,73 @@ struct SoloScenesView: View {
         .cornerRadius(14)
     }
 
+    private var worldMemorySection: some View {
+        VStack(alignment: .leading, spacing: Spacing.small) {
+            Text("WORLD MEMORY")
+                .font(.footnote)
+                .fontWeight(.medium)
+                .foregroundColor(.secondary)
+
+            if let campaign {
+                let accepted = coordinator.agencyLogs.filter { $0.stage == "world_delta" }
+                let rejected = coordinator.agencyLogs.filter {
+                    $0.stage == "world_delta_rejected" ||
+                    $0.stage == "world_delta_clarification" ||
+                    $0.stage == "world_delta_error"
+                }
+                let relevant = currentRelevantWorldContext(for: campaign)
+
+                HStack(spacing: Spacing.small) {
+                    memoryCount("NPCs", campaign.npcs.count)
+                    memoryCount("Objects", campaign.items.count)
+                    memoryCount("Creatures", campaign.creatures.count)
+                    memoryCount("Lore", campaign.worldLore.count)
+                }
+
+                if !relevant.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Relevant next prompt")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        ForEach(relevantLines(relevant), id: \.self) { line in
+                            Text(line)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                }
+
+                if accepted.isEmpty && rejected.isEmpty {
+                    Text("No AI world-memory captures yet. When the GM introduces a durable person, place, object, creature, or lore fact, the engine will accept or reject it here.")
+                        .font(.callout)
+                        .foregroundColor(.secondary)
+                } else {
+                    ForEach((accepted + rejected).suffix(6).reversed(), id: \.id) { log in
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(log.stage.replacingOccurrences(of: "_", with: " ").capitalized)
+                                .font(.caption)
+                                .foregroundColor(log.stage == "world_delta" ? .green : .secondary)
+                            Text(log.message)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        .padding(Spacing.small)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color.gray.opacity(0.05))
+                        .cornerRadius(8)
+                    }
+                }
+            } else {
+                Text("Start a campaign to capture world memory.")
+                    .font(.callout)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .padding(Spacing.medium)
+        .background(Color.gray.opacity(0.08))
+        .cornerRadius(14)
+    }
+
     private var bookkeepingSection: some View {
         VStack(alignment: .leading, spacing: Spacing.small) {
             Text("END OF SCENE BOOKKEEPING")
@@ -1142,8 +1210,40 @@ struct SoloScenesView: View {
             )
             if gmText != nil {
                 sceneInput = ""
+                try? modelContext.save()
             }
         }
+    }
+
+    private func memoryCount(_ label: String, _ count: Int) -> some View {
+        VStack(spacing: 2) {
+            Text("\(count)")
+                .font(.headline)
+            Text(label)
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, Spacing.small)
+        .background(Color.gray.opacity(0.05))
+        .cornerRadius(8)
+    }
+
+    private func currentRelevantWorldContext(for campaign: Campaign) -> RelevantWorldContext {
+        guard let scene = currentScene else {
+            return WorldDeltaEngine().relevantContext(for: campaign, focusText: sceneInput)
+        }
+        return coordinator.engine.buildNarrationContext(campaign: campaign, scene: scene).relevantWorldContext
+    }
+
+    private func relevantLines(_ context: RelevantWorldContext) -> [String] {
+        var lines: [String] = []
+        lines += context.npcs.prefix(2).map { "NPC: \($0)" }
+        lines += context.items.prefix(2).map { "Object: \($0)" }
+        lines += context.creatures.prefix(2).map { "Creature: \($0)" }
+        lines += context.locations.prefix(2).map { "Place: \($0)" }
+        lines += context.lore.prefix(2).map { "Lore: \($0)" }
+        return Array(lines.prefix(6))
     }
 
     private func gmLineForCheck(_ request: CheckRequest) -> String {
@@ -2713,6 +2813,18 @@ private struct SceneEditorSheet: View {
         input.split(separator: ",").map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
     }
 
+}
+
+private extension NarrationContextPacket {
+    var relevantWorldContext: RelevantWorldContext {
+        RelevantWorldContext(
+            lore: relevantLore,
+            npcs: relevantNPCs,
+            locations: relevantLocations,
+            items: relevantItems,
+            creatures: relevantCreatures
+        )
+    }
 }
 
 #Preview {
