@@ -46,6 +46,27 @@ public struct WorldEntityChangeDraft {
     @Guide(description: "Short reason this should be stored")
     public let reason: String
 
+    @Guide(description: "Proposal source: gm_live, engine, oracle, table_roll, player_confirmed, or summary")
+    public let source: String
+
+    @Guide(description: "Visibility: player_visible, hidden_gm, or mechanical_only")
+    public let visibility: String
+
+    @Guide(description: "Durability: scene, session, or campaign")
+    public let durability: String
+
+    @Guide(description: "Approval policy: automatic, engine_required, or player_required")
+    public let approval: String
+
+    @Guide(description: "Optional canonical location name binding")
+    public let locationBinding: String?
+
+    @Guide(description: "Optional canonical entity name binding")
+    public let entityBinding: String?
+
+    @Guide(description: "Discovery state: proposed, known, discovered, hidden, or not_applicable")
+    public let discoveryStatus: String
+
     public init(
         entityType: String,
         operation: String,
@@ -55,7 +76,14 @@ public struct WorldEntityChangeDraft {
         confidence: Int,
         isPresentNow: Bool = false,
         relatedLocationName: String? = nil,
-        reason: String = ""
+        reason: String = "",
+        source: String = "gm_live",
+        visibility: String = "player_visible",
+        durability: String = "campaign",
+        approval: String = "engine_required",
+        locationBinding: String? = nil,
+        entityBinding: String? = nil,
+        discoveryStatus: String = "not_applicable"
     ) {
         self.entityType = entityType
         self.operation = operation
@@ -66,6 +94,13 @@ public struct WorldEntityChangeDraft {
         self.isPresentNow = isPresentNow
         self.relatedLocationName = relatedLocationName
         self.reason = reason
+        self.source = source
+        self.visibility = visibility
+        self.durability = durability
+        self.approval = approval
+        self.locationBinding = locationBinding
+        self.entityBinding = entityBinding
+        self.discoveryStatus = discoveryStatus
     }
 }
 
@@ -210,12 +245,71 @@ public struct WorldDeltaEngine {
                 rejected.append(RejectedWorldDelta(name: name, reason: "Reference mention does not mutate state."))
                 continue
             }
+            if let rejectionReason = rejectionReasonForUnsafeNarratorMutation(change: change, kind: kind, operation: operation, name: name, summary: summary, campaign: campaign) {
+                rejected.append(RejectedWorldDelta(name: name, reason: rejectionReason))
+                continue
+            }
 
-            let entityId = apply(change: change, kind: kind, operation: operation, name: name, summary: summary, to: campaign, sceneId: sceneId)
+            let event = CampaignEventFactory().worldDeltaEvent(from: change, sceneId: sceneId)
+            let application = CampaignReducer().apply(event, to: campaign)
+            guard application.status == .applied, let entityId = application.entityId else {
+                rejected.append(RejectedWorldDelta(name: name, reason: application.reason ?? "Campaign reducer rejected the event."))
+                continue
+            }
             accepted.append(AcceptedWorldDelta(entityId: entityId, entityType: kind, operation: operation, name: name))
         }
 
         return WorldDeltaApplicationResult(accepted: accepted, rejected: rejected)
+    }
+
+    private func rejectionReasonForUnsafeNarratorMutation(
+        change: WorldEntityChangeDraft,
+        kind: WorldDeltaEntityKind,
+        operation: WorldDeltaOperation,
+        name: String,
+        summary: String,
+        campaign: Campaign
+    ) -> String? {
+        let text = ([name, summary, change.reason] + change.tags).joined(separator: " ").lowercased()
+        if kind == .npc, ["unknown character", "unknown npc", "unseen adversary", "unseen enemy"].contains(normalized(name)) {
+            return "Generic unknowns must be stored as hidden clues or clocks, never as NPCs."
+        }
+        let hiddenOrVaguePhrases = [
+            "unseen adversary",
+            "unseen enemy",
+            "unknown adversary",
+            "unknown enemy",
+            "hidden adversary",
+            "hidden enemy",
+            "something watching",
+            "anything watching",
+            "what you don't see",
+            "what you don’t see",
+            "not visible yet",
+            "unconfirmed"
+        ]
+        if hiddenOrVaguePhrases.contains(where: { text.contains($0) }) {
+            return "Hidden or vague narrator phrasing is not durable world state."
+        }
+
+        if kind == .location, operation == .create {
+            let alreadyKnown = (campaign.locations ?? []).contains { keysMatch($0.name, name) }
+            if !alreadyKnown {
+                return "New locations require an engine transition or explicit discovery before storage."
+            }
+        }
+
+        if kind == .npc, operation == .create {
+            let companionTerms = ["sidekick", "companion", "hireling", "familiar", "party member"]
+            if companionTerms.contains(where: { text.contains($0) }) {
+                let alreadyKnown = campaign.npcs.contains { keysMatch($0.name, name) }
+                if !alreadyKnown {
+                    return "Companions require explicit player or engine confirmation before storage."
+                }
+            }
+        }
+
+        return nil
     }
 
     public func relevantContext(

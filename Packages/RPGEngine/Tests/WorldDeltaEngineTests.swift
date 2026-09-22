@@ -1,8 +1,68 @@
 import XCTest
 import RPGEngine
+import TableEngine
 import WorldState
 
 final class WorldDeltaEngineTests: XCTestCase {
+    func testBareDiceSpecsStayWithinTheirDieRange() {
+        var d20Roller = DiceRoller(seed: 42, sequence: 0)
+        for _ in 0..<100 {
+            let roll = d20Roller.roll(spec: "d20")
+            XCTAssertEqual(roll.spec, "d20")
+            XCTAssertEqual(roll.rolls.count, 1)
+            XCTAssertTrue((1...20).contains(roll.total), "d20 produced \(roll.total)")
+        }
+
+        var d100Roller = DiceRoller(seed: 42, sequence: 0)
+        for _ in 0..<100 {
+            let roll = d100Roller.roll(spec: "d100")
+            XCTAssertEqual(roll.spec, "d100")
+            XCTAssertEqual(roll.rolls.count, 1)
+            XCTAssertTrue((1...100).contains(roll.total), "d100 produced \(roll.total)")
+        }
+    }
+
+    func testDiceSpecsSupportImplicitOneDieAndModifiers() throws {
+        let d20 = try XCTUnwrap(DiceSpec.parse("d20"))
+        XCTAssertEqual(d20.count, 1)
+        XCTAssertEqual(d20.sides, 20)
+        XCTAssertEqual(d20.modifier, 0)
+
+        let d6Plus = try XCTUnwrap(DiceSpec.parse("2d6+3"))
+        XCTAssertEqual(d6Plus.count, 2)
+        XCTAssertEqual(d6Plus.sides, 6)
+        XCTAssertEqual(d6Plus.modifier, 3)
+
+        let d12Minus = try XCTUnwrap(DiceSpec.parse("d12-1"))
+        XCTAssertEqual(d12Minus.count, 1)
+        XCTAssertEqual(d12Minus.sides, 12)
+        XCTAssertEqual(d12Minus.modifier, -1)
+    }
+
+    func testRulesContentUsesImportOrFallbackWithoutBundledSource() throws {
+        let index = try XCTUnwrap(SrdContentStore().loadIndex())
+
+        XCTAssertFalse(index.source.lowercased().contains("bundled"))
+        XCTAssertGreaterThanOrEqual(index.abilities.count, 6)
+        XCTAssertGreaterThanOrEqual(index.skills.count, 18)
+    }
+
+    func testDevRulesFixtureLoadsFromEnvironmentWhenConfigured() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["SOLO_RPG_RULES_PREFER_DEV"] == "1",
+              let path = environment["SOLO_RPG_RULES_JSON"],
+              FileManager.default.fileExists(atPath: path) else {
+            throw XCTSkip("No dev rules fixture configured.")
+        }
+
+        let index = try XCTUnwrap(SrdContentStore().loadIndex())
+
+        XCTAssertTrue(index.source.lowercased().contains("dev"))
+        XCTAssertFalse(index.classes.isEmpty)
+        XCTAssertFalse(index.equipment.isEmpty)
+        XCTAssertFalse(index.conditions.isEmpty)
+    }
+
     func testAppliesHighConfidenceNarratorCreations() {
         let campaign = Campaign(title: "Delta Test")
         let location = LocationEntity(name: "Glass Market", type: "settlement", tags: ["market"])
@@ -77,6 +137,54 @@ final class WorldDeltaEngineTests: XCTestCase {
         XCTAssertEqual(result.rejected.count, 2)
         XCTAssertTrue(campaign.npcs.isEmpty)
         XCTAssertTrue(campaign.creatures.isEmpty)
+    }
+
+    func testRejectsHiddenOrVagueNarratorEntities() {
+        let campaign = Campaign(title: "Hidden Entity Reject Test")
+        let draft = WorldDeltaDraft(changes: [
+            WorldEntityChangeDraft(
+                entityType: "npc",
+                operation: "create",
+                name: "The Unseen Adversary",
+                summary: "What you don't see is an unseen adversary following the party.",
+                tags: ["hidden", "enemy"],
+                confidence: 95,
+                isPresentNow: true,
+                reason: "Narration implied a hidden enemy."
+            )
+        ])
+
+        let result = WorldDeltaEngine().applyWorldDelta(draft, to: campaign)
+
+        XCTAssertTrue(result.accepted.isEmpty)
+        XCTAssertEqual(result.rejected.first?.reason, "Hidden or vague narrator phrasing is not durable world state.")
+        XCTAssertTrue(campaign.npcs.isEmpty)
+    }
+
+    func testRejectsNarratorCreatedLocationsWithoutEngineDiscovery() {
+        let campaign = Campaign(title: "Location Reject Test")
+        let road = LocationEntity(name: "Roadside Camp", type: "road", origin: "test")
+        campaign.locations = [road]
+        campaign.activeLocationId = road.id
+
+        let draft = WorldDeltaDraft(changes: [
+            WorldEntityChangeDraft(
+                entityType: "location",
+                operation: "create",
+                name: "Flicker Cave",
+                summary: "A cave is suggested by distant light near the road.",
+                tags: ["cave"],
+                confidence: 90,
+                isPresentNow: true
+            )
+        ])
+
+        let result = WorldDeltaEngine().applyWorldDelta(draft, to: campaign)
+
+        XCTAssertTrue(result.accepted.isEmpty)
+        XCTAssertEqual(result.rejected.first?.reason, "New locations require an engine transition or explicit discovery before storage.")
+        XCTAssertEqual(campaign.locations?.map(\.name), ["Roadside Camp"])
+        XCTAssertEqual(campaign.activeLocationId, road.id)
     }
 
     func testRelevantContextPrioritizesActiveAndKeywordMatches() {

@@ -84,7 +84,7 @@ This repo includes a solo roleplaying system built on top of the on-device model
 - **Interactive challenges**: skill checks, traps, and fate-style questions, each stored as records.
 - **Table engine**: JSON-defined tables with deterministic rolls and action scripts.
 - **Event logs**: stored roll results and entity changes so sessions can be replayed.
-- **SRD conditions**: condition list and details parsed and available in SRD Library + character sheet pickers.
+- **SRD support**: neutral fallback abilities/skills are built in; user-owned rules JSON can be imported for conditions, classes, items, creatures, and character sheet pickers.
 
 ### Modules in the App
 - **Solo Scenes**: the main scene loop and conversation interface.
@@ -96,13 +96,13 @@ This repo includes a solo roleplaying system built on top of the on-device model
 
 ### Expansion Progress
 Current stage: persistent locations, scene chat loop, skill checks, and content pack tables are live. Movement intent parsing is active (with exit label matching). NPCs, world lore, and character sheets are implemented as separate modules. Markdown table import (paste or file) is now available in Tables (log-only actions by default). Location navigation now exposes exits for deterministic traversal and reuse, and narrator context includes current exits.
-Dev tooling: optional DEV_FIXTURES build flag adds a developer test runner with scripted scenarios and a quick smoke test. A local-only supplemental rules data loader can merge extra data at build time when enabled (not included in release builds).
-SRD integration: structured item and creature records are parsed for engine use (equipment/magic items and monsters/creatures) and surfaced in SRD detail views and inventory pickers.
+Dev tooling: optional DEV_FIXTURES build flag adds a developer test runner with scripted scenarios and a quick smoke test. A local-only rules fixture can be loaded through environment variables for package tests and developer builds; it is not compiled into release builds.
+SRD integration: structured item and creature records are parsed from imported/user-owned rules JSON for engine use and surfaced in SRD detail views and inventory pickers.
 Content tables: travel/exploration/encounter tables are now bundled in `rpg_tables.json` for TableEngine use.
 Encounter pacing + travel/exploration hooks: the engine can now roll encounter checks, travel events, and exploration features from the bundled tables.
-Loot selection: magic item rarity logic uses SRD item lists (no separate treasure tables).
+Loot selection: magic item rarity logic can use imported SRD item lists when available (no separate treasure tables).
 Social/encounter seeding: NPC reactions can update attitudes and travel events can seed encounter entities on the current node.
-User content import: the engine creates `Documents/data/` and merges user-owned JSON for actions, encounters, objects, loot, base items, tables, senses, and skills. TableEngine also merges `Documents/data/tables.json` into the tables pack. Creative keywords are bundled and surfaced in the Tables module.
+User content import: the engine creates `Documents/data/` and merges user-owned JSON for actions, encounters, objects, loot, base items, tables, senses, and skills. Full rules JSON can also be imported from Files into Application Support. TableEngine merges `Documents/data/tables.json` into the tables pack. Creative keywords are bundled and surfaced in the Tables module.
 
 Work-in-progress task list (engine expansion):
 - **Architecture**: define module boundaries (engine, narrator, world state, tables) and plan a Swift package split without breaking current UI.

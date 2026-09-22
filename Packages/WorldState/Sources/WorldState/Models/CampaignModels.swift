@@ -31,6 +31,8 @@ public final class Campaign {
     public var tableRolls: [TableRollRecord]?
     public var rngSeed: UInt64?
     public var rngSequence: Int?
+    public var authorityStateJSON: String?
+    public var procedureStateJSON: String?
 
     public init(title: String = "Solo Campaign") {
         self.id = UUID()
@@ -61,6 +63,8 @@ public final class Campaign {
         self.tableRolls = nil
         self.rngSeed = nil
         self.rngSequence = nil
+        self.authorityStateJSON = nil
+        self.procedureStateJSON = nil
     }
 }
 
@@ -228,6 +232,7 @@ public final class SkillCheckRecord {
     public var total: Int?
     public var outcome: String?
     public var consequence: String?
+    public var declaredStakesJSON: String?
 
     public init(
         playerAction: String,
@@ -241,7 +246,8 @@ public final class SkillCheckRecord {
         stakes: String,
         partialSuccessDC: Int? = nil,
         partialSuccessOutcome: String? = nil,
-        reason: String
+        reason: String,
+        declaredStakesJSON: String? = nil
     ) {
         self.id = UUID()
         self.createdAt = Date()
@@ -257,6 +263,7 @@ public final class SkillCheckRecord {
         self.partialSuccessDC = partialSuccessDC
         self.partialSuccessOutcome = partialSuccessOutcome
         self.reason = reason
+        self.declaredStakesJSON = declaredStakesJSON
     }
 }
 

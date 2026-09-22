@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "defaults": {
+    "strictGMWorldAuthority": true,
+    "promptMode": "open_table",
+    "maximumNarrationRetries": 1
+  },
+  "cases": [
+    {
+      "id": "summary_is_read_only",
+      "expected": ["summary_text_only", "zero_canonical_entity_delta"]
+    },
+    {
+      "id": "weather_is_gm_authorized",
+      "input": "We travel in a storm.",
+      "expected": ["weather_proposal", "same_turn_authority_decision", "campaign_event"]
+    },
+    {
+      "id": "hidden_door_discovery_not_entry",
+      "expected": ["prepared_hidden_target", "edge_discovered", "edge_unopened", "active_node_unchanged"]
+    },
+    {
+      "id": "meta_zero_diff",
+      "expected": ["direct_state_query", "zero_state_diff", "no_new_fiction"]
+    },
+    {
+      "id": "bounded_creative_natural_20",
+      "expected": ["straight_d20", "seeded_keywords", "best_plausible_effect", "no_npc_or_location_creation"]
+    }
+  ]
+}

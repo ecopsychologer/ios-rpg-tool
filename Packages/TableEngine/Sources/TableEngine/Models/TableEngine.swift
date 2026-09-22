@@ -192,14 +192,22 @@ public struct DiceSpec {
 
     public static func parse(_ input: String) -> DiceSpec? {
         let normalized = input.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        let parts = normalized.split(separator: "d", maxSplits: 1).map(String.init)
+        let parts = normalized.split(separator: "d", maxSplits: 1, omittingEmptySubsequences: false).map(String.init)
         guard parts.count == 2 else { return nil }
 
         let count = Int(parts[0].isEmpty ? "1" : parts[0]) ?? 1
         let remainder = parts[1]
-        let modifierSplit = remainder.split(separator: "+", maxSplits: 1).map(String.init)
-        let sides = Int(modifierSplit[0]) ?? 0
-        let modifier = modifierSplit.count > 1 ? (Int(modifierSplit[1]) ?? 0) : 0
+        let modifierIndex = remainder.firstIndex(where: { $0 == "+" || $0 == "-" })
+        let sidesText: Substring
+        let modifier: Int
+        if let modifierIndex {
+            sidesText = remainder[..<modifierIndex]
+            modifier = Int(remainder[modifierIndex...]) ?? 0
+        } else {
+            sidesText = Substring(remainder)
+            modifier = 0
+        }
+        let sides = Int(sidesText) ?? 0
         guard sides > 0 else { return nil }
         return DiceSpec(count: count, sides: sides, modifier: modifier)
     }

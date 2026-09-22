@@ -185,6 +185,8 @@ public final class LocationEdge {
     public var origin: String
     public var trap: TrapEntity?
     public var location: LocationEntity?
+    public var discovered: Bool?
+    public var opened: Bool?
 
     public init(
         type: String,
@@ -211,6 +213,10 @@ public final class LocationEdge {
         self.requiresCheckDC = requiresCheckDC
         self.oneWay = oneWay
         self.origin = origin
+        let hiddenTransitionTerms = ["hidden", "secret", "trapdoor"]
+        let transitionText = "\(type) \(label ?? "")".lowercased()
+        self.discovered = !hiddenTransitionTerms.contains(where: transitionText.contains)
+        self.opened = false
     }
 }
 
@@ -440,13 +446,31 @@ public final class EventLogEntry {
     public var rollIds: [UUID]?
     public var entityIds: [UUID]?
     public var origin: String
+    public var eventId: UUID?
+    public var eventType: String?
+    public var eventPayloadJSON: String?
+    public var eventSource: String?
+    public var eventVisibility: String?
+    public var eventDurability: String?
+    public var eventApproval: String?
+    public var eventLocationBinding: String?
+    public var eventEntityBinding: String?
 
     public init(
         summary: String,
         sceneId: UUID? = nil,
         rollIds: [UUID]? = nil,
         entityIds: [UUID]? = nil,
-        origin: String = "system"
+        origin: String = "system",
+        eventId: UUID? = nil,
+        eventType: String? = nil,
+        eventPayloadJSON: String? = nil,
+        eventSource: String? = nil,
+        eventVisibility: String? = nil,
+        eventDurability: String? = nil,
+        eventApproval: String? = nil,
+        eventLocationBinding: String? = nil,
+        eventEntityBinding: String? = nil
     ) {
         self.id = UUID()
         self.timestamp = Date()
@@ -455,6 +479,15 @@ public final class EventLogEntry {
         self.rollIds = rollIds
         self.entityIds = entityIds
         self.origin = origin
+        self.eventId = eventId
+        self.eventType = eventType
+        self.eventPayloadJSON = eventPayloadJSON
+        self.eventSource = eventSource
+        self.eventVisibility = eventVisibility
+        self.eventDurability = eventDurability
+        self.eventApproval = eventApproval
+        self.eventLocationBinding = eventLocationBinding
+        self.eventEntityBinding = eventEntityBinding
     }
 }
 

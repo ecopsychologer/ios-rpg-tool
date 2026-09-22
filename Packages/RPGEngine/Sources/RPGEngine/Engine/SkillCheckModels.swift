@@ -237,6 +237,7 @@ public struct CheckRequest: Sendable {
     public let partialSuccessDC: Int?
     public let partialSuccessOutcome: String?
     public let reason: String
+    public let declaredStakes: DeclaredStakes?
 
     public init(
         checkType: CheckType,
@@ -249,7 +250,8 @@ public struct CheckRequest: Sendable {
         stakes: String,
         partialSuccessDC: Int?,
         partialSuccessOutcome: String?,
-        reason: String
+        reason: String,
+        declaredStakes: DeclaredStakes? = nil
     ) {
         self.checkType = checkType
         self.skillName = skillName
@@ -262,6 +264,7 @@ public struct CheckRequest: Sendable {
         self.partialSuccessDC = partialSuccessDC
         self.partialSuccessOutcome = partialSuccessOutcome
         self.reason = reason
+        self.declaredStakes = declaredStakes
     }
 }
 
@@ -373,6 +376,7 @@ public struct CheckRollDraft {
     public let declines: Bool
 }
 
+@available(*, deprecated, message: "Use read-only SceneSummaryDraft. SceneWrapUpDraft must not produce world mutations.")
 @Generable
 public struct SceneWrapUpDraft {
     @Guide(description: "2-4 lines summarizing what happened in the scene")

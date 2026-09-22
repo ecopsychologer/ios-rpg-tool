@@ -5,6 +5,7 @@ import SwiftData
 import WorldState
 import RPGEngine
 import TableEngine
+import NarratorAgent
 
 struct InteractionDraft: Identifiable {
     let id = UUID()
@@ -24,6 +25,9 @@ struct SkillCheckDraft: Identifiable {
     var consequence: String?
     var sourceTrapId: UUID?
     var sourceKind: String?
+    var travelRequest: TravelRequest? = nil
+    var searchRequest: SearchRequest? = nil
+    var searchResolution: SearchResolution? = nil
 }
 
 struct FateQuestionDraftState: Identifiable {
@@ -195,6 +199,7 @@ final class SoloSceneCoordinator: ObservableObject {
 
     private var autoRollEnabled = false
     private var gmRunsCompanionsEnabled = false
+    private let promptInputTokenBudget = 3_000
 
     init(
         engine: SoloCampaignEngine = SoloCampaignEngine(),
@@ -268,6 +273,13 @@ final class SoloSceneCoordinator: ObservableObject {
                         checkDrafts[index].roll = roll
                         checkDrafts[index].modifier = modifier
 
+                        if checkDrafts[index].sourceKind == "creative_solution" {
+                            let gmText = try await resolveCreativeCheck(session: session, draftIndex: index, roll: roll, campaign: campaign)
+                            interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
+                            pendingCheckID = nil
+                            return gmText
+                        }
+
                         if checkDrafts[index].sourceKind == "travel_check" {
                             let gmText = try await resolveTravelCheck(
                                 session: session,
@@ -288,6 +300,7 @@ final class SoloSceneCoordinator: ObservableObject {
                         checkDrafts[index].outcome = result.outcome
                         appendRollHighlight(for: checkDrafts[index], outcome: result.outcome, total: result.total)
                         applyTrapOutcomeIfNeeded(for: checkDrafts[index], outcome: result.outcome, campaign: campaign, modelContext: modelContext)
+                        checkDrafts[index].searchResolution = applySearchProcedureOutcomeIfNeeded(for: checkDrafts[index], outcome: result.outcome, campaign: campaign)
                         logAgency(stage: "resolution", message: "Auto-roll check \(checkDrafts[index].request.skillName) => \(result.outcome) total \(result.total)")
 
                         let consequence = try await generateCheckConsequence(
@@ -300,6 +313,7 @@ final class SoloSceneCoordinator: ObservableObject {
                         checkDrafts[index].consequence = consequence
                         let outcomeText = result.outcome.replacingOccurrences(of: "_", with: " ")
                         let gmText = "Auto-roll: \(roll) + \(modifier) = \(result.total). \(outcomeText.capitalized). \(consequence)"
+                        await captureWorldDelta(from: gmText, session: session, context: context, playerText: checkDrafts[index].playerAction, campaign: campaign)
                         interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
                         pendingCheckID = nil
                         return gmText
@@ -309,6 +323,13 @@ final class SoloSceneCoordinator: ObservableObject {
                         let modifier = fallback.modifier ?? (wantsAutoBonus(trimmed) ? computedSkillBonus(for: checkDrafts[index], campaign: campaign) : nil) ?? 0
                         checkDrafts[index].roll = roll
                         checkDrafts[index].modifier = modifier
+
+                        if checkDrafts[index].sourceKind == "creative_solution" {
+                            let gmText = try await resolveCreativeCheck(session: session, draftIndex: index, roll: roll, campaign: campaign)
+                            interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
+                            pendingCheckID = nil
+                            return gmText
+                        }
 
                         if checkDrafts[index].sourceKind == "travel_check" {
                             let gmText = try await resolveTravelCheck(
@@ -330,6 +351,7 @@ final class SoloSceneCoordinator: ObservableObject {
                         checkDrafts[index].outcome = result.outcome
                         appendRollHighlight(for: checkDrafts[index], outcome: result.outcome, total: result.total)
                         applyTrapOutcomeIfNeeded(for: checkDrafts[index], outcome: result.outcome, campaign: campaign, modelContext: modelContext)
+                        checkDrafts[index].searchResolution = applySearchProcedureOutcomeIfNeeded(for: checkDrafts[index], outcome: result.outcome, campaign: campaign)
                         logAgency(stage: "resolution", message: "Check \(checkDrafts[index].request.skillName) => \(result.outcome) total \(result.total)")
 
                         let consequence = try await generateCheckConsequence(
@@ -342,6 +364,7 @@ final class SoloSceneCoordinator: ObservableObject {
                         checkDrafts[index].consequence = consequence
                         let outcomeText = result.outcome.replacingOccurrences(of: "_", with: " ")
                         let gmText = "Result: \(outcomeText) (Total \(result.total)). \(consequence)"
+                        await captureWorldDelta(from: gmText, session: session, context: context, playerText: checkDrafts[index].playerAction, campaign: campaign)
                         interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
                         pendingCheckID = nil
                         return gmText
@@ -406,6 +429,13 @@ final class SoloSceneCoordinator: ObservableObject {
                     checkDrafts[index].roll = roll
                     checkDrafts[index].modifier = modifier
 
+                    if checkDrafts[index].sourceKind == "creative_solution" {
+                        let gmText = try await resolveCreativeCheck(session: session, draftIndex: index, roll: roll, campaign: campaign)
+                        interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
+                        pendingCheckID = nil
+                        return gmText
+                    }
+
                     if checkDrafts[index].sourceKind == "travel_check" {
                         let gmText = try await resolveTravelCheck(
                             session: session,
@@ -426,6 +456,7 @@ final class SoloSceneCoordinator: ObservableObject {
                     checkDrafts[index].outcome = result.outcome
                     appendRollHighlight(for: checkDrafts[index], outcome: result.outcome, total: result.total)
                     applyTrapOutcomeIfNeeded(for: checkDrafts[index], outcome: result.outcome, campaign: campaign, modelContext: modelContext)
+                    checkDrafts[index].searchResolution = applySearchProcedureOutcomeIfNeeded(for: checkDrafts[index], outcome: result.outcome, campaign: campaign)
                     logAgency(stage: "resolution", message: "Auto-roll check \(checkDrafts[index].request.skillName) => \(result.outcome) total \(result.total)")
 
                     let consequence = try await generateCheckConsequence(
@@ -438,6 +469,7 @@ final class SoloSceneCoordinator: ObservableObject {
                     checkDrafts[index].consequence = consequence
                     let outcomeText = result.outcome.replacingOccurrences(of: "_", with: " ")
                     let gmText = "Auto-roll: \(roll) + \(modifier) = \(result.total). \(outcomeText.capitalized). \(consequence)"
+                    await captureWorldDelta(from: gmText, session: session, context: context, playerText: checkDrafts[index].playerAction, campaign: campaign)
                     interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
                     pendingCheckID = nil
                     return gmText
@@ -456,6 +488,13 @@ final class SoloSceneCoordinator: ObservableObject {
 
                 checkDrafts[index].roll = roll
                 checkDrafts[index].modifier = modifier
+
+                if checkDrafts[index].sourceKind == "creative_solution" {
+                    let gmText = try await resolveCreativeCheck(session: session, draftIndex: index, roll: roll, campaign: campaign)
+                    interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
+                    pendingCheckID = nil
+                    return gmText
+                }
 
                 if checkDrafts[index].sourceKind == "travel_check" {
                     let gmText = try await resolveTravelCheck(
@@ -477,6 +516,7 @@ final class SoloSceneCoordinator: ObservableObject {
                 checkDrafts[index].outcome = result.outcome
                 appendRollHighlight(for: checkDrafts[index], outcome: result.outcome, total: result.total)
                 applyTrapOutcomeIfNeeded(for: checkDrafts[index], outcome: result.outcome, campaign: campaign, modelContext: modelContext)
+                checkDrafts[index].searchResolution = applySearchProcedureOutcomeIfNeeded(for: checkDrafts[index], outcome: result.outcome, campaign: campaign)
                 logAgency(stage: "resolution", message: "Check \(checkDrafts[index].request.skillName) => \(result.outcome) total \(result.total)")
 
                 let consequence = try await generateCheckConsequence(
@@ -489,6 +529,7 @@ final class SoloSceneCoordinator: ObservableObject {
                 checkDrafts[index].consequence = consequence
                 let outcomeText = result.outcome.replacingOccurrences(of: "_", with: " ")
                 let gmText = "Result: \(outcomeText) (Total \(result.total)). \(consequence)"
+                await captureWorldDelta(from: gmText, session: session, context: context, playerText: checkDrafts[index].playerAction, campaign: campaign)
                 interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
                 pendingCheckID = nil
                 return gmText
@@ -545,6 +586,19 @@ final class SoloSceneCoordinator: ObservableObject {
             if actionKind != .auto {
                 recordIntentLabel(actionKind, playerText: trimmed, campaign: campaign, modelContext: modelContext)
                 logAgency(stage: "intent_override", message: "\(actionKind.rawValue): \(trimmed)")
+            }
+
+            let authorityEnvelope = PlayerAuthorityParser().parse(trimmed)
+            logAuthorityEnvelope(authorityEnvelope)
+
+            if let gmText = deterministicContractResponseIfNeeded(
+                actionKind: actionKind,
+                playerText: trimmed,
+                context: context,
+                campaign: campaign
+            ) {
+                interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
+                return gmText
             }
 
             if actionKind == .gmCommand {
@@ -637,15 +691,26 @@ final class SoloSceneCoordinator: ObservableObject {
             }
 
             if actionKind == .travel {
-                let travelDraft = travelCheckDraft(for: trimmed, campaign: campaign)
+                let weatherRuling = adjudicateWeatherAssumptionIfNeeded(authorityEnvelope, campaign: campaign)
+                let intent = authorityEnvelope.characterIntent.isEmpty ? trimmed : authorityEnvelope.characterIntent
+                let travelDraft = travelCheckDraft(for: intent, campaign: campaign)
                 checkDrafts.append(travelDraft)
                 pendingCheckID = travelDraft.id
-                let gmText = gmLineForTravelCheck(travelDraft.request)
+                if let request = travelDraft.travelRequest {
+                    dispatchProcedureEvent(CampaignEventFactory().travelRequestEvent(request, sceneId: campaign.activeSceneId), campaign: campaign)
+                }
+                let gmText = [weatherRuling, gmLineForTravelCheck(travelDraft.request)]
+                    .compactMap { $0 }
+                    .joined(separator: " ")
                 interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
                 return gmText
             }
 
             if actionKind == .auto, isMetaMessage(trimmed) {
+                if let gmText = deterministicMetaResponseIfNeeded(playerText: trimmed, context: context, campaign: campaign) {
+                    interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
+                    return gmText
+                }
                 let tableRoll = try await resolveTableRollIfNeeded(
                     session: session,
                     context: context,
@@ -674,6 +739,9 @@ final class SoloSceneCoordinator: ObservableObject {
             if let trapDraft = trapSearchDraftIfNeeded(playerText: trimmed, campaign: campaign) {
                 checkDrafts.append(trapDraft)
                 pendingCheckID = trapDraft.id
+                if let request = trapDraft.searchRequest {
+                    dispatchProcedureEvent(CampaignEventFactory().searchRequestEvent(request, sceneId: campaign.activeSceneId), campaign: campaign)
+                }
                 let gmText = gmLineForCheck(trapDraft.request)
                 interactionDrafts.append(InteractionDraft(playerText: trimmed, gmText: gmText, turnSignal: "gm_response"))
                 return gmText
@@ -1104,18 +1172,21 @@ final class SoloSceneCoordinator: ObservableObject {
             let opponent = request.opponentSkill ?? "opponent"
             line += " Opposed by \(opponent) (DC \(opponentDC))."
         }
-        if !request.reason.isEmpty {
-            line += " Reason: \(request.reason)."
+        let reason = cleanedSentence(request.reason)
+        if !reason.isEmpty {
+            line += " Reason: \(reason)."
         }
-        line += " If you fail, \(request.stakes)"
+        let failure = cleanedFailureStakes(request.stakes)
+        if !failure.isEmpty {
+            line += " Failure: \(failure)."
+        }
         if let partialDC = request.partialSuccessDC, let partialText = request.partialSuccessOutcome, !partialText.isEmpty {
-            line += " On a partial (DC \(partialDC)), \(partialText)"
+            line += " Partial (DC \(partialDC)): \(cleanedSentence(partialText))."
         }
-        line += " Include your modifier in the roll total, or say \"use my bonus\" if you want me to add it."
         if autoRollEnabled {
             line += " Roll it, or say \"auto\" if you want me to roll."
         } else {
-            line += " Want to attempt it?"
+            line += " Tell me the d20 result and modifier, or say \"use my bonus\" if you want me to add it."
         }
         return line
     }
@@ -1124,15 +1195,42 @@ final class SoloSceneCoordinator: ObservableObject {
         let skillName = request.skillName
         let ability = request.abilityOverride ?? engine.ruleset.defaultAbility(for: skillName) ?? "Ability"
         let abilityLine = "\(ability) (\(skillName))"
-        var line = "Travel check: Who’s leading the journey? Give me a \(abilityLine) roll (or another skill you can justify)."
-        line += " Higher rolls reduce the odds of trouble; low rolls increase risk."
-        line += " Include your modifier in the roll total, or say \"use my bonus\" if you want me to add it."
+        var line = "Travel check: Since Hazel is traveling alone, she leads by default. Give me \(abilityLine), DC \(request.dc ?? 15), unless you justify a different skill."
+        line += " Success means progress without trouble; partial success means progress with delay, exposure, or rising risk; failure means the journey creates a real complication."
         if autoRollEnabled {
             line += " Roll it, or say \"auto\" if you want me to roll."
         } else {
-            line += " Want to attempt it?"
+            line += " Tell me the d20 result and modifier, or say \"use my bonus\" if you want me to add it."
         }
         return line
+    }
+
+    private func cleanedFailureStakes(_ text: String) -> String {
+        var cleaned = cleanedSentence(text)
+        if cleaned.hasPrefix("If you fail, ") {
+            cleaned.removeFirst("If you fail, ".count)
+        } else if cleaned.hasPrefix("if you fail, ") {
+            cleaned.removeFirst("if you fail, ".count)
+        } else if cleaned.hasPrefix("Failure to ") {
+            cleaned.removeFirst("Failure to ".count)
+            cleaned = "failing to " + cleaned
+        } else if cleaned.hasPrefix("failure to ") {
+            cleaned.removeFirst("failure to ".count)
+            cleaned = "failing to " + cleaned
+        } else if cleaned.hasPrefix("Failure would ") {
+            cleaned.removeFirst("Failure would ".count)
+        } else if cleaned.hasPrefix("failure would ") {
+            cleaned.removeFirst("failure would ".count)
+        }
+        return cleanedSentence(cleaned)
+    }
+
+    private func cleanedSentence(_ text: String) -> String {
+        var cleaned = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        while cleaned.hasSuffix(".") {
+            cleaned.removeLast()
+        }
+        return cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private func pendingCheckReminder(for request: CheckRequest) -> String {
@@ -1156,18 +1254,37 @@ final class SoloSceneCoordinator: ObservableObject {
 
     private func travelCheckDraft(for playerText: String, campaign: Campaign) -> SkillCheckDraft {
         let skillName = normalizedSkillName("Survival")
+        let weather = CampaignAuthorityStateStore().load(from: campaign)?.weather
+        let condition = weather.map { "Travel through \($0)" } ?? "Travel in uncertain conditions"
+        let declared = DeclaredStakes(
+            success: "You make progress and stay oriented without a new complication.",
+            partial: "You make progress, but exposure, delay, or encounter risk increases.",
+            failure: "You lose progress or face a declared travel complication.",
+            criticalSuccess: "You make strong progress and gain a bounded positioning or shelter advantage.",
+            criticalFailure: "Travel progress stalls and one declared risk worsens.",
+            allowedMutations: [.progress, .time, .exposure, .delay, .encounterRisk, .sceneFact],
+            forbiddenMutations: [.npc, .location, .quest, .treasure, .playerChoice, .playerFeeling]
+        )
+        let travelRequest = TravelRequest(
+            originNodeID: campaign.activeNodeId,
+            destinationName: nil,
+            routeLabel: activeLocation(in: campaign)?.name,
+            intendedHours: intendedTravelHours(from: playerText),
+            weather: weather
+        )
         let request = CheckRequest(
             checkType: .skillCheck,
             skillName: skillName,
             abilityOverride: nil,
-            dc: nil,
+            dc: 15,
             opponentSkill: nil,
             opponentDC: nil,
             advantageState: .normal,
-            stakes: "This roll shapes the odds of trouble on the journey.",
-            partialSuccessDC: nil,
-            partialSuccessOutcome: nil,
-            reason: "Travel leadership check."
+            stakes: "You lose time, risk exposure, or trigger an encounter check.",
+            partialSuccessDC: 10,
+            partialSuccessOutcome: "You make progress, but the weather, terrain, or timing creates a cost.",
+            reason: "\(condition) is uncertain and consequential.",
+            declaredStakes: declared
         )
         return SkillCheckDraft(
             playerAction: playerText,
@@ -1178,8 +1295,17 @@ final class SoloSceneCoordinator: ObservableObject {
             outcome: nil,
             consequence: nil,
             sourceTrapId: nil,
-            sourceKind: "travel_check"
+            sourceKind: "travel_check",
+            travelRequest: travelRequest
         )
+    }
+
+    private func intendedTravelHours(from text: String) -> Int {
+        let lower = text.lowercased()
+        for value in 1...12 where lower.contains("\(value) hour") || lower.contains("\(value) hr") {
+            return value
+        }
+        return lower.contains("few hours") ? 3 : 1
     }
 
     private func travelOutcome(for total: Int) -> (outcome: String, modifier: Int) {
@@ -1310,6 +1436,398 @@ final class SoloSceneCoordinator: ObservableObject {
 
     private func logAgency(stage: String, message: String) {
         agencyLogs.append(AgencyLogEntry(stage: stage, message: message))
+    }
+
+    private func dispatchProcedureEvent(_ event: CampaignEvent, campaign: Campaign) {
+        let result = CampaignReducer().apply(event, to: campaign)
+        logAgency(
+            stage: "procedure_event",
+            message: "\(event.id) action=\(event.payload.operation) status=\(result.status.rawValue)"
+        )
+        if result.status == .rejected {
+            logAgency(stage: "structural_assertion_failure", message: result.reason ?? "Procedure reducer rejected event.")
+        }
+    }
+
+    private func logAuthorityEnvelope(_ envelope: PlayerAuthorityEnvelope) {
+        let assumptions = envelope.worldAssumptions.map {
+            "\($0.kind.rawValue)=\($0.proposedValue) status=\($0.status.rawValue) confirmation=\($0.requiresPlayerConfirmation)"
+        }
+        logAgency(
+            stage: "intent_assumptions",
+            message: "intent=\(envelope.characterIntent) assumptions=[\(assumptions.joined(separator: "; "))]"
+        )
+    }
+
+    private func adjudicateWeatherAssumptionIfNeeded(
+        _ envelope: PlayerAuthorityEnvelope,
+        campaign: Campaign
+    ) -> String? {
+        guard let assumption = envelope.worldAssumptions.first(where: { $0.kind == .weather }) else { return nil }
+        let established = CampaignAuthorityStateStore().load(from: campaign)?.weather
+        let proposed = assumption.proposedValue.lowercased()
+        let policy: WeatherAuthorityPolicy
+        if let established, established.caseInsensitiveCompare(assumption.proposedValue) != .orderedSame {
+            policy = .preserveEstablished
+        } else if proposed.contains("violent") || proposed.contains("blizzard") {
+            policy = .softenExtreme
+        } else {
+            policy = .acceptPlausible
+        }
+
+        let decision = WorldAuthorityEngine().adjudicateWeather(
+            assumption,
+            establishedWeather: established,
+            policy: policy
+        )
+        let event = CampaignEventFactory().weatherAuthorityEvent(decision: decision, sceneId: campaign.activeSceneId)
+        let application = CampaignReducer().apply(event, to: campaign)
+        logAgency(
+            stage: decision.resolution == .rejected ? "authority_proposal_rejected" : "authority_proposal_approved",
+            message: "weather proposed=\(decision.proposedWeather) canonical=\(decision.canonicalWeather ?? "unchanged") resolution=\(decision.resolution.rawValue)"
+        )
+        logAgency(stage: "campaign_event", message: "\(event.id) \(event.type.rawValue) status=\(application.status.rawValue)")
+
+        switch decision.resolution {
+        case .accepted:
+            let weather = decision.canonicalWeather ?? decision.proposedWeather
+            return "Weather accepted: the GM establishes \(article(for: weather)) \(weather)."
+        case .softened:
+            let weather = decision.canonicalWeather ?? decision.proposedWeather
+            return "Weather adjusted: the GM establishes \(article(for: weather)) \(weather)."
+        case .rejected:
+            if let established = decision.canonicalWeather {
+                return "Weather unchanged: \(established) remains established."
+            }
+            return "Weather rejected: the proposed condition is not established."
+        }
+    }
+
+    private func article(for value: String) -> String {
+        guard let first = value.lowercased().first else { return "a" }
+        return "aeiou".contains(first) ? "an" : "a"
+    }
+
+    private func budgetedPrompt(_ text: String, label: String) -> Prompt {
+        Prompt(compactedPromptIfNeeded(text, label: label))
+    }
+
+    private func compactedPromptIfNeeded(_ text: String, label: String) -> String {
+        let estimated = estimatedTokenCount(text)
+        guard estimated > promptInputTokenBudget else { return text }
+
+        let maxCharacters = promptInputTokenBudget * 4
+        let marker = "\n\n[Older context compacted to preserve output budget. Use only the remaining current scene facts and instructions.]\n\n"
+        let markerCount = marker.count
+        let headCount = max(2_000, (maxCharacters - markerCount) / 2)
+        let tailCount = max(2_000, maxCharacters - markerCount - headCount)
+        let compacted = String(text.prefix(headCount)) + marker + String(text.suffix(tailCount))
+        logAgency(stage: "prompt_budget", message: "\(label) compacted from ~\(estimated) tokens to ~\(estimatedTokenCount(compacted)) tokens")
+        return compacted
+    }
+
+    private func estimatedTokenCount(_ text: String) -> Int {
+        max(1, (text.count + 3) / 4)
+    }
+
+    private func deterministicContractResponseIfNeeded(
+        actionKind: PlayerActionKind,
+        playerText: String,
+        context: NarrationContextPacket,
+        campaign: Campaign
+    ) -> String? {
+        if actionKind == .gmCommand || isMetaMessage(playerText) {
+            return deterministicMetaResponseIfNeeded(playerText: playerText, context: context, campaign: campaign)
+        }
+
+        if actionKind == .question || isLikelyQuestion(playerText) {
+            if let answer = deterministicQuestionResponseIfNeeded(playerText: playerText, context: context, campaign: campaign) {
+                return answer
+            }
+        }
+
+        if let companionResponse = unestablishedCompanionResponseIfNeeded(playerText: playerText, campaign: campaign) {
+            return companionResponse
+        }
+
+        if actionKind == .rest {
+            return restSetupResponse(playerText: playerText, campaign: campaign)
+        }
+
+        if let impossibleResponse = impossibleActionResponseIfNeeded(playerText: playerText) {
+            return impossibleResponse
+        }
+
+        return nil
+    }
+
+    private func deterministicMetaResponseIfNeeded(
+        playerText: String,
+        context: NarrationContextPacket,
+        campaign: Campaign
+    ) -> String? {
+        let lower = playerText.lowercased()
+        guard lower.contains("summarize") || lower.contains("summary") || lower.contains("threat") else {
+            return nil
+        }
+
+        let before = SceneCanonSnapshot(campaign: campaign)
+        let result = CampaignStateQueryEngine().answer(.metaThreatSummary, campaign: campaign)
+        if SceneCanonSnapshot(campaign: campaign) != before {
+            logAgency(stage: "structural_assertion_failure", message: "Meta state query changed canonical state.")
+        }
+        let facts = result.playerVisibleFacts.joined(separator: " ")
+        return "Known immediate threats: \(facts) Unknowns remain unknown until checked. What do you do?"
+    }
+
+    private func deterministicQuestionResponseIfNeeded(
+        playerText: String,
+        context: NarrationContextPacket,
+        campaign: Campaign
+    ) -> String? {
+        let lower = playerText.lowercased()
+
+        if lower.contains("hidden door") || lower.contains("secret door") {
+            let result = CampaignStateQueryEngine().answer(.hiddenDoor, campaign: campaign)
+            if let request = result.checkRequest {
+                let tuned = tunedCheckRequest(request, campaign: campaign)
+                enqueueCheck(playerText: playerText, request: tuned, sourceKind: "question_hidden_door", campaign: campaign)
+                return "You can check. \(result.playerVisibleFacts.joined(separator: " ")) \(gmLineForCheck(tuned))"
+            }
+            return renderStateQuery(result)
+        }
+
+        if (lower.contains("symbol") || lower.contains("rune") || lower.contains("mark"))
+            && (lower.contains("lore") || lower.contains("match") || lower.contains("windward")) {
+            let request = tunedCheckRequest(
+                CheckRequest(
+                    checkType: .skillCheck,
+                    skillName: normalizedSkillName("Arcana"),
+                    abilityOverride: nil,
+                    dc: 15,
+                    opponentSkill: nil,
+                    opponentDC: nil,
+                    advantageState: .normal,
+                    stakes: "The symbol remains unidentified for now.",
+                    partialSuccessDC: 10,
+                    partialSuccessOutcome: "You identify a broad theme, but not its exact origin or meaning.",
+                    reason: "Matching a strange symbol to established lore requires magical or historical interpretation.",
+                    declaredStakes: DeclaredStakes(
+                        success: "The symbol matches a known Windward Expanse tradition and reveals its established purpose.",
+                        partial: "The symbol broadly resembles protective magic, but its exact origin and meaning remain unknown.",
+                        failure: "The symbol remains unidentified.",
+                        criticalSuccess: "The symbol's purpose and its established regional tradition are identified.",
+                        criticalFailure: "The symbol remains unidentified; no new danger is created.",
+                        allowedMutations: [.clue, .lore],
+                        forbiddenMutations: [.map, .location, .quest, .treasure, .npc, .item]
+                    )
+                ),
+                campaign: campaign
+            )
+            enqueueCheck(playerText: playerText, request: request, sourceKind: "question_lore_symbol", campaign: campaign)
+            return "You don't know yet from sight alone. \(gmLineForCheck(request))"
+        }
+
+        if lower.contains("encounter anyone") || lower.contains("see anyone") || lower.contains("is anyone") || lower.contains("anyone on the road") {
+            let result = CampaignStateQueryEngine().answer(.visiblePeople, campaign: campaign)
+            let answer = renderStateQuery(result, prompt: "A deliberate search is needed to detect anyone hidden from view. What do you do?")
+            return answer.replacingOccurrences(of: "No person is visible here.", with: "No person is visible on the road.")
+        }
+
+        return nil
+    }
+
+    private func renderStateQuery(_ result: CampaignStateQueryResult, prompt: String = "What do you do?") -> String {
+        let answer: String
+        switch result.directAnswer {
+        case .yes: answer = "Yes."
+        case .no: answer = "No."
+        case .unknown: answer = "You do not know yet."
+        case .checkRequired: answer = "You can check."
+        case .notApplicable: answer = ""
+        }
+        return [answer, result.playerVisibleFacts.joined(separator: " "), prompt]
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+    }
+
+    private func enqueueCheck(playerText: String, request: CheckRequest, sourceKind: String, campaign: Campaign) {
+        let searchRequest = sourceKind == "question_hidden_door"
+            ? makeSearchRequest(playerText: playerText, skill: request.skillName, dc: request.dc ?? 15, campaign: campaign)
+            : nil
+        let draft = SkillCheckDraft(
+            playerAction: playerText,
+            request: request,
+            roll: nil,
+            modifier: nil,
+            total: nil,
+            outcome: nil,
+            consequence: nil,
+            sourceTrapId: nil,
+            sourceKind: sourceKind,
+            searchRequest: searchRequest
+        )
+        checkDrafts.append(draft)
+        pendingCheckID = draft.id
+        if let searchRequest {
+            dispatchProcedureEvent(CampaignEventFactory().searchRequestEvent(searchRequest, sceneId: campaign.activeSceneId), campaign: campaign)
+        }
+    }
+
+    private func makeSearchRequest(playerText: String, skill: String, dc: Int, campaign: Campaign) -> SearchRequest {
+        let lower = playerText.lowercased()
+        let mode: SearchMode = lower.contains("scan") || lower.contains("while moving") ? .movingObservation : .closeInvestigation
+        return SearchRequest(
+            mode: mode,
+            locationID: campaign.activeLocationId,
+            nodeID: campaign.activeNodeId,
+            skill: skill,
+            dc: dc,
+            stakes: "Reveal an existing prepared target or report no reliable sign without inventing one."
+        )
+    }
+
+    private func unestablishedCompanionResponseIfNeeded(playerText: String, campaign: Campaign) -> String? {
+        let lower = playerText.lowercased()
+        let companionTerms = ["sidekick", "companion", "hireling", "familiar"]
+        guard companionTerms.contains(where: { lower.contains($0) }) else { return nil }
+        guard !hasEstablishedCompanion(in: campaign) else { return nil }
+        return "No sidekick or companion is currently established in the party. Did you mean an existing NPC, or do you want to create a formal companion before relying on them?"
+    }
+
+    private func hasEstablishedCompanion(in campaign: Campaign) -> Bool {
+        if let members = campaign.party?.members {
+            if members.contains(where: { member in
+                member.isNpc || member.role.lowercased().contains("sidekick") || member.role.lowercased().contains("companion")
+            }) {
+                return true
+            }
+        }
+        return campaign.npcs.contains { npc in
+            npc.currentLocationId == campaign.activeLocationId
+                && (npc.roleTag.lowercased().contains("sidekick") || npc.roleTag.lowercased().contains("companion"))
+        }
+    }
+
+    private func restSetupResponse(playerText: String, campaign: Campaign) -> String {
+        let locationName = activeLocation(in: campaign)?.name ?? "the current area"
+        let lower = playerText.lowercased()
+        let kind: RestKind? = lower.contains("long rest") ? .long : (lower.contains("short rest") ? .short : nil)
+        let shelter: RestShelter?
+        if ["inn", "house", "secure shelter", "fort"].contains(where: lower.contains) {
+            shelter = .secure
+        } else if ["camp", "tent", "cave", "ruin", "shelter"].contains(where: lower.contains) {
+            shelter = .improvised
+        } else {
+            shelter = nil
+        }
+        let watch: RestWatch? = lower.contains("keep watch") || lower.contains("keeping watch") ? .soloPassive : (lower.contains("no watch") ? RestWatch.none : nil)
+        let fire: RestFire? = lower.contains("no fire") ? .noFire : (lower.contains("fire") ? .small : nil)
+        let plan = RestPlan(
+            kind: kind,
+            locationName: locationName,
+            shelter: shelter,
+            watch: watch,
+            fire: fire,
+            suppliesAvailable: 1
+        )
+        dispatchProcedureEvent(CampaignEventFactory().restPlanEvent(plan, sceneId: campaign.activeSceneId), campaign: campaign)
+
+        let missing = RestProcedureEngine().missingDetails(plan)
+        if !missing.isEmpty {
+            let questions = missing.map { detail -> String in
+                switch detail {
+                case .kind: return "Short rest or long rest?"
+                case .shelter: return "What shelter are you using?"
+                case .watch: return "How are you handling watch?"
+                case .fire: return "Fire or no fire?"
+                }
+            }
+            logAgency(stage: "procedure_state", message: "rest pending missing=\(missing.map(\.rawValue).joined(separator: ","))")
+            return "You begin setting camp at \(locationName). \(questions.joined(separator: " "))"
+        }
+
+        let authority = CampaignAuthorityStateStore().load(from: campaign)
+        let severeWeather = authority?.weather?.lowercased().contains("storm") == true
+        let interrupted = !(authority?.hiddenThreats.isEmpty ?? true) && plan.watch == RestWatch.none
+        let resolution = RestProcedureEngine().resolve(plan, interrupted: interrupted, severeWeather: severeWeather)
+        dispatchProcedureEvent(
+            CampaignEventFactory().restResolutionEvent(plan: plan, resolution: resolution, sceneId: campaign.activeSceneId),
+            campaign: campaign
+        )
+        logAgency(
+            stage: "procedure_state",
+            message: "rest time=\(resolution.timeHours) recovery=\(resolution.recovery.rawValue) supplies=\(resolution.suppliesConsumed) exposure=\(resolution.exposure) watch_risk=\(resolution.watchRisk) interrupted=\(resolution.interrupted)"
+        )
+        let interruption = resolution.interrupted ? "The rest is interrupted by an established pressure." : "The rest is not interrupted."
+        return "\(resolution.timeHours) hours pass. Recovery: \(resolution.recovery.rawValue). Supplies used: \(resolution.suppliesConsumed). Exposure: \(resolution.exposure). \(interruption) What do you do?"
+    }
+
+    private func impossibleActionResponseIfNeeded(playerText: String) -> String? {
+        let lower = playerText.lowercased()
+        guard lower.contains("impossible") else { return nil }
+        let request = CheckRequest(
+            checkType: .skillCheck,
+            skillName: "Creative Solution",
+            abilityOverride: nil,
+            dc: 10,
+            opponentSkill: nil,
+            opponentDC: nil,
+            advantageState: .normal,
+            stakes: "The scene reacts with a bounded complication.",
+            partialSuccessDC: 8,
+            partialSuccessOutcome: "The tactic changes the scene but costs time.",
+            reason: "The tactic is unusual, so the creative engine resolves a straight d20 within the established fiction.",
+            declaredStakes: DeclaredStakes(
+                success: "The tactic creates a bounded opening.",
+                partial: "The tactic changes the scene but costs time.",
+                failure: "Delay and encounter risk increase.",
+                criticalSuccess: "The best plausible bounded opening grants advantage on the next related check.",
+                criticalFailure: "Delay and encounter risk increase without inventing an enemy.",
+                allowedMutations: [.sceneFact, .clue, .delay, .encounterRisk],
+                forbiddenMutations: [.npc, .location, .quest, .treasure, .playerChoice]
+            )
+        )
+        let draft = SkillCheckDraft(
+            playerAction: playerText,
+            request: request,
+            roll: nil,
+            modifier: 0,
+            total: nil,
+            outcome: nil,
+            consequence: nil,
+            sourceTrapId: nil,
+            sourceKind: "creative_solution"
+        )
+        checkDrafts.append(draft)
+        pendingCheckID = draft.id
+        return CreativeSolutionsEngine().requestPrompt
+    }
+
+    private func knownImmediateThreats(context: NarrationContextPacket, campaign: Campaign) -> [String] {
+        var threats: [String] = []
+        let text = ([context.expectedScene, context.currentLocation ?? "", context.currentNode ?? ""] + context.recentCuriosities + context.recentRollHighlights).joined(separator: " ").lowercased()
+
+        if text.contains("storm") || text.contains("cold") || text.contains("night") {
+            threats.append("storm, darkness, and cold exposure")
+        }
+        if text.contains("trap") || text.contains("hazard") {
+            threats.append("possible traps or path hazards")
+        }
+        if text.contains("symbol") || text.contains("rune") || text.contains("glow") {
+            threats.append("unresolved strange symbol or glow")
+        }
+
+        let presentCreatures = campaign.creatures.filter { $0.locationId == campaign.activeLocationId }.map(\.name)
+        threats.append(contentsOf: presentCreatures.map { "confirmed creature: \($0)" })
+
+        var seen: Set<String> = []
+        return threats.filter { threat in
+            let key = threat.lowercased()
+            guard !seen.contains(key) else { return false }
+            seen.insert(key)
+            return true
+        }
     }
 
     private func recordIntentLabel(
@@ -1864,7 +2382,8 @@ final class SoloSceneCoordinator: ObservableObject {
                 outcome: nil,
                 consequence: nil,
                 sourceTrapId: trap.id,
-                sourceKind: "trap_detection"
+                sourceKind: "trap_detection",
+                searchRequest: makeSearchRequest(playerText: playerText, skill: tuned.skillName, dc: tuned.dc ?? trap.detectionDC, campaign: campaign)
             )
         }
 
@@ -1894,7 +2413,8 @@ final class SoloSceneCoordinator: ObservableObject {
             outcome: nil,
             consequence: nil,
             sourceTrapId: nil,
-            sourceKind: "trap_search"
+            sourceKind: "trap_search",
+            searchRequest: makeSearchRequest(playerText: playerText, skill: request.skillName, dc: request.dc ?? baseDC, campaign: campaign)
         )
     }
 
@@ -1945,6 +2465,7 @@ final class SoloSceneCoordinator: ObservableObject {
         campaign: Campaign,
         modelContext: ModelContext
     ) {
+        if draft.searchRequest != nil { return }
         guard let trapId = draft.sourceTrapId else { return }
         guard let location = activeLocation(in: campaign) else { return }
         guard let node = activeNode(in: campaign, location: location) else { return }
@@ -1963,6 +2484,42 @@ final class SoloSceneCoordinator: ObservableObject {
             break
         }
         try? modelContext.save()
+    }
+
+    private func applySearchProcedureOutcomeIfNeeded(
+        for draft: SkillCheckDraft,
+        outcome: String,
+        campaign: Campaign
+    ) -> SearchResolution? {
+        guard let request = draft.searchRequest else { return nil }
+        let stakesOutcome = StakesOutcome(rawValue: outcome) ?? .failure
+        var targets: [HiddenSearchTarget] = []
+        if let location = activeLocation(in: campaign), let node = activeNode(in: campaign, location: location) {
+            targets.append(contentsOf: (node.traps ?? []).filter { $0.state == "hidden" }.map {
+                HiddenSearchTarget(name: $0.name, kind: .trap, locationID: location.id, nodeID: node.id, boundEntityID: $0.id)
+            })
+            targets.append(contentsOf: (location.edges ?? []).filter {
+                ($0.fromNodeId == nil || $0.fromNodeId == node.id) && $0.discovered != true
+            }.map {
+                HiddenSearchTarget(name: $0.label ?? $0.type, kind: .edge, locationID: location.id, nodeID: node.id, boundEntityID: $0.id)
+            })
+            targets.append(contentsOf: (node.features ?? []).filter { feature in
+                let tags = (feature.tags ?? []).map { $0.lowercased() }
+                return tags.contains("hidden") && !tags.contains("discovered")
+            }.map {
+                HiddenSearchTarget(name: $0.name, kind: .feature, locationID: location.id, nodeID: node.id, boundEntityID: $0.id)
+            })
+        }
+        let resolution = SearchProcedureEngine().resolve(request, outcome: stakesOutcome, preparedTargets: targets)
+        dispatchProcedureEvent(
+            CampaignEventFactory().searchResolutionEvent(request: request, resolution: resolution, sceneId: campaign.activeSceneId),
+            campaign: campaign
+        )
+        logAgency(
+            stage: "procedure_state",
+            message: "search mode=\(request.mode.rawValue) outcome=\(outcome) prepared_targets=\(targets.count) finding=\(resolution.finding.rawValue) revealed=\(resolution.revealedTarget?.name ?? "none")"
+        )
+        return resolution
     }
 
     private func currentHiddenTrap(in campaign: Campaign) -> TrapEntity? {
@@ -2070,11 +2627,17 @@ final class SoloSceneCoordinator: ObservableObject {
         if let location = activeLocation(in: campaign),
            let node = activeNode(in: campaign, location: location),
            let edge = edgeForExitLabel(trimmedExit, location: location, node: node) {
-            _ = locationEngine.advanceAlongEdge(campaign: campaign, edge: edge, reason: reason)
-            logAgency(stage: "movement", message: "Advance via edge: \(edge.type) (\(edge.label ?? "")) reason=\(reason)")
+            guard edge.discovered == true else {
+                logAgency(stage: "movement_blocked", message: "Undiscovered transition cannot be entered: \(edge.type) reason=\(reason)")
+                return false
+            }
+            let event = CampaignEventFactory().explicitMovementEvent(edgeID: edge.id, sceneId: campaign.activeSceneId)
+            let result = CampaignReducer().apply(event, to: campaign)
+            logAgency(stage: "movement", message: "Explicit edge movement: \(edge.type) (\(edge.label ?? "")) status=\(result.status.rawValue) reason=\(reason)")
+            guard result.status == .applied else { return false }
         } else {
-            _ = locationEngine.advanceToNextNode(campaign: campaign, reason: reason)
-            logAgency(stage: "movement", message: "Advance to next node reason=\(reason)")
+            logAgency(stage: "movement_blocked", message: "No established transition matches reason=\(reason)")
+            return false
         }
         try? modelContext.save()
         return true
@@ -2192,7 +2755,8 @@ final class SoloSceneCoordinator: ObservableObject {
             stakes: request.stakes,
             partialSuccessDC: adjustedPartial,
             partialSuccessOutcome: request.partialSuccessOutcome,
-            reason: reason
+            reason: reason,
+            declaredStakes: request.declaredStakes
         )
     }
 
@@ -2494,10 +3058,6 @@ final class SoloSceneCoordinator: ObservableObject {
         return false
     }
 
-    private func shouldForeshadowLine() -> Bool {
-        engine.rollD100() <= 15
-    }
-
     private func shouldCaptureLocationFeatures(from text: String) -> Bool {
         let lower = text.lowercased()
         let cues = ["you see", "there is", "there are", "you notice", "the room", "the hall", "the chamber", "the area"]
@@ -2531,7 +3091,7 @@ final class SoloSceneCoordinator: ObservableObject {
         do {
             let prompt = makeLocationFeaturePrompt(text: text, location: location, node: node)
             let draft = try await session.respond(
-                to: Prompt(prompt),
+                to: budgetedPrompt(prompt, label: "location_feature_extract"),
                 generating: LocationFeatureDraft.self
             )
             let pendingNames = pendingLocationFeatures.map { $0.name.lowercased() }
@@ -2569,14 +3129,19 @@ final class SoloSceneCoordinator: ObservableObject {
         - If failure would change the situation in a meaningful way, a roll is required.
         - No roll for trivial or guaranteed actions; set requiresRoll to false and give autoOutcome.
         - Searching for traps or hidden dangers always requires a roll and should use Perception or Investigation.
-        - Use DC bands 5, 10, 15, 20, 25, 30.
+        - Use DC bands: 5 obvious, 10 easy, 15 moderate, 20 hard, 25 very hard, 30 exceptional.
+        - Prefer Perception for noticing sights, sounds, smells, or movement.
+        - Prefer Investigation for close searching, deduction, mechanisms, and hidden compartments.
+        - Prefer Survival for weather, navigation, tracks, and wilderness hazards.
+        - Prefer Arcana, History, Religion, or Nature for lore based on the symbol or subject.
         - Advantage for strong leverage; disadvantage for harsh conditions.
         - Provide a concrete, in-fiction reason for the chosen DC.
+        - Never cite chaos factor, test harness details, or a dungeon entrance unless the active location explicitly says that.
+        - State concrete success, failure, and partial-success stakes; do not use placeholders.
         Return a CheckRequestDraft.
 
         Scene #\(context.sceneNumber)
         Expected Scene: \(context.expectedScene)
-        Chaos Factor: \(context.chaosFactor)
         Player action: \(playerText)
         Recent places: \(context.recentPlaces.joined(separator: ", "))
         Recent curiosities: \(context.recentCuriosities.joined(separator: ", "))
@@ -2595,7 +3160,7 @@ final class SoloSceneCoordinator: ObservableObject {
         campaign: Campaign
     ) async throws -> Bool {
         let checkDraft = try await session.respond(
-            to: Prompt(makeCheckProposalPrompt(playerText: playerText, context: context)),
+            to: budgetedPrompt(makeCheckProposalPrompt(playerText: playerText, context: context), label: "check_proposal"),
             generating: CheckRequestDraft.self
         )
 
@@ -2615,14 +3180,12 @@ final class SoloSceneCoordinator: ObservableObject {
                 )
                 checkDrafts.append(draft)
                 pendingCheckID = draft.id
-                let preface = intentSummary.map { "Got it: \($0). " } ?? ""
-                let gmText = preface + gmLineForCheck(tunedRequest)
+                let gmText = gmLineForCheck(tunedRequest)
                 interactionDrafts.append(InteractionDraft(playerText: playerText, gmText: gmText, turnSignal: "gm_response"))
                 return true
             }
             let outcome = checkDraft.content.autoOutcome?.isEmpty == false ? checkDraft.content.autoOutcome! : "success"
-            let preface = intentSummary.map { "Got it: \($0). " } ?? ""
-            let gmText = preface + "No roll needed. Automatic outcome: \(outcome). Want to proceed?"
+            let gmText = "No roll needed. \(concreteAutomaticOutcome(outcome, playerText: playerText))"
             interactionDrafts.append(InteractionDraft(playerText: playerText, gmText: gmText, turnSignal: "gm_response"))
             return true
         }
@@ -2650,8 +3213,7 @@ final class SoloSceneCoordinator: ObservableObject {
             )
             checkDrafts.append(draft)
             pendingCheckID = draft.id
-            let preface = intentSummary.map { "Got it: \($0). " } ?? ""
-            let gmText = preface + gmLineForCheck(tunedForced)
+            let gmText = gmLineForCheck(tunedForced)
             interactionDrafts.append(InteractionDraft(playerText: playerText, gmText: gmText, turnSignal: "gm_response"))
             return true
         }
@@ -2689,15 +3251,14 @@ final class SoloSceneCoordinator: ObservableObject {
             )
             checkDrafts[checkDrafts.count - 1].consequence = consequence
             let outcomeText = result.outcome.replacingOccurrences(of: "_", with: " ")
-            let preface = intentSummary.map { "Got it: \($0). " } ?? ""
-            let gmText = preface + "Auto-roll: \(roll) + \(modifier) = \(result.total). \(outcomeText.capitalized). \(consequence)"
+            let gmText = "Auto-roll: \(roll) + \(modifier) = \(result.total). \(outcomeText.capitalized). \(consequence)"
+            await captureWorldDelta(from: gmText, session: session, context: context, playerText: playerText, campaign: campaign)
             interactionDrafts.append(InteractionDraft(playerText: playerText, gmText: gmText, turnSignal: "gm_response"))
             pendingCheckID = nil
             return true
         }
 
-        let preface = intentSummary.map { "Got it: \($0). " } ?? ""
-        let gmText = preface + gmLineForCheck(request)
+        let gmText = gmLineForCheck(tunedRequest)
         interactionDrafts.append(InteractionDraft(playerText: playerText, gmText: gmText, turnSignal: "gm_response"))
         return true
     }
@@ -2768,6 +3329,14 @@ final class SoloSceneCoordinator: ObservableObject {
         Do not mention mechanics, chaos factor, or internal rolls.
         Do not ask the player to invent threats or obstacles; discover them through play.
         Never narrate player actions or decisions as if they already happened.
+        Never say "you decide", "the party decides", "the player decides", "you feel compelled", or "what you don't see".
+        Do not move the party into a new location unless the engine context already says the active location changed.
+        Do not invent sidekicks, companions, hirelings, named NPCs, hidden enemies, treasures, or new locations as durable facts.
+        If the player asks a direct question, answer first with "Yes", "No", "You don't know yet", or "You can check" before any narration.
+        If the player asks for a GM/meta summary, summarize known state only and introduce no new fiction.
+        Do not repeat or quote the player's input back as narration.
+        Never say "several clues", "potential risks", "valuable information", or similar placeholders without naming the concrete clue, risk, object, sound, track, NPC reaction, exit, or changed condition.
+        Every response must leave at least one actionable hook the player can inspect, avoid, confront, follow, ignore, or ask about.
         Use conditional phrasing or ask the player to choose.
         """
 
@@ -2802,7 +3371,8 @@ final class SoloSceneCoordinator: ObservableObject {
             prompt += """
 
             The player is speaking out of character to the GM about rules, retcons, or clarifications.
-            Keep it short and practical. Confirm any changes before assuming they apply.
+            Keep it short and practical. Answer in GM/system voice, not NPC dialogue.
+            Confirm any changes before assuming they apply.
             """
         }
 
@@ -2816,7 +3386,7 @@ final class SoloSceneCoordinator: ObservableObject {
 
         if !isMeta {
             prompt += "\nAssume the player is speaking in character unless they address the GM directly."
-            prompt += "\nEnd with a short question like \"What do you do?\""
+            prompt += "\nEnd with a short actionable prompt like \"What do you do?\" after naming something concrete the player can respond to."
         }
 
         if !context.activeCharacters.isEmpty {
@@ -2889,32 +3459,110 @@ final class SoloSceneCoordinator: ObservableObject {
         }
 
         prompt += """
-        
-        Build 1-4 segments. Use speaker=gm for narration and prompts.
-        Use speaker=npc only if an NPC is explicitly present in the context.
-        Never use speaker=player. Dialogue should only appear in dialogue segments.
-        """
-        prompt += "\nReturn a NarrationPlanDraft."
 
-        let response = try await session.respond(to: Prompt(prompt), generating: NarrationPlanDraft.self)
-        let content = renderNarrationPlan(response.content)
-        if violatesAgencyBoundary(content) {
-            logAgency(stage: "agency_violation", message: "Rewriting narration to avoid assumed player action.")
-            let rewritten = try await rewriteForAgency(
-                session: session,
-                context: context,
-                playerText: playerText,
-                draft: content
-            )
-            if !isMeta {
-                await captureWorldDelta(from: rewritten, session: session, context: context, playerText: playerText, campaign: campaign)
+        Return a NarratorTurnDraft, not final prose.
+        Put only concrete rendering facts or sensory instructions in renderingBeats.
+        Bind every beat that depends on a proposed delta using relatedProposalNames.
+        proposedDeltas are proposals only; the engine will reject anything outside its authority.
+        Use directAnswer=yes, no, unknown, check_required, or not_applicable.
+        """
+
+        let response = try await session.respond(
+            to: budgetedPrompt(prompt, label: "narrator_turn_draft"),
+            generating: NarratorTurnDraft.self
+        )
+        let validation = NarratorTurnValidator().validate(response.content, campaign: campaign)
+        if !validation.rejectedChanges.isEmpty {
+            let rejected = validation.rejectedChanges.map { "\($0.name) (\($0.reason))" }.joined(separator: ", ")
+            logAgency(stage: "narrator_delta_rejected", message: rejected)
+        }
+
+        if !isMeta, !validation.acceptedChanges.isEmpty {
+            let delta = WorldDeltaDraft(changes: validation.acceptedChanges)
+            let result = WorldDeltaEngine().applyWorldDelta(delta, to: campaign, sceneId: campaign.activeSceneId)
+            if !result.accepted.isEmpty {
+                let names = result.accepted.map { "\($0.entityType.rawValue):\($0.name)" }.joined(separator: ", ")
+                logAgency(stage: "narrator_delta_approved", message: names)
             }
-            return rewritten
+            if !result.rejected.isEmpty {
+                let names = result.rejected.map { "\($0.name) (\($0.reason))" }.joined(separator: ", ")
+                logAgency(stage: "narrator_delta_rejected", message: names)
+            }
         }
-        if !isMeta {
-            await captureWorldDelta(from: content, session: session, context: context, playerText: playerText, campaign: campaign)
+
+        let pipeline = NarratorAgentPipeline()
+        let packetFallback = pipeline.renderDeterministicFallback(validation.approvedPacket)
+        let fallback: String
+        if validation.approvedPacket.directAnswer != .notApplicable {
+            fallback = packetFallback
+        } else {
+            fallback = NarrationFailurePolicy().safeFallback(
+                knownState: fallbackKnownState(packet: validation.approvedPacket, campaign: campaign)
+            )
         }
-        return content
+        guard !validation.approvedPacket.renderingBeats.isEmpty else {
+            logAgency(stage: "narrator_fallback", message: "No approved rendering beats remained after validation.")
+            return fallback
+        }
+
+        let rejectedNames = validation.rejectedChanges.map(\.name)
+        let outputContext = narratorOutputContext(campaign: campaign)
+        for attempt in 0...NarrationFailurePolicy().maximumRetries {
+            let renderResponse = try await session.respond(
+                to: budgetedPrompt(pipeline.approvedRenderingPrompt(validation.approvedPacket), label: "approved_narration_render")
+            )
+            let rendered = renderResponse.content.trimmingCharacters(in: .whitespacesAndNewlines)
+            let containsRejectedFact = rejectedNames.contains { name in
+                !name.isEmpty && rendered.localizedCaseInsensitiveContains(name)
+            }
+            let structural = NarratorOutputContractValidator().validate(
+                rendered,
+                packet: validation.approvedPacket,
+                context: outputContext
+            )
+            if !rendered.isEmpty, !containsRejectedFact, !violatesAgencyBoundary(rendered), structural.isValid {
+                return rendered
+            }
+            let failures = attempt + 1
+            let action = NarrationFailurePolicy().action(afterValidationFailures: failures)
+            logAgency(
+                stage: action == .retry ? "narrator_retry" : "narrator_fallback",
+                message: "render validation failure=\(failures) violations=\(structural.violations.map(\.rawValue).joined(separator: ",")) rejected_fact=\(containsRejectedFact) agency=\(violatesAgencyBoundary(rendered))"
+            )
+        }
+        return fallback
+    }
+
+    private func fallbackKnownState(packet: ApprovedNarrationPacket, campaign: Campaign) -> [String] {
+        var facts = packet.renderingBeats
+        if let location = activeLocation(in: campaign) { facts.append(location.name) }
+        if let weather = CampaignAuthorityStateStore().load(from: campaign)?.weather { facts.append(weather) }
+        return Array(facts.prefix(4))
+    }
+
+    private func narratorOutputContext(campaign: Campaign) -> NarratorOutputContext {
+        let members = campaign.party?.members ?? []
+        let playerCount = members.filter { !$0.isNpc }.count
+        let presentAllies = campaign.npcs.filter { $0.currentLocationId == campaign.activeLocationId }.count
+        let location = activeLocation(in: campaign)
+        let locationText = ([location?.name ?? "", location?.type ?? ""] + (location?.tags ?? [])).joined(separator: " ").lowercased()
+        let nodeText: String
+        if let location, let node = activeNode(in: campaign, location: location) {
+            nodeText = ([node.type, node.summary] + (node.tags ?? [])).joined(separator: " ").lowercased()
+        } else {
+            nodeText = ""
+        }
+        let combined = locationText + " " + nodeText
+        let buildingTerms = ["building", "room", "chamber", "house", "inn", "interior"]
+        let outdoorTerms = ["outdoor", "road", "route", "trail", "wild", "forest", "camp"]
+        let hasBuilding = buildingTerms.contains(where: combined.contains)
+        let environment: NarrationEnvironment = hasBuilding ? .indoors : (outdoorTerms.contains(where: combined.contains) ? .outdoors : .unknown)
+        return NarratorOutputContext(
+            isSolo: playerCount <= 1,
+            presentAllyCount: presentAllies,
+            environment: environment,
+            hasEstablishedBuilding: hasBuilding
+        )
     }
 
     private func makeWorldDeltaPrompt(
@@ -2929,6 +3577,9 @@ final class SoloSceneCoordinator: ObservableObject {
         Return create or update changes for concrete NPCs, locations, location features, objects, creatures, or lore.
         Return reference for entities merely mentioned, remembered, hypothetical, or already known without a new durable fact.
         Do not store player intent, player emotions, questions, rules explanations, dice results, prompts, or temporary action beats.
+        Do not create new locations from suggested routes, lights, crevices, exits, or possible destinations unless the engine explicitly transitioned there.
+        Do not create companions, sidekicks, hidden enemies, unseen adversaries, or "what you don't see" facts from narrator prose.
+        Use location_feature for present visible details that belong to the current location, not location.
         Set needsClarification true if the narration depends on an ambiguous interpretation of the player's input.
         Use confidence below 65 for uncertain or decorative details so the engine will reject them.
 
@@ -2975,7 +3626,7 @@ final class SoloSceneCoordinator: ObservableObject {
     ) async {
         do {
             let response = try await session.respond(
-                to: Prompt(makeWorldDeltaPrompt(playerText: playerText, gmText: gmText, context: context, campaign: campaign)),
+                to: budgetedPrompt(makeWorldDeltaPrompt(playerText: playerText, gmText: gmText, context: context, campaign: campaign), label: "world_delta"),
                 generating: WorldDeltaDraft.self
             )
             let result = WorldDeltaEngine().applyWorldDelta(response.content, to: campaign, sceneId: campaign.activeSceneId)
@@ -3005,7 +3656,7 @@ final class SoloSceneCoordinator: ObservableObject {
         Question: \(question)
         Outcome: \(outcome.uppercased())
         """
-        let response = try await session.respond(to: Prompt(prompt))
+        let response = try await session.respond(to: budgetedPrompt(prompt, label: "fate_narration"))
         return response.content.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
@@ -3025,12 +3676,32 @@ final class SoloSceneCoordinator: ObservableObject {
         Last GM response: \(lastGM)
         Player: \(playerText)
         """
-        let response = try await session.respond(to: Prompt(prompt))
+        let response = try await session.respond(to: budgetedPrompt(prompt, label: "acknowledgement"))
         return response.content.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private func violatesAgencyBoundary(_ text: String) -> Bool {
         let lower = " " + text.lowercased()
+        let bannedPhrases = [
+            "the party decided",
+            "the party decides",
+            "the player decided",
+            "the player decides",
+            "the players decided",
+            "the players decide",
+            "you decide",
+            "you feel compelled",
+            "you can't help but",
+            "you can’t help but",
+            "prompting them to",
+            "prompting you to",
+            "creating a small opening for their party to slip",
+            "what you don't see",
+            "what you don’t see"
+        ]
+        if bannedPhrases.contains(where: { lower.contains($0) }) {
+            return true
+        }
         let allowedVerbs = [
             "see", "hear", "notice", "spot", "feel", "smell", "sense", "recall", "realize"
         ]
@@ -3065,6 +3736,8 @@ final class SoloSceneCoordinator: ObservableObject {
         let prompt = """
         Rewrite the GM response to avoid assuming any player action occurred.
         Use conditional phrasing or ask the player to choose.
+        Do not say "you decide", "the party decides", "the player decides", "you feel compelled", or "what you don't see".
+        Do not move the party into a new location unless the player already chose that movement.
         Keep it to 1-3 short paragraphs, end with a short question.
 
         Player: \(playerText)
@@ -3072,7 +3745,7 @@ final class SoloSceneCoordinator: ObservableObject {
 
         Return only the rewritten response.
         """
-        let response = try await session.respond(to: Prompt(prompt))
+        let response = try await session.respond(to: budgetedPrompt(prompt, label: "agency_rewrite"))
         return response.content.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
@@ -3178,6 +3851,31 @@ final class SoloSceneCoordinator: ObservableObject {
         check: SkillCheckDraft,
         result: CheckResult
     ) async throws -> String {
+        if let search = check.searchResolution {
+            switch search.finding {
+            case .revealed:
+                let target = search.revealedTarget?.name ?? "the prepared hidden feature"
+                return "You reveal \(target). It is now available to inspect, but it remains unopened and you have not entered it. What do you do?"
+            case .clueOnly:
+                return "You notice an inconclusive seam, draft, or disturbance, but cannot confirm a hidden feature. What do you do?"
+            case .notFound, .noPreparedTarget:
+                return "You find no reliable sign of a hidden target in the searched area. No new threat or location is created. What do you do?"
+            }
+        }
+        if let stakes = check.request.declaredStakes {
+            let ordinaryOutcome = StakesOutcome(rawValue: result.outcome) ?? .failure
+            let resolution = StakesResolver().resolve(
+                roll: check.roll ?? 0,
+                ordinaryOutcome: ordinaryOutcome,
+                stakes: stakes,
+                proposedMutations: []
+            )
+            logAgency(
+                stage: "declared_stakes",
+                message: "outcome=\(resolution.outcome.rawValue) allowed=\(stakes.allowedMutations.map(\.rawValue).joined(separator: ",")) forbidden=\(stakes.forbiddenMutations.map(\.rawValue).joined(separator: ","))"
+            )
+            return "\(resolution.consequence) What do you do?"
+        }
         if check.sourceKind == "trap_search", check.sourceTrapId == nil {
             switch result.outcome {
             case "success":
@@ -3195,7 +3893,12 @@ final class SoloSceneCoordinator: ObservableObject {
         If the d20 roll is a natural 1, make it a significant failure.
         Do not advance the player into a new location or scene unless they explicitly said so.
         Do not describe the player taking actions they did not state.
-        Include a short reference to the reason and the stakes in your response.
+        Do not echo the player's action back.
+        If the outcome is success, name the concrete clue, object, feature, route, NPC reaction, or changed condition discovered.
+        If the outcome is partial_success, name both the progress and the specific cost, pressure, warning sign, or complication.
+        If the outcome is failure, name the immediate consequence or visible danger now present.
+        Never use vague placeholders like "several clues", "potential risks", "valuable information", or "closer to the goal" without naming what exists in the scene.
+        End with a hook the player can respond to.
 
         Scene #\(context.sceneNumber)
         Player action: \(check.playerAction)
@@ -3212,12 +3915,15 @@ final class SoloSceneCoordinator: ObservableObject {
             prompt += "\nPartial success: \(partial)"
         }
 
-        if shouldForeshadowLine() {
-            prompt += "\nAdd a second line starting with \"What you don't see is ...\" about a subtle consequence."
-        }
-
-        let response = try await session.respond(to: Prompt(prompt))
-        return response.content.trimmingCharacters(in: .whitespacesAndNewlines)
+        let response = try await session.respond(to: budgetedPrompt(prompt, label: "check_consequence"))
+        let draft = response.content.trimmingCharacters(in: .whitespacesAndNewlines)
+        return try await repairVagueNarrationIfNeeded(
+            session: session,
+            context: context,
+            playerText: check.playerAction,
+            draft: draft,
+            focus: "check consequence"
+        )
     }
 
     private func resolveTravelCheck(
@@ -3243,6 +3949,30 @@ final class SoloSceneCoordinator: ObservableObject {
             travelModifier: outcome.modifier
         )
 
+        if let request = checkDrafts[draftIndex].travelRequest {
+            let stakesOutcome: StakesOutcome
+            if roll == 20 {
+                stakesOutcome = .criticalSuccess
+            } else if roll == 1 {
+                stakesOutcome = .criticalFailure
+            } else {
+                stakesOutcome = StakesOutcome(rawValue: outcome.outcome) ?? .failure
+            }
+            let procedureResolution = TravelProcedureEngine().resolve(request, route: .roll(stakesOutcome))
+            dispatchProcedureEvent(
+                CampaignEventFactory().travelResolutionEvent(
+                    request: request,
+                    resolution: procedureResolution,
+                    sceneId: campaign.activeSceneId
+                ),
+                campaign: campaign
+            )
+            logAgency(
+                stage: "procedure_state",
+                message: "travel progress=\(procedureResolution.progress) time=\(procedureResolution.timeHours) exposure=\(procedureResolution.exposure) delay=\(procedureResolution.delay) encounter_risk=\(procedureResolution.encounterRisk)"
+            )
+        }
+
         let consequence = try await generateTravelOutcomeNarration(
             session: session,
             context: context,
@@ -3250,12 +3980,58 @@ final class SoloSceneCoordinator: ObservableObject {
             modifier: modifier,
             total: total,
             outcome: outcome.outcome,
-            travelEvent: travelOutcomeResult
+            travelEvent: travelOutcomeResult,
+            campaign: campaign
         )
         checkDrafts[draftIndex].consequence = consequence
 
         let outcomeText = outcome.outcome.replacingOccurrences(of: "_", with: " ")
-        return "Travel check: \(roll) + \(modifier) = \(total). \(outcomeText.capitalized). \(consequence)"
+        let gmText = "Travel check: \(roll) + \(modifier) = \(total). \(outcomeText.capitalized). \(consequence)"
+        if travelOutcomeResult?.tableId == "travel_event" {
+            await captureWorldDelta(from: gmText, session: session, context: context, playerText: checkDrafts[draftIndex].playerAction, campaign: campaign)
+        }
+        return gmText
+    }
+
+    private func resolveCreativeCheck(
+        session: LanguageModelSession,
+        draftIndex: Int,
+        roll: Int,
+        campaign: Campaign
+    ) async throws -> String {
+        let keywords = CreativeKeywordStore().loadBundledKeywords()
+        let seed = campaign.rngSeed ?? 0xC0FFEE
+        let sequence = campaign.eventLog?.count ?? 0
+        let creative = CreativeSolutionsEngine().resolve(
+            action: checkDrafts[draftIndex].playerAction,
+            roll: roll,
+            keywords: keywords,
+            seed: seed,
+            sequence: sequence
+        )
+        dispatchProcedureEvent(
+            CampaignEventFactory().creativeResolutionEvent(creative, sceneId: campaign.activeSceneId),
+            campaign: campaign
+        )
+        checkDrafts[draftIndex].total = roll
+        checkDrafts[draftIndex].outcome = creative.valence.rawValue
+        checkDrafts[draftIndex].consequence = creative.engineEffect
+        logAgency(
+            stage: "procedure_state",
+            message: "creative roll=\(roll) keywords=\(creative.keywords.joined(separator: ",")) kind=\(creative.effectKind.rawValue) valence=\(creative.valence.rawValue) mutations=\(creative.mutations.map(\.rawValue).joined(separator: ","))"
+        )
+
+        let prompt = """
+        Render one short sensory sentence for this engine-approved creative RPG effect.
+        Use the listed keywords as imagery. Do not add an NPC, enemy, location, treasure, player action, feeling, decision, or mechanical effect.
+        Do not alter the approved effect. Do not use "you decide" or describe another player action.
+        Keywords: \(creative.keywords.joined(separator: ", "))
+        Approved effect: \(creative.engineEffect)
+        """
+        let response = try await session.respond(to: budgetedPrompt(prompt, label: "creative_flavor"))
+        let flavor = response.content.trimmingCharacters(in: .whitespacesAndNewlines)
+        let safeFlavor = flavor.isEmpty || violatesAgencyBoundary(flavor) ? "The surroundings answer through \(creative.keywords.joined(separator: " and "))." : flavor
+        return "Creative solution: straight d20 = \(roll). \(creative.engineEffect) \(safeFlavor) What do you do?"
     }
 
     private func generateTravelOutcomeNarration(
@@ -3265,29 +4041,119 @@ final class SoloSceneCoordinator: ObservableObject {
         modifier: Int,
         total: Int,
         outcome: String,
-        travelEvent: TableRollOutcome?
+        travelEvent: TableRollOutcome?,
+        campaign: Campaign
     ) async throws -> String {
-        var prompt = """
-        Summarize the travel check outcome in 1-3 sentences.
-        Higher rolls mean safer travel; lower rolls increase risk.
-        Do not mention DCs, modifiers, or internal table rolls.
-        If the roll is a natural 20, make it an extraordinary outcome.
-        If the roll is a natural 1, make it a significant failure.
-        """
-        if let travelEvent {
-            prompt += "\nTravel result: \(travelEvent.result)"
+        let canonicalWeather = CampaignAuthorityStateStore().load(from: campaign)?.weather?.lowercased()
+        let hasStorm = canonicalWeather?.contains("storm") == true || canonicalWeather?.contains("rain") == true
+        let weatherCost = hasStorm ? "the rain soaks through your outer layers and the cold starts to matter" : "the route takes longer than expected"
+        let eventLine: String
+        if let travelEvent, travelEvent.tableId == "travel_event" {
+            eventLine = "The engine also confirms a travel event: \(travelEvent.result)"
         } else {
-            prompt += "\nTravel result: No encounter."
+            eventLine = "No encounter appears on the road yet."
         }
-        prompt += """
+
+        if roll == 20 {
+            return "You keep the route cleanly and gain ground despite the conditions. \(eventLine) The next clear choice is whether to press on, look for shelter, or pause to check the road. What do you do?"
+        }
+        if roll == 1 {
+            return "The journey turns against you: \(weatherCost), and the road becomes hard to read. \(eventLine) You need to choose between stopping for shelter, backtracking to a clearer marker, or pushing forward at increased risk. What do you do?"
+        }
+
+        switch outcome {
+        case "success":
+            return "You stay oriented and make real progress. \(eventLine) Ahead, the road dips toward a darker stretch where runoff crosses the path. What do you do?"
+        case "partial_success":
+            return "You keep the road, but \(weatherCost). \(eventLine) A shallow drainage cut and a wind-bent stand of brush offer the first possible shelter or scouting point. What do you do?"
+        default:
+            return "You lose the easiest line of travel, and \(weatherCost). \(eventLine) The immediate choice is to stop and reorient, search for shelter, or continue with increased risk. What do you do?"
+        }
+    }
+
+    private func concreteAutomaticOutcome(_ outcome: String, playerText: String) -> String {
+        let lower = playerText.lowercased()
+        if lower.contains("look") || lower.contains("observe") || lower.contains("inspect") || lower.contains("search") {
+            return "You can study the obvious details without pressure: the nearest useful feature, exit, or sign is clear enough to examine directly. What do you focus on?"
+        }
+        if lower.contains("talk") || lower.contains("ask") || lower.contains("say") {
+            return "The conversation can proceed without a roll. What exactly do you say or ask?"
+        }
+        if lower.contains("move") || lower.contains("go") || lower.contains("walk") || lower.contains("head") {
+            return "The route is open and nothing immediately blocks movement. Do you proceed, scout first, or pause to check the surroundings?"
+        }
+        return "The action is straightforward enough to proceed without a roll. What detail do you focus on next?"
+    }
+
+    private func repairVagueNarrationIfNeeded(
+        session: LanguageModelSession,
+        context: NarrationContextPacket,
+        playerText: String,
+        draft: String,
+        focus: String
+    ) async throws -> String {
+        guard shouldRepairNarration(draft, playerText: playerText) || violatesAgencyBoundary(draft) else {
+            return draft
+        }
+
+        let prompt = """
+        Rewrite this GM \(focus) so it is concrete and playable.
+        Keep it to 1-3 short sentences.
+        Do not repeat or quote the player's input.
+        Do not narrate player choices, feelings, next actions, or hidden facts the character cannot perceive.
+        Never say "you decide", "the party decides", "the player decides", "prompting them to", or "what you don't see".
+        Do not say "several clues", "potential risks", "valuable information", "closer to the goal", or similar placeholders.
+        Name 1-2 concrete facts in the scene: a clue, sound, mark, object, hazard, NPC reaction, exit, weather change, track, smell, or visible decision point.
+        End with a clear action hook or "What do you do?"
+        Preserve the same outcome; do not add a new roll.
 
         Scene #\(context.sceneNumber)
         Expected Scene: \(context.expectedScene)
-        Outcome: \(outcome)
-        Roll: \(roll) (total \(total))
+        Player: \(playerText)
+        Draft: \(draft)
+
+        Return only the rewritten GM text.
         """
-        let response = try await session.respond(to: Prompt(prompt))
-        return response.content.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        let response = try await session.respond(to: budgetedPrompt(prompt, label: "narration_repair"))
+        let rewritten = response.content.trimmingCharacters(in: .whitespacesAndNewlines)
+        return rewritten.isEmpty ? draft : rewritten
+    }
+
+    private func shouldRepairNarration(_ text: String, playerText: String) -> Bool {
+        let lower = text.lowercased()
+        let vaguePhrases = [
+            "several clues",
+            "closer to their goal",
+            "closer to your goal",
+            "potential risks",
+            "some potential risks",
+            "relatively safe",
+            "valuable information",
+            "useful information",
+            "important information",
+            "hidden dangers",
+            "secrets waiting",
+            "what lies beyond the horizon",
+            "mix of excitement and apprehension",
+            "minor risk of encountering",
+            "risk of encountering"
+        ]
+        if vaguePhrases.contains(where: { lower.contains($0) }) {
+            return true
+        }
+
+        let normalizedPlayer = playerText
+            .lowercased()
+            .components(separatedBy: CharacterSet.alphanumerics.inverted)
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+        if normalizedPlayer.count > 28,
+           lower.contains(normalizedPlayer) {
+            return true
+        }
+
+        return false
     }
 
     private func parseCommaList(_ input: String) -> [String] {

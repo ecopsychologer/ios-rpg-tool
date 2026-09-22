@@ -323,14 +323,12 @@ public struct SoloCampaignEngine {
         scene: SceneRecord,
         bookkeeping: BookkeepingInput
     ) -> SceneEntry {
-        updateCharacters(campaign: campaign, new: bookkeeping.newCharacters, featured: bookkeeping.featuredCharacters, removed: bookkeeping.removedCharacters)
-        updateNpcEntries(campaign: campaign, new: bookkeeping.newCharacters)
-        updateThreads(campaign: campaign, new: bookkeeping.newThreads, featured: bookkeeping.featuredThreads, removed: bookkeeping.removedThreads)
-        updateActiveLocationFromPlaces(campaign: campaign, places: bookkeeping.places)
-        updateActiveNodeDetails(campaign: campaign, places: bookkeeping.places, curiosities: bookkeeping.curiosities)
-
-        let updatedChaos = resolver.updateChaosFactor(current: campaign.chaosFactor, pcsInControl: bookkeeping.pcsInControl)
-        campaign.chaosFactor = updatedChaos
+        let knownCharacters = knownCharacterNames(campaign: campaign)
+        let knownThreads = Set(campaign.threads.map { normalizedKey($0.name) })
+        let knownPlaces = Set((campaign.locations ?? []).map { normalizedKey($0.name) })
+        let referencedCharacters = bookkeeping.featuredCharacters.filter { knownCharacters.contains(normalizedKey($0)) }
+        let referencedThreads = bookkeeping.featuredThreads.filter { knownThreads.contains(normalizedKey($0)) }
+        let referencedPlaces = bookkeeping.places.filter { knownPlaces.contains(normalizedKey($0)) }
 
         let entry = SceneEntry(
             sceneNumber: scene.sceneNumber,
@@ -344,19 +342,19 @@ public struct SoloCampaignEngine {
             meaningWord1: scene.randomEvent?.meaningWords.first,
             meaningWord2: scene.randomEvent?.meaningWords.second,
             summary: bookkeeping.summary,
-            charactersAdded: bookkeeping.newCharacters,
-            charactersFeatured: bookkeeping.featuredCharacters,
-            charactersRemoved: bookkeeping.removedCharacters,
-            threadsAdded: bookkeeping.newThreads,
-            threadsFeatured: bookkeeping.featuredThreads,
-            threadsRemoved: bookkeeping.removedThreads,
+            charactersAdded: [],
+            charactersFeatured: referencedCharacters,
+            charactersRemoved: [],
+            threadsAdded: [],
+            threadsFeatured: referencedThreads,
+            threadsRemoved: [],
             pcsInControl: bookkeeping.pcsInControl,
             concluded: bookkeeping.concluded,
             interactions: bookkeeping.interactions.isEmpty ? nil : bookkeeping.interactions,
             skillChecks: bookkeeping.skillChecks.isEmpty ? nil : bookkeeping.skillChecks,
             fateQuestions: bookkeeping.fateQuestions.isEmpty ? nil : bookkeeping.fateQuestions,
-            places: bookkeeping.places,
-            curiosities: bookkeeping.curiosities,
+            places: referencedPlaces,
+            curiosities: [],
             rollHighlights: bookkeeping.rollHighlights,
             locationId: bookkeeping.locationId,
             generatedEntityIds: bookkeeping.generatedEntityIds.isEmpty ? nil : bookkeeping.generatedEntityIds,
@@ -370,6 +368,24 @@ public struct SoloCampaignEngine {
         }
 
         return entry
+    }
+
+    public mutating func applySceneControlOutcome(campaign: Campaign, pcsInControl: Bool) {
+        campaign.chaosFactor = resolver.updateChaosFactor(
+            current: campaign.chaosFactor,
+            pcsInControl: pcsInControl
+        )
+    }
+
+    private func knownCharacterNames(campaign: Campaign) -> Set<String> {
+        var names = campaign.playerCharacters.map(\.displayName)
+        names.append(contentsOf: campaign.characters.map(\.name))
+        names.append(contentsOf: campaign.npcs.map(\.name))
+        return Set(names.map(normalizedKey))
+    }
+
+    private func normalizedKey(_ value: String) -> String {
+        value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }
 
     private func updateActiveLocationFromPlaces(campaign: Campaign, places: [String]) {

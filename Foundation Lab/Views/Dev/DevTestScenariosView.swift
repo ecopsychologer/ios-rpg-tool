@@ -34,6 +34,7 @@ enum TestAction: Codable {
     case startScene(expected: String)
     case playerInput(text: String)
     case playerInputKind(kind: String, text: String)
+    case adaptivePlayerInput(goal: String, kind: String, roll: Int)
     case gmResponse(text: String)
     case recordSkillCheck(skill: String, dc: Int, roll: Int, outcome: String, consequence: String)
     case endScene(summary: String, pcsInControl: Bool, concluded: Bool)
@@ -41,10 +42,13 @@ enum TestAction: Codable {
     case performSkillCheck(skill: String, difficulty: Int)
     case moveToLocation(label: String)
     case advanceLocation(reason: String)
+    case prepareHiddenTransition(label: String)
     case importTables(filename: String)
     case loadCreativeKeywords
     case logReferenceData
     case logTableData
+    case logCampaignSnapshot(label: String)
+    case assertCampaignState(label: String, minScenes: Int, minInteractions: Int, minSkillChecks: Int, minWorldFacts: Int)
 
     private enum CodingKeys: String, CodingKey { case type, value1, value2, value3, value4, value5 }
 
@@ -86,6 +90,11 @@ enum TestAction: Codable {
             let kind = try container.decode(String.self, forKey: .value1)
             let text = try container.decode(String.self, forKey: .value2)
             self = .playerInputKind(kind: kind, text: text)
+        case "adaptivePlayerInput":
+            let goal = try container.decode(String.self, forKey: .value1)
+            let kind = try container.decode(String.self, forKey: .value2)
+            let roll = try container.decodeIfPresent(Int.self, forKey: .value3) ?? 12
+            self = .adaptivePlayerInput(goal: goal, kind: kind, roll: roll)
         case "gmResponse":
             let text = try container.decode(String.self, forKey: .value1)
             self = .gmResponse(text: text)
@@ -115,6 +124,9 @@ enum TestAction: Codable {
         case "advanceLocation":
             let reason = try container.decode(String.self, forKey: .value1)
             self = .advanceLocation(reason: reason)
+        case "prepareHiddenTransition":
+            let label = try container.decode(String.self, forKey: .value1)
+            self = .prepareHiddenTransition(label: label)
         case "importTables":
             let filename = try container.decode(String.self, forKey: .value1)
             self = .importTables(filename: filename)
@@ -124,6 +136,22 @@ enum TestAction: Codable {
             self = .logReferenceData
         case "logTableData":
             self = .logTableData
+        case "logCampaignSnapshot":
+            let label = try container.decode(String.self, forKey: .value1)
+            self = .logCampaignSnapshot(label: label)
+        case "assertCampaignState":
+            let label = try container.decode(String.self, forKey: .value1)
+            let minScenes = try container.decode(Int.self, forKey: .value2)
+            let minInteractions = try container.decode(Int.self, forKey: .value3)
+            let minSkillChecks = try container.decode(Int.self, forKey: .value4)
+            let minWorldFacts = try container.decode(Int.self, forKey: .value5)
+            self = .assertCampaignState(
+                label: label,
+                minScenes: minScenes,
+                minInteractions: minInteractions,
+                minSkillChecks: minSkillChecks,
+                minWorldFacts: minWorldFacts
+            )
         default:
             throw DecodingError.dataCorruptedError(forKey: .type, in: container, debugDescription: "Unknown TestAction type")
         }
@@ -166,6 +194,11 @@ enum TestAction: Codable {
             try container.encode("playerInputKind", forKey: .type)
             try container.encode(kind, forKey: .value1)
             try container.encode(text, forKey: .value2)
+        case .adaptivePlayerInput(let goal, let kind, let roll):
+            try container.encode("adaptivePlayerInput", forKey: .type)
+            try container.encode(goal, forKey: .value1)
+            try container.encode(kind, forKey: .value2)
+            try container.encode(roll, forKey: .value3)
         case .gmResponse(let text):
             try container.encode("gmResponse", forKey: .type)
             try container.encode(text, forKey: .value1)
@@ -197,6 +230,9 @@ enum TestAction: Codable {
         case .advanceLocation(let reason):
             try container.encode("advanceLocation", forKey: .type)
             try container.encode(reason, forKey: .value1)
+        case .prepareHiddenTransition(let label):
+            try container.encode("prepareHiddenTransition", forKey: .type)
+            try container.encode(label, forKey: .value1)
         case .importTables(let filename):
             try container.encode("importTables", forKey: .type)
             try container.encode(filename, forKey: .value1)
@@ -206,6 +242,126 @@ enum TestAction: Codable {
             try container.encode("logReferenceData", forKey: .type)
         case .logTableData:
             try container.encode("logTableData", forKey: .type)
+        case .logCampaignSnapshot(let label):
+            try container.encode("logCampaignSnapshot", forKey: .type)
+            try container.encode(label, forKey: .value1)
+        case .assertCampaignState(let label, let minScenes, let minInteractions, let minSkillChecks, let minWorldFacts):
+            try container.encode("assertCampaignState", forKey: .type)
+            try container.encode(label, forKey: .value1)
+            try container.encode(minScenes, forKey: .value2)
+            try container.encode(minInteractions, forKey: .value3)
+            try container.encode(minSkillChecks, forKey: .value4)
+            try container.encode(minWorldFacts, forKey: .value5)
+        }
+    }
+}
+
+private struct DevTestTurnPlan {
+    let text: String
+    let kind: PlayerActionKind
+    let reason: String
+}
+
+private struct DevTestInputInterpreter {
+    func lastGMAsksForRoll(_ lastGM: String?) -> Bool {
+        asksForRoll((lastGM ?? "").lowercased())
+    }
+
+    func planTurn(
+        goal: String,
+        preferredKind: PlayerActionKind,
+        fallbackRoll: Int,
+        lastGM: String?,
+        hasPendingCheck: Bool,
+        hasPendingCanonization: Bool
+    ) -> DevTestTurnPlan {
+        let gm = (lastGM ?? "").lowercased()
+        let clampedRoll = max(1, min(20, fallbackRoll))
+
+        if hasPendingCheck || asksForRoll(gm) {
+            return DevTestTurnPlan(
+                text: "Natural \(clampedRoll).",
+                kind: .auto,
+                reason: "Responding to a pending roll prompt with a concrete d20 result."
+            )
+        }
+
+        if hasPendingCanonization || asksForYesNo(gm) {
+            return DevTestTurnPlan(
+                text: "Yes.",
+                kind: .auto,
+                reason: "Confirming a yes/no prompt before continuing scripted intent."
+            )
+        }
+
+        if asksForClarification(gm) {
+            return DevTestTurnPlan(
+                text: clarificationAnswer(for: goal, kind: preferredKind),
+                kind: preferredKind == .auto ? .other : preferredKind,
+                reason: "Answering a clarification prompt using the scenario goal."
+            )
+        }
+
+        return DevTestTurnPlan(
+            text: goal,
+            kind: preferredKind,
+            reason: "Sending the next scenario intent."
+        )
+    }
+
+    private func asksForRoll(_ gm: String) -> Bool {
+        guard !gm.isEmpty else { return false }
+        let resolvedCues = [
+            "result:", "success", "partial success", "failure",
+            "total ", "=>", "no encounter", "travel continues"
+        ]
+        if resolvedCues.contains(where: { gm.contains($0) }) {
+            let liveCues = [
+                "what did you get", "i need the roll result",
+                "please roll", "roll it", "give me your roll"
+            ]
+            return liveCues.contains { gm.contains($0) }
+        }
+
+        let cues = [
+            "give me a", "give me your roll", "what did you get",
+            "please roll", "roll it", "roll and tell", "d20 roll",
+            "auto-roll is disabled", "i need the roll result", "awaiting roll",
+            "pending check"
+        ]
+        return cues.contains { gm.contains($0) }
+    }
+
+    private func asksForYesNo(_ gm: String) -> Bool {
+        gm.contains("(y/n)") ||
+            gm.contains("yes or no") ||
+            gm.contains("want to attempt") ||
+            gm.contains("want to proceed") ||
+            gm.contains("roll fate to confirm") ||
+            gm.contains("canonize:")
+    }
+
+    private func asksForClarification(_ gm: String) -> Bool {
+        gm.contains("not sure") ||
+            gm.contains("rephrase") ||
+            gm.contains("what exactly") ||
+            gm.contains("how are you") ||
+            gm.contains("which") ||
+            gm.contains("clarify")
+    }
+
+    private func clarificationAnswer(for goal: String, kind: PlayerActionKind) -> String {
+        switch kind {
+        case .search:
+            return "Carefully and quietly, using Investigation. \(goal)"
+        case .movement, .travel:
+            return "Carefully, with Hazel leading and watching for danger. \(goal)"
+        case .dialogue:
+            return "Hazel says it plainly and waits for their answer. \(goal)"
+        case .skillCheck, .interact, .explore:
+            return "Carefully, accepting the risk if it goes wrong. \(goal)"
+        default:
+            return goal
         }
     }
 }
@@ -240,6 +396,7 @@ final class DevTestRunner: ObservableObject {
     private var pendingRollHighlights: [String] = []
     private var pendingPlayerText: String?
     private var agencyLogCursor = 0
+    private let inputInterpreter = DevTestInputInterpreter()
 
     init(coordinator: SoloSceneCoordinator) {
         self.coordinator = coordinator
@@ -258,6 +415,7 @@ final class DevTestRunner: ObservableObject {
         for action in scenario.actions {
             await execute(action, modelContext: modelContext)
         }
+        appendFinalDiagnostics(modelContext)
     }
 
     @MainActor
@@ -316,6 +474,24 @@ final class DevTestRunner: ObservableObject {
         case .playerInputKind(let kind, let text):
             let actionKind = PlayerActionKind(rawValue: kind) ?? .auto
             await handlePlayerInput(text, actionKind: actionKind, modelContext: modelContext)
+        case .adaptivePlayerInput(let goal, let kind, let roll):
+            let actionKind = PlayerActionKind(rawValue: kind) ?? .auto
+            if goal == "__ROLL_IF_PROMPTED__",
+               coordinator.pendingCheckID == nil,
+               !inputInterpreter.lastGMAsksForRoll(coordinator.interactionDrafts.last?.gmText) {
+                append("TestDriver: no pending roll prompt; skipped roll \(roll).")
+                return
+            }
+            let plan = inputInterpreter.planTurn(
+                goal: goal,
+                preferredKind: actionKind,
+                fallbackRoll: roll,
+                lastGM: coordinator.interactionDrafts.last?.gmText,
+                hasPendingCheck: coordinator.pendingCheckID != nil,
+                hasPendingCanonization: coordinator.pendingCanonizationId != nil
+            )
+            append("TestDriver: \(plan.reason)")
+            await handlePlayerInput(plan.text, actionKind: plan.kind, modelContext: modelContext)
         case .gmResponse(let text):
             let playerText = coordinator.interactionDrafts.last?.playerText ?? ""
             coordinator.interactionDrafts.append(InteractionDraft(playerText: playerText, gmText: text, turnSignal: "gm_response"))
@@ -355,12 +531,12 @@ final class DevTestRunner: ObservableObject {
                 }
                 let bookkeeping = BookkeepingInput(
                     summary: wrapUp.summary,
-                    newCharacters: wrapUp.newCharacters,
-                    newThreads: wrapUp.newThreads,
-                    featuredCharacters: wrapUp.featuredCharacters,
-                    featuredThreads: wrapUp.featuredThreads,
-                    removedCharacters: wrapUp.removedCharacters,
-                    removedThreads: wrapUp.removedThreads,
+                    newCharacters: [],
+                    newThreads: [],
+                    featuredCharacters: [],
+                    featuredThreads: wrapUp.threadReferences,
+                    removedCharacters: [],
+                    removedThreads: [],
                     pcsInControl: pcsInControl,
                     concluded: concluded,
                     interactions: interactions,
@@ -375,13 +551,14 @@ final class DevTestRunner: ObservableObject {
                             outcome: $0.outcome
                         )
                     },
-                    places: wrapUp.places,
-                    curiosities: wrapUp.curiosities,
+                    places: [],
+                    curiosities: [],
                     rollHighlights: wrapUp.rollHighlights + parseCommaList(coordinator.rollHighlightsInput),
                     locationId: campaign.activeLocationId,
                     generatedEntityIds: [],
                     canonizations: []
                 )
+                coordinator.engine.applySceneControlOutcome(campaign: campaign, pcsInControl: pcsInControl)
                 _ = coordinator.engine.finalizeScene(campaign: campaign, scene: sceneRecord, bookkeeping: bookkeeping)
                 append("GM Summary Draft: \(wrapUp.summary)")
                 append("Scene summary saved.")
@@ -412,6 +589,7 @@ final class DevTestRunner: ObservableObject {
                 generatedEntityIds: [],
                 canonizations: []
             )
+            coordinator.engine.applySceneControlOutcome(campaign: campaign, pcsInControl: true)
             _ = coordinator.engine.finalizeScene(campaign: campaign, scene: sceneRecord, bookkeeping: bookkeeping)
             append("Scene resolved: \(description)")
         case .performSkillCheck(let skill, let difficulty):
@@ -438,11 +616,10 @@ final class DevTestRunner: ObservableObject {
             append("Skill check queued: \(skill) DC \(difficulty)")
         case .moveToLocation(let label):
             let campaign = ensureDevCampaign(modelContext)
-            if campaign.locations?.isEmpty ?? true {
-                _ = coordinator.locationEngine.generateDungeonStart(campaign: campaign)
-            } else {
-                let location = ensureLocation(named: label, campaign: campaign)
-                campaign.activeLocationId = location.id
+            let location = ensureLocation(named: label, campaign: campaign)
+            campaign.activeLocationId = location.id
+            if let node = location.nodes?.first {
+                campaign.activeNodeId = node.id
             }
             append("Moved to location: \(label)")
         case .advanceLocation(let reason):
@@ -452,6 +629,20 @@ final class DevTestRunner: ObservableObject {
             }
             let node = coordinator.locationEngine.advanceToNextNode(campaign: campaign, reason: reason)
             append("Advance location: \(node?.summary ?? "Unknown")")
+        case .prepareHiddenTransition(let label):
+            let campaign = ensureDevCampaign(modelContext)
+            guard let location = campaign.locations?.first(where: { $0.id == campaign.activeLocationId }),
+                  let node = location.nodes?.first(where: { $0.id == campaign.activeNodeId }) else {
+                append("Hidden transition setup failed: no active node")
+                break
+            }
+            let destination = LocationNode(type: "chamber", summary: "An unentered space beyond the transition", discovered: false, origin: "dev_fixture")
+            let edge = LocationEdge(type: "trapdoor", label: label, fromNodeId: node.id, toNodeId: destination.id, origin: "dev_fixture")
+            if location.nodes == nil { location.nodes = [] }
+            if location.edges == nil { location.edges = [] }
+            location.nodes?.append(destination)
+            location.edges?.append(edge)
+            append("Prepared hidden transition: \(label) discovered=\(edge.discovered == true) opened=\(edge.opened == true)")
         case .loadCreativeKeywords:
             let store = CreativeKeywordStore()
             let keywords = store.loadBundledKeywords()
@@ -480,6 +671,17 @@ final class DevTestRunner: ObservableObject {
             } catch {
                 append("Tables load failed: \(error.localizedDescription)")
             }
+        case .logCampaignSnapshot(let label):
+            appendCampaignSnapshot(label: label, campaign: ensureDevCampaign(modelContext))
+        case .assertCampaignState(let label, let minScenes, let minInteractions, let minSkillChecks, let minWorldFacts):
+            appendCampaignAssertions(
+                label: label,
+                campaign: ensureDevCampaign(modelContext),
+                minScenes: minScenes,
+                minInteractions: minInteractions,
+                minSkillChecks: minSkillChecks,
+                minWorldFacts: minWorldFacts
+            )
         case .importTables(let filename):
             append("Importing tables: \(filename)")
             if let text = loadTextAsset(named: filename, subdirectory: "DevAssets/fixtures") {
@@ -492,6 +694,169 @@ final class DevTestRunner: ObservableObject {
         }
 
         try? modelContext.save()
+    }
+
+    @MainActor
+    private func appendFinalDiagnostics(_ modelContext: ModelContext) {
+        appendCampaignSnapshot(label: "Final", campaign: ensureDevCampaign(modelContext))
+        append("=== TEST LOG HANDOFF ===")
+        append("Send this whole log to Codex when debugging. It includes separated intent/assumptions, declared stakes, proposal approvals/rejections, campaign events, procedure state, retries/fallbacks, structural assertions, snapshots, and stored world memory.")
+    }
+
+    @MainActor
+    private func appendCampaignSnapshot(label: String, campaign: Campaign) {
+        let interactionCount = campaign.scenes.reduce(0) { $0 + ($1.interactions?.count ?? 0) } + coordinator.interactionDrafts.count
+        let skillCheckCount = campaign.scenes.reduce(0) { $0 + ($1.skillChecks?.count ?? 0) } + coordinator.checkDrafts.count
+        let fateCount = campaign.scenes.reduce(0) { $0 + ($1.fateQuestions?.count ?? 0) } + coordinator.fateQuestionDrafts.count
+        let locationCount = campaign.locations?.count ?? 0
+        let featureCount = (campaign.locations ?? []).flatMap { $0.nodes ?? [] }.reduce(0) { $0 + ($1.features?.count ?? 0) }
+        let worldFactCount = campaign.npcs.count + campaign.items.count + campaign.creatures.count + campaign.worldLore.count + locationCount + featureCount
+
+        append("=== CAMPAIGN SNAPSHOT: \(label) ===")
+        append("Scenes=\(campaign.scenes.count) PendingInteractions=\(coordinator.interactionDrafts.count) TotalInteractions=\(interactionCount)")
+        append("Checks=\(skillCheckCount) FateQuestions=\(fateCount) CanonPrompts=\(coordinator.canonizationDrafts.count)")
+        append("WorldFacts=\(worldFactCount) NPCs=\(campaign.npcs.count) Objects=\(campaign.items.count) Creatures=\(campaign.creatures.count) Lore=\(campaign.worldLore.count) Locations=\(locationCount) Features=\(featureCount)")
+        if let location = campaign.locations?.first(where: { $0.id == campaign.activeLocationId }) {
+            append("ActiveLocation=\(location.name) type=\(location.type) origin=\(location.origin)")
+        }
+        if !campaign.npcs.isEmpty {
+            append("NPCNames=\(campaign.npcs.prefix(6).map(\.name).joined(separator: ", "))")
+        }
+        if !campaign.items.isEmpty {
+            append("ObjectNames=\(campaign.items.prefix(6).map(\.name).joined(separator: ", "))")
+        }
+        if !campaign.creatures.isEmpty {
+            append("CreatureNames=\(campaign.creatures.prefix(6).map(\.name).joined(separator: ", "))")
+        }
+        if let authority = CampaignAuthorityStateStore().load(from: campaign) {
+            append("AuthorityState weather=\(authority.weather ?? "none") weatherDecision=\(authority.weatherDecision?.rawValue ?? "none") hiddenThreats=\(authority.hiddenThreats.count)")
+        } else {
+            append("AuthorityState none")
+        }
+        if let procedure = CampaignProcedureStateStore().load(from: campaign) {
+            if let travel = procedure.lastTravel {
+                append("Procedure Travel kind=\(travel.resolutionKind.rawValue) progress=\(travel.progress) time=\(travel.timeHours) exposure=\(travel.exposure) delay=\(travel.delay) risk=\(travel.encounterRisk)")
+            }
+            if let rest = procedure.lastRest {
+                append("Procedure Rest recovery=\(rest.recovery.rawValue) time=\(rest.timeHours) supplies=\(rest.suppliesConsumed) exposure=\(rest.exposure) watchRisk=\(rest.watchRisk) interrupted=\(rest.interrupted)")
+            } else if let plan = procedure.lastRestPlan {
+                append("Procedure Rest pending missing=\(RestProcedureEngine().missingDetails(plan).map(\.rawValue).joined(separator: ","))")
+            }
+            if let search = procedure.lastSearch {
+                append("Procedure Search finding=\(search.finding.rawValue) revealed=\(search.revealedTarget?.name ?? "none")")
+            }
+            if let creative = procedure.lastCreative {
+                append("Procedure Creative roll=\(creative.roll) keywords=\(creative.keywords.joined(separator: ",")) effect=\(creative.effectKind.rawValue) valence=\(creative.valence.rawValue)")
+            }
+        } else {
+            append("ProcedureState none")
+        }
+        let transitions = (campaign.locations ?? []).flatMap { $0.edges ?? [] }
+        if !transitions.isEmpty {
+            append("Transitions=\(transitions.prefix(8).map { "\($0.label ?? $0.type):discovered=\($0.discovered == true):opened=\($0.opened == true)" }.joined(separator: ", "))")
+        }
+        let campaignEvents = (campaign.eventLog ?? []).filter { $0.eventType != nil }
+        append("CampaignEvents=\(campaignEvents.count) Types=\(campaignEvents.compactMap(\.eventType).suffix(10).joined(separator: ","))")
+        appendAgencyLogsIfNeeded()
+    }
+
+    @MainActor
+    private func appendCampaignAssertions(
+        label: String,
+        campaign: Campaign,
+        minScenes: Int,
+        minInteractions: Int,
+        minSkillChecks: Int,
+        minWorldFacts: Int
+    ) {
+        let interactionCount = campaign.scenes.reduce(0) { $0 + ($1.interactions?.count ?? 0) } + coordinator.interactionDrafts.count
+        let skillCheckCount = campaign.scenes.reduce(0) { $0 + ($1.skillChecks?.count ?? 0) } + coordinator.checkDrafts.count
+        let locationCount = campaign.locations?.count ?? 0
+        let featureCount = (campaign.locations ?? []).flatMap { $0.nodes ?? [] }.reduce(0) { $0 + ($1.features?.count ?? 0) }
+        let worldFactCount = campaign.npcs.count + campaign.items.count + campaign.creatures.count + campaign.worldLore.count + locationCount + featureCount
+
+        var failures: [String] = []
+        if campaign.scenes.count < minScenes {
+            failures.append("scenes \(campaign.scenes.count) < \(minScenes)")
+        }
+        if interactionCount < minInteractions {
+            failures.append("interactions \(interactionCount) < \(minInteractions)")
+        }
+        if skillCheckCount < minSkillChecks {
+            failures.append("skillChecks \(skillCheckCount) < \(minSkillChecks)")
+        }
+        if worldFactCount < minWorldFacts {
+            failures.append("worldFacts \(worldFactCount) < \(minWorldFacts)")
+        }
+        let fullLog = log.joined(separator: "\n").lowercased()
+        let agencyPhrases = [
+            "the party decided",
+            "the party decides",
+            "the player decided",
+            "the player decides",
+            "prompting them to",
+            "what you don't see",
+            "what you don’t see"
+        ]
+        if let phrase = agencyPhrases.first(where: { fullLog.contains($0) }) {
+            failures.append("agency phrase found: \(phrase)")
+        }
+        let forbiddenNpcNames = ["finn", "the unseen adversary"]
+        let storedNpcNames = Set(campaign.npcs.map { $0.name.lowercased() })
+        if let npc = forbiddenNpcNames.first(where: { storedNpcNames.contains($0) }) {
+            failures.append("forbidden auto-created NPC stored: \(npc)")
+        }
+        if let invalidD20 = firstInvalidD20EncounterLog() {
+            failures.append("invalid d20 encounter log: \(invalidD20)")
+        }
+        if fullLog.contains("engine [structural_assertion_failure]") {
+            failures.append("structural assertion failure logged")
+        }
+        if label.lowercased().contains("thorough"),
+           let location = campaign.locations?.first(where: { $0.id == campaign.activeLocationId }) {
+            let lowerLocation = location.name.lowercased()
+            if lowerLocation.contains("flicker") || lowerLocation == "dungeon entrance" {
+                failures.append("unexpected active location after thorough test: \(location.name)")
+            }
+        }
+        if label.lowercased().contains("smoke") || label.lowercased().contains("thorough") {
+            if CampaignAuthorityStateStore().load(from: campaign)?.weather == nil {
+                failures.append("weather authority state missing")
+            }
+            let procedure = CampaignProcedureStateStore().load(from: campaign)
+            if procedure?.lastTravel == nil { failures.append("travel procedure resolution missing") }
+            if procedure?.lastSearch == nil { failures.append("search procedure resolution missing") }
+        }
+        if label.lowercased().contains("thorough") {
+            let procedure = CampaignProcedureStateStore().load(from: campaign)
+            if procedure?.lastRest == nil { failures.append("rest procedure resolution missing") }
+            if procedure?.lastCreative == nil { failures.append("creative procedure resolution missing") }
+            let forbiddenGenericNames = ["unknown character", "the unseen adversary"]
+            if let name = campaign.npcs.map({ $0.name.lowercased() }).first(where: forbiddenGenericNames.contains) {
+                failures.append("generic hidden NPC stored: \(name)")
+            }
+        }
+
+        if failures.isEmpty {
+            append("ASSERT PASS [\(label)] scenes=\(campaign.scenes.count) interactions=\(interactionCount) checks=\(skillCheckCount) worldFacts=\(worldFactCount)")
+        } else {
+            append("ASSERT FAIL [\(label)] \(failures.joined(separator: "; "))")
+        }
+    }
+
+    private func firstInvalidD20EncounterLog() -> String? {
+        for line in log where line.contains("Encounter check d20") {
+            guard let markerRange = line.range(of: "Encounter check d20"),
+                  let colon = line[markerRange.upperBound...].firstIndex(of: ":") else { continue }
+            let afterColon = line[line.index(after: colon)...]
+            let rollText = afterColon
+                .split(separator: " ")
+                .first?
+                .trimmingCharacters(in: CharacterSet(charactersIn: "."))
+            guard let rollText, let roll = Int(rollText), !(1...20).contains(roll) else { continue }
+            return line
+        }
+        return nil
     }
 
     @MainActor
@@ -749,15 +1114,18 @@ final class DevTestRunner: ObservableObject {
         campaign: Campaign,
         scene: SceneRecord,
         summaryOverride: String
-    ) async -> SceneWrapUpDraft {
+    ) async -> SceneSummaryDraft {
         let session = makeSession()
+        let snapshot = SceneCanonSnapshot(campaign: campaign)
 
         let context = coordinator.engine.buildNarrationContext(campaign: campaign, scene: scene)
         var prompt = """
-        Draft a concise scene wrap-up with suggestions for characters, threads, places, curiosities, and key rolls.
-        Only include important elements that clearly matter later.
+        Draft a concise, read-only scene summary.
+        Include only events that occurred in the player-visible interactions or resolved checks below.
+        Do not introduce, rename, remove, or imply any character, thread, place, object, creature, quest, or lore fact.
+        List every named canonical entity used by the summary in entityReferences.
+        List only already-established campaign threads in threadReferences.
         Emphasize why rolls happened and their outcomes.
-        Use the interactions and checks below.
 
         Scene #\(context.sceneNumber)
         Expected Scene: \(context.expectedScene)
@@ -789,25 +1157,43 @@ final class DevTestRunner: ObservableObject {
             }
         }
 
-        prompt += "\nReturn a SceneWrapUpDraft."
+        prompt += "\nAllowed canonical names: \(snapshot.allowedEntityNames.sorted().joined(separator: ", "))"
+        prompt += "\nAllowed thread names: \(snapshot.allowedThreadNames.sorted().joined(separator: ", "))"
+        prompt += "\nReturn a SceneSummaryDraft."
 
         do {
-            let response = try await session.respond(to: Prompt(prompt), generating: SceneWrapUpDraft.self)
+            let response = try await session.respond(to: Prompt(prompt), generating: SceneSummaryDraft.self)
+            let validation = SceneSummaryValidator().validate(response.content, against: snapshot)
+            guard validation.isValid else {
+                append("Engine [summary_hallucination]: rejected \(validation.unknownReferences.joined(separator: ", "))")
+                return deterministicSceneSummary(summaryOverride: summaryOverride)
+            }
             return response.content
         } catch {
-            return SceneWrapUpDraft(
-                summary: summaryOverride,
-                newCharacters: [],
-                newThreads: [],
-                featuredCharacters: [],
-                featuredThreads: [],
-                removedCharacters: [],
-                removedThreads: [],
-                places: [],
-                curiosities: [],
-                rollHighlights: []
-            )
+            return deterministicSceneSummary(summaryOverride: summaryOverride)
         }
+    }
+
+    @MainActor
+    private func deterministicSceneSummary(summaryOverride: String) -> SceneSummaryDraft {
+        let resolvedChecks = coordinator.checkDrafts.compactMap { check -> String? in
+            guard let outcome = check.outcome else { return nil }
+            return "\(check.request.skillName): \(outcome.replacingOccurrences(of: "_", with: " "))"
+        }
+        let summary: String
+        if !summaryOverride.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            summary = summaryOverride.trimmingCharacters(in: .whitespacesAndNewlines)
+        } else if resolvedChecks.isEmpty {
+            summary = "The scene recorded \(coordinator.interactionDrafts.count) player interaction(s)."
+        } else {
+            summary = "Resolved checks: \(resolvedChecks.joined(separator: "; "))."
+        }
+        return SceneSummaryDraft(
+            summary: summary,
+            entityReferences: [],
+            threadReferences: [],
+            rollHighlights: resolvedChecks
+        )
     }
 
     private func buildSkillCheckRecords(from drafts: [SkillCheckDraft]) -> [SkillCheckRecord] {
@@ -824,7 +1210,11 @@ final class DevTestRunner: ObservableObject {
                 stakes: draft.request.stakes,
                 partialSuccessDC: draft.request.partialSuccessDC,
                 partialSuccessOutcome: draft.request.partialSuccessOutcome,
-                reason: draft.request.reason
+                reason: draft.request.reason,
+                declaredStakesJSON: draft.request.declaredStakes.flatMap { stakes in
+                    guard let data = try? JSONEncoder().encode(stakes) else { return nil }
+                    return String(data: data, encoding: .utf8)
+                }
             )
             record.rollResult = draft.roll
             record.modifier = draft.modifier
@@ -980,7 +1370,7 @@ final class DevTestRunner: ObservableObject {
         if UserDefaults.standard.bool(forKey: "soloAutoRollEnabled") {
             line += " Roll it, or say \"auto\" if you want me to roll."
         } else {
-            line += " Want to attempt it?"
+            line += " Tell me the d20 result and modifier, or say \"use my bonus\" if you want me to add it."
         }
         return line
     }
@@ -1196,6 +1586,8 @@ final class DevTestRunner: ObservableObject {
         campaign.characters = []
         campaign.threads = []
         campaign.npcs = []
+        campaign.items = []
+        campaign.creatures = []
         campaign.worldLore = []
         campaign.playerCharacters = []
         campaign.party = nil
@@ -1251,6 +1643,8 @@ final class DevTestRunner: ObservableObject {
             return existing
         }
         let location = LocationEntity(name: name, type: "site", origin: "dev")
+        let node = LocationNode(type: "area", summary: name, discovered: true, origin: "dev")
+        location.nodes = [node]
         if campaign.locations == nil {
             campaign.locations = []
         }
@@ -1454,20 +1848,25 @@ struct DevTestScenariosView: View {
                     abilities: DevAbilities(strength: 9, dexterity: 14, constitution: 15, intelligence: 16, wisdom: 13, charisma: 17),
                     proficiencies: ["Investigation", "Perception", "Persuasion"]
                 ),
-                .moveToLocation(label: "Dungeon Entrance"),
-                .startScene(expected: "Arrive at the fog-choked station as the ghost train hisses to a stop."),
-                .playerInputKind(kind: PlayerActionKind.search.rawValue, text: "I scan the platform for traps or tripwires."),
-                .playerInput(text: "Natural 20."),
-                .playerInput(text: "Yes! Glad that worked."),
+                .moveToLocation(label: "Roadside Camp"),
+                .prepareHiddenTransition(label: "Root-Covered Trapdoor"),
+                .startScene(expected: "A lone road crosses the fog-drenched outskirts."),
+                .adaptivePlayerInput(goal: "I travel the road in a storm for two hours.", kind: PlayerActionKind.travel.rawValue, roll: 14),
+                .adaptivePlayerInput(goal: "__ROLL_IF_PROMPTED__", kind: PlayerActionKind.auto.rawValue, roll: 14),
+                .adaptivePlayerInput(goal: "GM, is there a hidden door here?", kind: PlayerActionKind.question.rawValue, roll: 15),
+                .adaptivePlayerInput(goal: "__ROLL_IF_PROMPTED__", kind: PlayerActionKind.auto.rawValue, roll: 15),
+                .adaptivePlayerInput(goal: "I open and enter the Root-Covered Trapdoor.", kind: PlayerActionKind.movement.rawValue, roll: 12),
                 .endScene(summary: "", pcsInControl: true, concluded: false),
                 .startScene(expected: "The platform opens into a shadowy concourse with murmuring travelers."),
-                .playerInputKind(kind: PlayerActionKind.skillCheck.rawValue, text: "I try to persuade a dockworker to share the ghost train schedule."),
-                .playerInput(text: "Natural 1."),
-                .playerInput(text: "Oof. That went badly."),
+                .adaptivePlayerInput(goal: "I try to persuade a dockworker to share the ghost train schedule.", kind: PlayerActionKind.skillCheck.rawValue, roll: 1),
+                .adaptivePlayerInput(goal: "__ROLL_IF_PROMPTED__", kind: PlayerActionKind.auto.rawValue, roll: 1),
+                .adaptivePlayerInput(goal: "Oof. That went badly.", kind: PlayerActionKind.other.rawValue, roll: 12),
                 .endScene(summary: "", pcsInControl: false, concluded: false),
                 .startScene(expected: "A service door stands ajar beside a humming generator."),
-                .playerInputKind(kind: PlayerActionKind.movement.rawValue, text: "I head through the adjoining doorway."),
-                .endScene(summary: "", pcsInControl: true, concluded: false)
+                .adaptivePlayerInput(goal: "I head through the adjoining doorway.", kind: PlayerActionKind.movement.rawValue, roll: 12),
+                .endScene(summary: "", pcsInControl: true, concluded: false),
+                .logCampaignSnapshot(label: "Smoke complete"),
+                .assertCampaignState(label: "Smoke baseline", minScenes: 3, minInteractions: 3, minSkillChecks: 2, minWorldFacts: 2)
             ]
         )
     }
@@ -1491,20 +1890,38 @@ struct DevTestScenariosView: View {
                 ),
                 .moveToLocation(label: "Roadside Camp"),
                 .startScene(expected: "Traveling the road at dusk, the party keeps an eye out for trouble."),
-                .playerInputKind(kind: PlayerActionKind.travel.rawValue, text: "We travel the road at night in a storm for the next few hours."),
-                .playerInputKind(kind: PlayerActionKind.question.rawValue, text: "Do we encounter anyone on the road?"),
-                .playerInputKind(kind: PlayerActionKind.travel.rawValue, text: "We push deeper into the wilds through the storm."),
-                .playerInputKind(kind: PlayerActionKind.search.rawValue, text: "I check the path for hazards or traps."),
-                .playerInput(text: "Natural 15."),
+                .adaptivePlayerInput(goal: "We travel the road at night in a storm for the next few hours.", kind: PlayerActionKind.travel.rawValue, roll: 14),
+                .adaptivePlayerInput(goal: "__ROLL_IF_PROMPTED__", kind: PlayerActionKind.auto.rawValue, roll: 14),
+                .adaptivePlayerInput(goal: "Do we encounter anyone on the road?", kind: PlayerActionKind.question.rawValue, roll: 12),
+                .adaptivePlayerInput(goal: "We push deeper into the wilds through the storm.", kind: PlayerActionKind.travel.rawValue, roll: 9),
+                .adaptivePlayerInput(goal: "__ROLL_IF_PROMPTED__", kind: PlayerActionKind.auto.rawValue, roll: 9),
+                .adaptivePlayerInput(goal: "I check the path for hazards or traps.", kind: PlayerActionKind.search.rawValue, roll: 15),
+                .adaptivePlayerInput(goal: "__ROLL_IF_PROMPTED__", kind: PlayerActionKind.auto.rawValue, roll: 15),
+                .adaptivePlayerInput(goal: "I ask Hazel's sidekick to watch the rear while I inspect the road.", kind: PlayerActionKind.dialogue.rawValue, roll: 12),
                 .endScene(summary: "", pcsInControl: true, concluded: false),
+                .logCampaignSnapshot(label: "After travel scene"),
                 .startScene(expected: "A small ruin appears off the path."),
-                .playerInputKind(kind: PlayerActionKind.search.rawValue, text: "I search the ruin for anything unusual."),
-                .playerInput(text: "Natural 10."),
-                .playerInputKind(kind: PlayerActionKind.question.rawValue, text: "GM, is there a hidden door here?"),
+                .prepareHiddenTransition(label: "Root-Covered Trapdoor"),
+                .adaptivePlayerInput(goal: "I search the ruin for anything unusual.", kind: PlayerActionKind.search.rawValue, roll: 10),
+                .adaptivePlayerInput(goal: "__ROLL_IF_PROMPTED__", kind: PlayerActionKind.auto.rawValue, roll: 10),
+                .adaptivePlayerInput(goal: "GM, is there a hidden door here?", kind: PlayerActionKind.question.rawValue, roll: 12),
+                .adaptivePlayerInput(goal: "__ROLL_IF_PROMPTED__", kind: PlayerActionKind.auto.rawValue, roll: 12),
+                .adaptivePlayerInput(goal: "I open and enter the Root-Covered Trapdoor.", kind: PlayerActionKind.movement.rawValue, roll: 12),
+                .adaptivePlayerInput(goal: "I try an impossible solution: I use the wind and a loose banner to distract anything watching us.", kind: PlayerActionKind.interact.rawValue, roll: 20),
+                .adaptivePlayerInput(goal: "__ROLL_IF_PROMPTED__", kind: PlayerActionKind.auto.rawValue, roll: 20),
+                .adaptivePlayerInput(goal: "I take a careful look at any object or symbol the GM just described.", kind: PlayerActionKind.explore.rawValue, roll: 13),
+                .adaptivePlayerInput(goal: "__ROLL_IF_PROMPTED__", kind: PlayerActionKind.auto.rawValue, roll: 13),
                 .endScene(summary: "", pcsInControl: false, concluded: false),
+                .logCampaignSnapshot(label: "After ruin scene"),
                 .startScene(expected: "The night grows colder as you make camp."),
-                .playerInputKind(kind: PlayerActionKind.rest.rawValue, text: "We make camp and keep watch."),
-                .endScene(summary: "", pcsInControl: true, concluded: false)
+                .adaptivePlayerInput(goal: "We make camp and keep watch.", kind: PlayerActionKind.rest.rawValue, roll: 12),
+                .adaptivePlayerInput(goal: "Long rest in our roadside camp, keep watch, no fire.", kind: PlayerActionKind.rest.rawValue, roll: 12),
+                .adaptivePlayerInput(goal: "GM, summarize the immediate threats we still know about.", kind: PlayerActionKind.gmCommand.rawValue, roll: 12),
+                .adaptivePlayerInput(goal: "I ask whether the strange ruin symbol matches anything from the Windward Expanse lore.", kind: PlayerActionKind.question.rawValue, roll: 12),
+                .adaptivePlayerInput(goal: "__ROLL_IF_PROMPTED__", kind: PlayerActionKind.auto.rawValue, roll: 12),
+                .endScene(summary: "", pcsInControl: true, concluded: false),
+                .logCampaignSnapshot(label: "Thorough complete"),
+                .assertCampaignState(label: "Thorough baseline", minScenes: 3, minInteractions: 8, minSkillChecks: 3, minWorldFacts: 4)
             ]
         )
     }
@@ -1548,18 +1965,20 @@ struct DevSmokeTestView: View {
                 ),
                 .moveToLocation(label: "Dungeon Entrance"),
                 .startScene(expected: "Arrive at the fog-choked station as the ghost train hisses to a stop."),
-                .playerInputKind(kind: PlayerActionKind.search.rawValue, text: "I scan the platform for traps or tripwires."),
-                .playerInput(text: "Natural 20."),
-                .playerInput(text: "Yes! Glad that worked."),
+                .adaptivePlayerInput(goal: "I scan the platform for traps or tripwires.", kind: PlayerActionKind.search.rawValue, roll: 20),
+                .adaptivePlayerInput(goal: "__ROLL_IF_PROMPTED__", kind: PlayerActionKind.auto.rawValue, roll: 20),
+                .adaptivePlayerInput(goal: "Yes! Glad that worked.", kind: PlayerActionKind.other.rawValue, roll: 12),
                 .endScene(summary: "", pcsInControl: true, concluded: false),
                 .startScene(expected: "The platform opens into a shadowy concourse with murmuring travelers."),
-                .playerInputKind(kind: PlayerActionKind.skillCheck.rawValue, text: "I try to persuade a dockworker to share the ghost train schedule."),
-                .playerInput(text: "Natural 1."),
-                .playerInput(text: "Oof. That went badly."),
+                .adaptivePlayerInput(goal: "I try to persuade a dockworker to share the ghost train schedule.", kind: PlayerActionKind.skillCheck.rawValue, roll: 1),
+                .adaptivePlayerInput(goal: "__ROLL_IF_PROMPTED__", kind: PlayerActionKind.auto.rawValue, roll: 1),
+                .adaptivePlayerInput(goal: "Oof. That went badly.", kind: PlayerActionKind.other.rawValue, roll: 12),
                 .endScene(summary: "", pcsInControl: false, concluded: false),
                 .startScene(expected: "A service door stands ajar beside a humming generator."),
-                .playerInputKind(kind: PlayerActionKind.movement.rawValue, text: "I head through the adjoining doorway."),
-                .endScene(summary: "", pcsInControl: true, concluded: false)
+                .adaptivePlayerInput(goal: "I head through the adjoining doorway.", kind: PlayerActionKind.movement.rawValue, roll: 12),
+                .endScene(summary: "", pcsInControl: true, concluded: false),
+                .logCampaignSnapshot(label: "Smoke complete"),
+                .assertCampaignState(label: "Smoke baseline", minScenes: 3, minInteractions: 3, minSkillChecks: 2, minWorldFacts: 2)
             ]
         )
     }

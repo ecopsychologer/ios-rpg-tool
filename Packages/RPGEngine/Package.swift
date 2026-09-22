@@ -18,18 +18,17 @@ let package = Package(
                 "WorldState",
                 "TableEngine"
             ],
-            path: "Sources",
-            resources: [
-                .process("Resources")
-            ]
+            path: "Sources"
         ),
         .testTarget(
             name: "RPGEngineTests",
             dependencies: [
                 "RPGEngine",
+                "TableEngine",
                 "WorldState"
             ],
-            path: "Tests"
+            path: "Tests",
+            resources: [.process("Fixtures")]
         )
     ]
 )

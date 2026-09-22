@@ -1,17 +1,19 @@
 import SwiftUI
 import Foundation
 import RPGEngine
+import UniformTypeIdentifiers
 
 struct SrdImportView: View {
     @State private var statusMessage = ""
     @State private var isLoadingIndex = false
     @State private var index: SrdContentIndex?
     @State private var filterText = ""
+    @State private var showingImporter = false
 
     var body: some View {
         List {
             Section {
-                Text("Use SRD reference data to power rules-aware prompts, skills, species, and equipment.")
+                Text("Import user-owned rules JSON to power rules-aware prompts, skills, species, and equipment. The app ships with only the neutral rules engine and fallback skills.")
                     .font(.callout)
                     .foregroundColor(.secondary)
                     .textSelection(.enabled)
@@ -19,22 +21,36 @@ struct SrdImportView: View {
                 Text("SRD Reference Data")
             }
 
-            Section("Bundled SRD") {
-                Text("This SRD is included with the app. Replace it by updating the repo or bundle.")
+            Section("Imported Rules Data") {
+                Text("Choose a JSON file from Files. The app copies it into Application Support and reads it locally after import.")
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .textSelection(.enabled)
 
-                Button(isLoadingIndex ? "Loading..." : "Reload SRD") {
-                    loadIndex(forceBundled: true)
+                Button("Import JSON File") {
+                    showingImporter = true
                 }
                 .buttonStyle(.bordered)
                 .disabled(isLoadingIndex)
 
+                HStack {
+                    Button(isLoadingIndex ? "Loading..." : "Reload Index") {
+                        loadIndex(clearStatus: true)
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(isLoadingIndex)
+
+                    Button("Clear Import", role: .destructive) {
+                        clearImport()
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(isLoadingIndex)
+                }
+
                 if !statusMessage.isEmpty {
                     Text(statusMessage)
                         .font(.caption)
-                        .foregroundColor(.red)
+                        .foregroundColor(statusMessage.hasPrefix("Imported") ? .secondary : .red)
                         .textSelection(.enabled)
                 }
             }
@@ -321,7 +337,14 @@ struct SrdImportView: View {
         .textSelection(.enabled)
         .navigationTitle("SRD Library")
         .searchable(text: $filterText, prompt: "Filter SRD content")
-        .onAppear { loadIndex(forceBundled: false) }
+        .fileImporter(
+            isPresented: $showingImporter,
+            allowedContentTypes: [.json],
+            allowsMultipleSelection: false
+        ) { result in
+            handleImportResult(result)
+        }
+        .onAppear { loadIndex(clearStatus: true) }
     }
 
     private func itemDetailLines(for name: String, index: SrdContentIndex) -> [String] {
@@ -408,18 +431,46 @@ struct SrdImportView: View {
         return index.creatureDetails[name] ?? []
     }
 
-    private func loadIndex(forceBundled: Bool) {
+    private func loadIndex(clearStatus: Bool) {
         isLoadingIndex = true
-        statusMessage = ""
+        if clearStatus {
+            statusMessage = ""
+        }
         Task {
             defer { isLoadingIndex = false }
-            if forceBundled {
-                _ = try? SrdContentStore().importBundledSRD()
-            }
             index = SrdContentStore().loadIndex()
-            if index == nil {
-                statusMessage = "Bundled SRD not found."
+        }
+    }
+
+    private func handleImportResult(_ result: Result<[URL], Error>) {
+        switch result {
+        case .success(let urls):
+            guard let url = urls.first else { return }
+            let didAccess = url.startAccessingSecurityScopedResource()
+            defer {
+                if didAccess {
+                    url.stopAccessingSecurityScopedResource()
+                }
             }
+            do {
+                let destination = try SrdContentStore().importRulesJSON(from: url)
+                statusMessage = "Imported \(url.lastPathComponent) to \(destination.lastPathComponent)."
+                loadIndex(clearStatus: false)
+            } catch {
+                statusMessage = "Import failed: \(error.localizedDescription)"
+            }
+        case .failure(let error):
+            statusMessage = "Import failed: \(error.localizedDescription)"
+        }
+    }
+
+    private func clearImport() {
+        do {
+            try SrdContentStore().clearImportedRulesJSON()
+            statusMessage = "Imported rules data cleared."
+            loadIndex(clearStatus: false)
+        } catch {
+            statusMessage = "Clear failed: \(error.localizedDescription)"
         }
     }
 

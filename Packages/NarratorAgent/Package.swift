@@ -17,6 +17,10 @@ let package = Package(
                 "RPGEngine"
             ],
             path: "Sources"
+        ),
+        .testTarget(
+            name: "NarratorAgentTests",
+            dependencies: ["NarratorAgent", "RPGEngine"]
         )
     ]
 )

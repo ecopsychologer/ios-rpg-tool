@@ -80,7 +80,7 @@ enum ExampleType: String, CaseIterable, Identifiable {
         case .characterSheet:
             return "Living character sheet with statuses"
         case .srdImport:
-            return "Browse bundled SRD reference data"
+            return "Import and browse user-owned rules data"
         case .campaignData:
             return "Browse saved campaign structures"
         case .tables:

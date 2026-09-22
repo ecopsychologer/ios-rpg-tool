@@ -1024,6 +1024,7 @@ struct SoloScenesView: View {
             canonizations: canonModels
         )
 
+        coordinator.engine.applySceneControlOutcome(campaign: campaign, pcsInControl: pcsInControl)
         let savedEntry = coordinator.engine.finalizeScene(campaign: campaign, scene: currentScene, bookkeeping: bookkeeping)
         campaign.activeSceneId = savedEntry.id
 
@@ -2495,28 +2496,45 @@ struct SoloScenesView: View {
                     }
                 }
 
-                let response = try await session.respond(to: Prompt(prompt), generating: SceneWrapUpDraft.self)
-                let draft = response.content
-                let interactionText = coordinator.interactionDrafts.map { "\($0.playerText) \($0.gmText)" }.joined(separator: " ").lowercased()
-                let knownCharacters = campaign.characters.map { $0.name }
-                let filteredNewCharacters = filterNames(draft.newCharacters, from: interactionText)
-                let filteredFeaturedCharacters = filterNames(draft.featuredCharacters, from: interactionText, allowList: knownCharacters)
-                let filteredRemovedCharacters = filterNames(draft.removedCharacters, from: interactionText, allowList: knownCharacters)
+                prompt += """
 
-                sceneSummaryInput = draft.summary
-                newCharactersInput = filteredNewCharacters.joined(separator: ", ")
-                newThreadsInput = draft.newThreads.joined(separator: ", ")
-                featuredCharactersInput = filteredFeaturedCharacters.joined(separator: ", ")
-                featuredThreadsInput = draft.featuredThreads.joined(separator: ", ")
-                removeCharactersInput = filteredRemovedCharacters.joined(separator: ", ")
-                removeThreadsInput = draft.removedThreads.joined(separator: ", ")
-                placesInput = draft.places.joined(separator: ", ")
-                curiositiesInput = draft.curiosities.joined(separator: ", ")
-                coordinator.rollHighlightsInput = draft.rollHighlights.joined(separator: ", ")
+                Return a read-only SceneSummaryDraft. Do not add, rename, remove, or imply world entities.
+                List every named canonical entity in entityReferences and only existing threads in threadReferences.
+                """
+                let snapshot = SceneCanonSnapshot(campaign: campaign)
+                let response = try await session.respond(to: Prompt(prompt), generating: SceneSummaryDraft.self)
+                let draft = response.content
+                let validation = SceneSummaryValidator().validate(draft, against: snapshot)
+                if validation.isValid {
+                    sceneSummaryInput = draft.summary
+                    featuredThreadsInput = draft.threadReferences.joined(separator: ", ")
+                    coordinator.rollHighlightsInput = draft.rollHighlights.joined(separator: ", ")
+                } else {
+                    sceneSummaryInput = deterministicSceneSummaryFallback()
+                    narrationError = "Summary omitted unsupported references: \(validation.unknownReferences.joined(separator: ", "))."
+                }
+                newCharactersInput = ""
+                newThreadsInput = ""
+                featuredCharactersInput = ""
+                removeCharactersInput = ""
+                removeThreadsInput = ""
+                placesInput = ""
+                curiositiesInput = ""
             } catch {
                 narrationError = handleFoundationModelsError(error)
             }
         }
+    }
+
+    private func deterministicSceneSummaryFallback() -> String {
+        let checks = coordinator.checkDrafts.compactMap { check -> String? in
+            guard let outcome = check.outcome else { return nil }
+            return "\(check.request.skillName): \(outcome.replacingOccurrences(of: "_", with: " "))"
+        }
+        if checks.isEmpty {
+            return "The scene recorded \(coordinator.interactionDrafts.count) player interaction(s)."
+        }
+        return "Resolved checks: \(checks.joined(separator: "; "))."
     }
 
     private func filterNames(_ names: [String], from interactionText: String, allowList: [String] = []) -> [String] {

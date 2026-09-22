@@ -117,36 +117,31 @@ public struct SrdContentIndex: Sendable {
 
 public struct SrdContentStore {
     private let devSupplementalFlagKey = "devEnableSupplementalRules"
+    private let devRulesJSONEnvKey = "SOLO_RPG_RULES_JSON"
+    private let devRulesDataDirEnvKey = "SOLO_RPG_RULES_DATA_DIR"
+    private let devRulesPreferEnvKey = "SOLO_RPG_RULES_PREFER_DEV"
 
     public init() {}
 
     public func loadIndex() -> SrdContentIndex? {
-        guard let (data, source) = loadDataAndSource() else { return nil }
-        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-            let baseIndex = buildIndex(from: json, source: source)
-            var mergedIndex = baseIndex
-            if let userSupplemental = loadUserSupplementalContent() {
-                mergedIndex = merge(base: mergedIndex, supplemental: userSupplemental, sourceSuffix: "user")
-            }
-            if let devSupplemental = loadDevSupplementalContent() {
-                mergedIndex = merge(base: mergedIndex, supplemental: devSupplemental, sourceSuffix: "dev")
-            }
-            return mergedIndex
+        let userSupplemental = loadUserSupplementalContent()
+        let devSupplemental = loadDevSupplementalContent()
+        var mergedIndex: SrdContentIndex
+
+        if let (data, source) = loadDataAndSource(),
+           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            mergedIndex = buildIndex(from: json, source: source)
+        } else {
+            mergedIndex = baselineIndex(source: "default")
         }
-        if source == "imported",
-           let bundledData = loadBundledData(),
-           let json = try? JSONSerialization.jsonObject(with: bundledData) as? [String: Any] {
-            let baseIndex = buildIndex(from: json, source: "bundled")
-            var mergedIndex = baseIndex
-            if let userSupplemental = loadUserSupplementalContent() {
-                mergedIndex = merge(base: mergedIndex, supplemental: userSupplemental, sourceSuffix: "user")
-            }
-            if let devSupplemental = loadDevSupplementalContent() {
-                mergedIndex = merge(base: mergedIndex, supplemental: devSupplemental, sourceSuffix: "dev")
-            }
-            return mergedIndex
+
+        if let userSupplemental {
+            mergedIndex = merge(base: mergedIndex, supplemental: userSupplemental, sourceSuffix: "user")
         }
-        return nil
+        if let devSupplemental {
+            mergedIndex = merge(base: mergedIndex, supplemental: devSupplemental, sourceSuffix: "dev")
+        }
+        return mergedIndex
     }
 
     private func buildIndex(from json: [String: Any], source: String) -> SrdContentIndex {
@@ -162,7 +157,8 @@ public struct SrdContentStore {
         let (spells, spellDetails, spellsByClass) = parseSpells(from: json)
         let (equipment, equipmentDetails) = parseEquipment(from: json)
         let (magicItems, magicItemDetails, magicItemRarities) = parseMagicItems(from: json)
-        let (creatures, creatureDetails) = parseCreatures()
+        let creatureRecords = parseCreatureRecords(from: json, source: source)
+        let (creatures, creatureDetails) = parseCreatures(from: json, records: creatureRecords)
         let (conditions, conditionDetails) = parseConditions(from: json)
         let actions: [String] = []
         let encounters: [String] = []
@@ -171,7 +167,6 @@ public struct SrdContentStore {
         let baseItems: [String] = []
         let tables: [String] = []
         let itemRecords = parseItemRecords(from: json, source: source)
-        let creatureRecords = parseCreatureRecords(from: json, source: source)
         let sections = json.keys.sorted()
         let sectionDetails = parseSectionDetails(from: json)
 
@@ -215,8 +210,71 @@ public struct SrdContentStore {
         )
     }
 
+    private func baselineIndex(source: String) -> SrdContentIndex {
+        SrdContentIndex(
+            abilities: ["Strength", "Dexterity", "Constitution", "Intelligence", "Wisdom", "Charisma"],
+            skills: [
+                SkillDefinition(name: "Athletics", defaultAbility: "Strength"),
+                SkillDefinition(name: "Acrobatics", defaultAbility: "Dexterity"),
+                SkillDefinition(name: "Sleight of Hand", defaultAbility: "Dexterity"),
+                SkillDefinition(name: "Stealth", defaultAbility: "Dexterity"),
+                SkillDefinition(name: "Arcana", defaultAbility: "Intelligence"),
+                SkillDefinition(name: "History", defaultAbility: "Intelligence"),
+                SkillDefinition(name: "Investigation", defaultAbility: "Intelligence"),
+                SkillDefinition(name: "Nature", defaultAbility: "Intelligence"),
+                SkillDefinition(name: "Religion", defaultAbility: "Intelligence"),
+                SkillDefinition(name: "Animal Handling", defaultAbility: "Wisdom"),
+                SkillDefinition(name: "Insight", defaultAbility: "Wisdom"),
+                SkillDefinition(name: "Medicine", defaultAbility: "Wisdom"),
+                SkillDefinition(name: "Perception", defaultAbility: "Wisdom"),
+                SkillDefinition(name: "Survival", defaultAbility: "Wisdom"),
+                SkillDefinition(name: "Deception", defaultAbility: "Charisma"),
+                SkillDefinition(name: "Intimidation", defaultAbility: "Charisma"),
+                SkillDefinition(name: "Performance", defaultAbility: "Charisma"),
+                SkillDefinition(name: "Persuasion", defaultAbility: "Charisma")
+            ],
+            senses: [],
+            species: [],
+            classes: [],
+            backgrounds: [],
+            subclasses: [],
+            feats: [],
+            equipment: [],
+            spells: [],
+            magicItems: [],
+            creatures: [],
+            conditions: [],
+            actions: [],
+            encounters: [],
+            objects: [],
+            loot: [],
+            baseItems: [],
+            tables: [],
+            classDetails: [:],
+            backgroundDetails: [:],
+            subclassDetails: [:],
+            subclassesByClass: [:],
+            featDetails: [:],
+            spellDetails: [:],
+            magicItemDetails: [:],
+            equipmentDetails: [:],
+            creatureDetails: [:],
+            conditionDetails: [:],
+            spellsByClass: [:],
+            magicItemRarities: [:],
+            itemRecords: [],
+            creatureRecords: [],
+            sections: [],
+            sectionDetails: [:],
+            source: source
+        )
+    }
+
     public func importBundledSRD() throws -> URL? {
-        guard let bundleURL = bundledSrdURL() else { return nil }
+        nil
+    }
+
+    public func importRulesJSON(from sourceURL: URL) throws -> URL {
         let fileManager = FileManager.default
         let directory = try fileManager.url(
             for: .applicationSupportDirectory,
@@ -225,36 +283,14 @@ public struct SrdContentStore {
             create: true
         )
         let destination = directory.appendingPathComponent("srd_import")
-        if fileManager.fileExists(atPath: destination.path) { return destination }
-        let data = try Data(contentsOf: bundleURL)
+        let data = try Data(contentsOf: sourceURL)
         try data.write(to: destination, options: [.atomic])
         return destination
     }
 
-    public func bundledSrdURL() -> URL? {
-        if let url = Bundle.module.url(forResource: "5esrd", withExtension: "json", subdirectory: "SRD") {
-            return url
-        }
-        if let url = Bundle.module.url(forResource: "5esrd", withExtension: "json") {
-            return url
-        }
-        if let url = Bundle.main.url(forResource: "5esrd", withExtension: "json", subdirectory: "SRD") {
-            return url
-        }
-        if let url = Bundle.main.url(forResource: "5esrd", withExtension: "json") {
-            return url
-        }
-        return nil
-    }
-
-    public func bundledSupplementalURL(named name: String) -> URL? {
-        if let url = Bundle.module.url(forResource: name, withExtension: "json", subdirectory: "SRD") {
-            return url
-        }
-        if let url = Bundle.main.url(forResource: name, withExtension: "json", subdirectory: "SRD") {
-            return url
-        }
-        return nil
+    public func clearImportedRulesJSON() throws {
+        guard let url = appSupportURL() else { return }
+        try FileManager.default.removeItem(at: url)
     }
 
     public func appSupportURL() -> URL? {
@@ -270,18 +306,44 @@ public struct SrdContentStore {
     }
 
     private func loadDataAndSource() -> (Data, String)? {
+        if shouldPreferDevRules(),
+           let url = devRulesJSONURL(),
+           let data = try? Data(contentsOf: url) {
+            return (data, "dev")
+        }
         if let url = appSupportURL(), let data = try? Data(contentsOf: url) {
             return (data, "imported")
         }
-        if let data = loadBundledData() {
-            return (data, "bundled")
+        if let url = devRulesJSONURL(),
+           let data = try? Data(contentsOf: url) {
+            return (data, "dev")
         }
         return nil
     }
 
-    private func loadBundledData() -> Data? {
-        guard let url = bundledSrdURL() else { return nil }
-        return try? Data(contentsOf: url)
+    private func shouldPreferDevRules() -> Bool {
+        let value = ProcessInfo.processInfo.environment[devRulesPreferEnvKey] ?? ""
+        return ["1", "true", "yes"].contains(value.lowercased())
+    }
+
+    private func devRulesJSONURL() -> URL? {
+        let environment = ProcessInfo.processInfo.environment
+        if let path = environment[devRulesJSONEnvKey],
+           !path.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            let url = URL(fileURLWithPath: path)
+            if FileManager.default.fileExists(atPath: url.path) {
+                return url
+            }
+        }
+        if let path = environment[devRulesDataDirEnvKey],
+           !path.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            let root = URL(fileURLWithPath: path)
+            let url = root.appendingPathComponent("5esrd.json")
+            if FileManager.default.fileExists(atPath: url.path) {
+                return url
+            }
+        }
+        return nil
     }
 
     private func parseAbilities(from root: [String: Any]) -> [String] {
@@ -459,7 +521,7 @@ public struct SrdContentStore {
                 spellsByClass[className] = (spellsByClass[className] ?? []).union(classSpells)
             }
         }
-        let detailMap = parseSpellDetails()
+        let detailMap = parseSpellDetails(from: root)
         let detailNames = Set(detailMap.keys)
         spells.formUnion(detailNames)
         let finalizedByClass = spellsByClass.mapValues { Array($0).sorted() }
@@ -597,23 +659,41 @@ public struct SrdContentStore {
         return (names, details)
     }
 
-    private func parseCreatures() -> ([String], [String: [String]]) {
-        guard let data = loadCreaturesData(),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            return ([], [:])
-        }
-
+    private func parseCreatures(from json: [String: Any], records: [SrdCreatureRecord]) -> ([String], [String: [String]]) {
         var names: [String] = []
         var details: [String: [String]] = [:]
 
-        for (_, sectionValue) in json {
-            guard let section = sectionValue as? [String: Any] else { continue }
-            for (name, entry) in section where name.lowercased() != "content" {
-                let lines = extractTextLines(from: entry, includeKeys: false)
-                let sanitized = sanitize(lines)
-                names.append(name)
-                if !sanitized.isEmpty {
-                    details[name] = sanitized
+        for record in records {
+            names.append(record.name)
+            var lines: [String] = []
+            if let size = record.size, let type = record.creatureType {
+                let alignment = record.alignment ?? ""
+                lines.append("*\(size) \(type)\(alignment.isEmpty ? "" : ", \(alignment)")*")
+            }
+            if let armorClass = record.armorClass { lines.append("**Armor Class** \(armorClass)") }
+            if let hitPoints = record.hitPoints { lines.append("**Hit Points** \(hitPoints)") }
+            if let speed = record.speed { lines.append("**Speed** \(speed)") }
+            if let challenge = record.challenge { lines.append("**Challenge** \(challenge)") }
+            lines.append(contentsOf: record.traits)
+            lines.append(contentsOf: record.actions)
+            lines.append(contentsOf: record.reactions)
+            lines.append(contentsOf: record.legendaryActions)
+            if !lines.isEmpty {
+                details[record.name] = lines
+            }
+        }
+
+        if let monsters = json["Monsters"] as? [String: Any] {
+            for (_, sectionValue) in monsters {
+                guard let section = sectionValue as? [String: Any] else { continue }
+                for (name, entry) in section where name.lowercased() != "content" {
+                    guard details[name] == nil else { continue }
+                    let lines = extractTextLines(from: entry, includeKeys: false)
+                    let sanitized = sanitize(lines)
+                    names.append(name)
+                    if !sanitized.isEmpty {
+                        details[name] = sanitized
+                    }
                 }
             }
         }
@@ -957,17 +1037,8 @@ public struct SrdContentStore {
         return details
     }
 
-    private func loadCreaturesData() -> Data? {
-        if let url = bundledSupplementalURL(named: "creatures"), let data = try? Data(contentsOf: url) {
-            return data
-        }
-        return nil
-    }
-
-    private func parseSpellDetails() -> [String: [String]] {
-        guard let data = loadSpellcastingData(),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let spellcasting = json["Spellcasting"] as? [String: Any],
+    private func parseSpellDetails(from root: [String: Any]) -> [String: [String]] {
+        guard let spellcasting = root["Spellcasting"] as? [String: Any],
               let descriptions = spellcasting["Spell Descriptions"] as? [String: Any] else {
             return [:]
         }
@@ -981,13 +1052,6 @@ public struct SrdContentStore {
             }
         }
         return details
-    }
-
-    private func loadSpellcastingData() -> Data? {
-        if let url = bundledSupplementalURL(named: "spellcasting"), let data = try? Data(contentsOf: url) {
-            return data
-        }
-        return nil
     }
 
     private func extractTextLines(from value: Any, includeKeys: Bool) -> [String] {
@@ -1134,7 +1198,8 @@ extension SrdContentStore {
     }
 
     private func loadDevSupplementalContent() -> SupplementalContent? {
-        guard UserDefaults.standard.bool(forKey: devSupplementalFlagKey) else { return nil }
+        guard UserDefaults.standard.bool(forKey: devSupplementalFlagKey) ||
+                ProcessInfo.processInfo.environment[devRulesDataDirEnvKey] != nil else { return nil }
         guard let rootURL = devContentDataURL() else { return nil }
         return loadSupplementalContent(from: rootURL)
     }
@@ -1220,6 +1285,13 @@ extension SrdContentStore {
     }
 
     private func devContentDataURL() -> URL? {
+        if let path = ProcessInfo.processInfo.environment[devRulesDataDirEnvKey],
+           !path.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            let url = URL(fileURLWithPath: path)
+            if FileManager.default.fileExists(atPath: url.path) {
+                return url
+            }
+        }
         if let url = Bundle.main.url(forResource: "data", withExtension: nil, subdirectory: "DevAssets/data") {
             return url
         }
